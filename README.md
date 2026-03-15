@@ -53,7 +53,10 @@ docker run --rm \
   homelabwatch:local
 ```
 
-Open `http://localhost:8080` and complete bootstrap in the UI.
+On a fresh `/data` volume, homelabwatch auto-bootstraps itself once. The
+first-run admin token is written to `./data/admin-token` and printed to the
+container logs. Open `http://localhost:8080`, paste that token into the
+dashboard header, and continue.
 
 For LAN discovery and ping checks on Linux, host networking and raw socket
 access are typically required:
@@ -102,6 +105,9 @@ Important environment variables:
 - `HOMELABWATCH_DB_PATH`
 - `HOMELABWATCH_STATIC_DIR`
 - `HOMELABWATCH_CONFIG`
+- `HOMELABWATCH_AUTO_BOOTSTRAP`
+- `HOMELABWATCH_ADMIN_TOKEN`
+- `HOMELABWATCH_ADMIN_TOKEN_FILE`
 - `HOMELABWATCH_SEED_CIDRS`
 - `HOMELABWATCH_DEFAULT_SCAN_PORTS`
 - `HOMELABWATCH_SEED_DOCKER_SOCKET`

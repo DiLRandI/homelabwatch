@@ -27,6 +27,24 @@ func main() {
 	}
 	bus := events.NewBus()
 	application := app.New(cfg, store, bus)
+	bootstrap, err := application.EnsureBootstrap(context.Background())
+	if err != nil && !bootstrap.Performed {
+		log.Fatalf("failed to initialize bootstrap state: %v", err)
+	}
+	if bootstrap.Performed {
+		if bootstrap.Generated {
+			log.Printf("homelabwatch auto-bootstrapped a fresh data store")
+			log.Printf("first-run admin token: %s", bootstrap.AdminToken)
+		} else {
+			log.Printf("homelabwatch auto-bootstrapped using the configured admin token")
+		}
+		if bootstrap.AdminTokenFile != "" {
+			log.Printf("admin token written to %s", bootstrap.AdminTokenFile)
+		}
+		if err != nil {
+			log.Printf("admin token persistence warning: %v", err)
+		}
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

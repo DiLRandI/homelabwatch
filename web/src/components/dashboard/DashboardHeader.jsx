@@ -5,6 +5,7 @@ import MetricCard from "../ui/MetricCard";
 
 export default function DashboardHeader({
   adminToken,
+  adminTokenFile,
   error,
   metrics,
   notice,
@@ -47,6 +48,11 @@ export default function DashboardHeader({
           <ActionButton onClick={() => void onRefresh()}>Refresh</ActionButton>
         </div>
       </div>
+      {!adminToken && adminTokenFile ? (
+        <p className="mt-3 text-sm text-muted">
+          First-run admin token is stored at <code>{adminTokenFile}</code>.
+        </p>
+      ) : null}
       <Alerts error={error} notice={notice} />
       <div className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         {metrics.map((metric) => (

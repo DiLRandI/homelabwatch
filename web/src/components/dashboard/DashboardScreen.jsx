@@ -43,6 +43,7 @@ export default function DashboardScreen({
     <section className="grid gap-6">
       <DashboardHeader
         adminToken={adminToken}
+        adminTokenFile={settings?.appSettings?.adminTokenFile ?? ""}
         error={error}
         metrics={metrics}
         notice={notice}
