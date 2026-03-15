@@ -25,10 +25,14 @@ export default function App() {
           onCreateAPIToken={app.createExternalToken}
           onDeleteBookmark={app.removeBookmark}
           onDeleteFolder={app.removeFolder}
+          onDeleteServiceDefinition={app.removeServiceDefinitionRecord}
+          onDeleteServiceHealthCheck={app.removeServiceHealthCheck}
           onExportBookmarks={app.exportBookmarksData}
+          onFetchServiceHealthChecks={app.loadServiceHealthChecks}
           onIgnoreDiscoveredService={app.ignoreSuggestion}
           onImportBookmarks={app.importBookmarksData}
           onRefresh={app.refreshAll}
+          onReapplyServiceDefinition={app.rerunServiceDefinition}
           onReorderBookmarks={app.saveBookmarkOrder}
           onReorderFolders={app.saveFolderOrder}
           onRevokeAPIToken={app.revokeExternalToken}
@@ -41,8 +45,11 @@ export default function App() {
           onSaveDockerEndpoint={app.saveDockerEndpoint}
           onSaveFolder={app.saveFolder}
           onSaveManualService={app.saveManualService}
+          onSaveServiceDefinition={app.saveServiceDefinitionRecord}
+          onSaveServiceHealthCheck={app.saveServiceHealthCheck}
           onSaveScanTarget={app.saveScanTarget}
           onRestoreDiscoveredService={app.restoreSuggestion}
+          onTestServiceCheck={app.runServiceCheckTest}
           settings={app.settings}
           tags={app.tags}
           onUploadBookmarkIcon={app.uploadBookmarkIcon}

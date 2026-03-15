@@ -140,6 +140,10 @@ func (a *App) SaveManualService(ctx context.Context, service domain.Service) (do
 	if err != nil {
 		return domain.Service{}, err
 	}
+	item, err = a.applyBestDefinitionToService(ctx, item)
+	if err != nil {
+		return domain.Service{}, err
+	}
 	a.publish("service", item.ID, "upserted", item)
 	return item, nil
 }
@@ -331,6 +335,9 @@ func (a *App) runFingerprinting(ctx context.Context) error {
 		return nil
 	}
 	err := a.store.RefingerprintDiscoveredServices(ctx)
+	if err == nil {
+		err = a.refreshDiscoveredServiceDefinitions(ctx)
+	}
 	_ = a.store.RecordJobRun(ctx, "service-fingerprinting", err)
 	return err
 }

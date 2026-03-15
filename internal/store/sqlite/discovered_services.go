@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/deleema/homelabwatch/internal/domain"
+	"github.com/deleema/homelabwatch/internal/servicedefs"
 )
 
 type discoveredServiceRecord struct {
@@ -26,6 +27,7 @@ type discoveredServiceRecord struct {
 	Name                string
 	ServiceType         string
 	ConfidenceScore     int
+	ServiceDefinitionID string
 	AddressSource       domain.ServiceAddressSource
 	HostValue           string
 	Scheme              string
@@ -36,6 +38,7 @@ type discoveredServiceRecord struct {
 	State               domain.DiscoveryState
 	IgnoreFingerprint   string
 	AutomationMode      domain.BookmarkAutomationPolicy
+	HealthConfigMode    domain.HealthConfigMode
 	Status              domain.HealthStatus
 	AcceptedServiceID   string
 	AcceptedBookmarkID  string
@@ -136,27 +139,29 @@ func (s *Store) UpsertDiscoveredServiceObservation(ctx context.Context, observat
 	}
 	if !found {
 		record = discoveredServiceRecord{
-			ID:              newID("dsvc"),
-			DeviceID:        deviceID,
-			MergeKey:        mergeKey,
-			Name:            fingerprint.Name,
-			ServiceType:     fingerprint.ServiceType,
-			ConfidenceScore: fingerprint.Confidence,
-			AddressSource:   fingerprint.AddressSource,
-			HostValue:       fingerprint.HostValue,
-			Scheme:          firstNonEmpty(observation.Scheme, schemeFromObservation(observation, fingerprint)),
-			Port:            observation.Port,
-			Path:            normalizePath(observation.Path),
-			URL:             firstNonEmpty(observation.URL, buildServiceURL(firstNonEmpty(observation.Scheme, schemeFromObservation(observation, fingerprint)), firstNonEmpty(observation.Host, fingerprint.HostValue), observation.Port, observation.Path)),
-			Icon:            firstNonEmpty(observation.Icon, fingerprint.Icon),
-			State:           domain.DiscoveryStatePending,
-			AutomationMode:  domain.BookmarkAutomationManual,
-			Status:          domain.HealthStatusUnknown,
-			Details:         fingerprint.Details,
-			FirstSeenAt:     now,
-			LastSeenAt:      now,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			ID:                  newID("dsvc"),
+			DeviceID:            deviceID,
+			MergeKey:            mergeKey,
+			Name:                fingerprint.Name,
+			ServiceType:         fingerprint.ServiceType,
+			ConfidenceScore:     fingerprint.Confidence,
+			ServiceDefinitionID: "",
+			AddressSource:       fingerprint.AddressSource,
+			HostValue:           fingerprint.HostValue,
+			Scheme:              firstNonEmpty(observation.Scheme, schemeFromObservation(observation, fingerprint)),
+			Port:                observation.Port,
+			Path:                normalizePath(observation.Path),
+			URL:                 firstNonEmpty(observation.URL, buildServiceURL(firstNonEmpty(observation.Scheme, schemeFromObservation(observation, fingerprint)), firstNonEmpty(observation.Host, fingerprint.HostValue), observation.Port, observation.Path)),
+			Icon:                firstNonEmpty(observation.Icon, fingerprint.Icon),
+			State:               domain.DiscoveryStatePending,
+			AutomationMode:      domain.BookmarkAutomationManual,
+			HealthConfigMode:    domain.HealthConfigModeAuto,
+			Status:              domain.HealthStatusUnknown,
+			Details:             fingerprint.Details,
+			FirstSeenAt:         now,
+			LastSeenAt:          now,
+			CreatedAt:           now,
+			UpdatedAt:           now,
 		}
 	} else {
 		record.DeviceID = firstNonEmpty(deviceID, record.DeviceID)
@@ -190,6 +195,9 @@ func (s *Store) UpsertDiscoveredServiceObservation(ctx context.Context, observat
 		return domain.DiscoveredService{}, err
 	}
 	record.AutomationMode = settings.BookmarkPolicy
+	if record.HealthConfigMode == "" {
+		record.HealthConfigMode = domain.HealthConfigModeAuto
+	}
 
 	if err := s.saveDiscoveredServiceTx(ctx, tx, record); err != nil {
 		return domain.DiscoveredService{}, err
@@ -214,6 +222,7 @@ func (s *Store) ListDiscoveredServices(ctx context.Context) ([]domain.Discovered
 			ds.name,
 			ds.service_type,
 			ds.confidence_score,
+			COALESCE(ds.service_definition_id, ''),
 			ds.address_source,
 			ds.host_value,
 			ds.scheme,
@@ -224,6 +233,7 @@ func (s *Store) ListDiscoveredServices(ctx context.Context) ([]domain.Discovered
 			ds.state,
 			ds.ignore_fingerprint,
 			ds.automation_mode,
+			COALESCE(ds.health_config_mode, 'auto'),
 			ds.status,
 			COALESCE(ds.accepted_service_id, ''),
 			COALESCE(ds.accepted_bookmark_id, ''),
@@ -303,6 +313,7 @@ func (s *Store) GetDiscoveredService(ctx context.Context, id string) (domain.Dis
 			ds.name,
 			ds.service_type,
 			ds.confidence_score,
+			COALESCE(ds.service_definition_id, ''),
 			ds.address_source,
 			ds.host_value,
 			ds.scheme,
@@ -313,6 +324,7 @@ func (s *Store) GetDiscoveredService(ctx context.Context, id string) (domain.Dis
 			ds.state,
 			ds.ignore_fingerprint,
 			ds.automation_mode,
+			COALESCE(ds.health_config_mode, 'auto'),
 			ds.status,
 			COALESCE(ds.accepted_service_id, ''),
 			COALESCE(ds.accepted_bookmark_id, ''),
@@ -410,6 +422,7 @@ func (s *Store) ListDiscoveredServicesDueForHealth(ctx context.Context, interval
 			ds.name,
 			ds.service_type,
 			ds.confidence_score,
+			COALESCE(ds.service_definition_id, ''),
 			ds.address_source,
 			ds.host_value,
 			ds.scheme,
@@ -420,6 +433,7 @@ func (s *Store) ListDiscoveredServicesDueForHealth(ctx context.Context, interval
 			ds.state,
 			ds.ignore_fingerprint,
 			ds.automation_mode,
+			COALESCE(ds.health_config_mode, 'auto'),
 			ds.status,
 			COALESCE(ds.accepted_service_id, ''),
 			COALESCE(ds.accepted_bookmark_id, ''),
@@ -498,6 +512,87 @@ func (s *Store) RefingerprintDiscoveredServices(ctx context.Context) error {
 	return nil
 }
 
+func (s *Store) ApplyDiscoveredServiceDefinition(ctx context.Context, id string, match *domain.ServiceDefinitionMatch, confidence int, fingerprintedAt time.Time) error {
+	if fingerprintedAt.IsZero() {
+		fingerprintedAt = time.Now().UTC()
+	}
+	item, err := s.GetDiscoveredService(ctx, id)
+	if err != nil {
+		return err
+	}
+	serviceType := item.ServiceType
+	name := item.Name
+	icon := item.Icon
+	definitionID := ""
+	if match != nil {
+		definitionID = match.Definition.ID
+		serviceType = firstNonEmpty(match.Definition.Key, serviceType)
+		name = firstNonEmpty(match.Definition.Name, name)
+		icon = firstNonEmpty(match.Definition.Icon, icon)
+		if confidence < match.Score {
+			confidence = match.Score
+		}
+	}
+	if confidence <= 0 {
+		confidence = item.ConfidenceScore
+	}
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE discovered_services
+		SET service_definition_id = ?, service_type = ?, name = ?, icon = ?, confidence_score = ?, last_fingerprinted_at = ?, updated_at = ?
+		WHERE id = ?
+	`, nullableString(definitionID), serviceType, name, nullableString(icon), confidence, fingerprintedAt.Format(time.RFC3339Nano), nowString(), id); err != nil {
+		return err
+	}
+	return s.SyncDiscoveredServiceHealthChecks(ctx, id)
+}
+
+func (s *Store) SyncDiscoveredServiceHealthChecks(ctx context.Context, id string) error {
+	item, err := s.GetDiscoveredService(ctx, id)
+	if err != nil {
+		return err
+	}
+	if item.HealthConfigMode == domain.HealthConfigModeCustom {
+		return nil
+	}
+	if item.ServiceDefinitionID != "" {
+		definitions, err := s.ListServiceDefinitions(ctx)
+		if err != nil {
+			return err
+		}
+		for _, definition := range definitions {
+			if definition.ID != item.ServiceDefinitionID {
+				continue
+			}
+			checks := servicedefs.InstantiateChecks(domain.HealthCheckSubjectDiscoveredService, item.ID, item.AddressSource, item.HostValue, item.Host, item.Scheme, item.Port, item.Path, definition)
+			return s.ReplaceManagedChecks(ctx, domain.HealthCheckSubjectDiscoveredService, item.ID, checks, definition.ID, domain.HealthConfigModeAuto)
+		}
+	}
+	check := domain.ServiceCheck{
+		SubjectType:     domain.HealthCheckSubjectDiscoveredService,
+		SubjectID:       item.ID,
+		ServiceID:       item.ID,
+		AddressSource:   item.AddressSource,
+		HostValue:       item.HostValue,
+		Host:            item.Host,
+		Protocol:        item.Scheme,
+		Port:            item.Port,
+		Enabled:         true,
+		IntervalSeconds: 60,
+		TimeoutSeconds:  10,
+		SortOrder:       0,
+		ConfigSource:    domain.HealthCheckConfigSourceFallback,
+	}
+	switch {
+	case item.Host != "" && item.Port > 0:
+		check.Name = "TCP connectivity"
+		check.Type = domain.CheckTypeTCP
+	default:
+		check.Name = "Ping reachability"
+		check.Type = domain.CheckTypePing
+	}
+	return s.ReplaceManagedChecks(ctx, domain.HealthCheckSubjectDiscoveredService, item.ID, []domain.ServiceCheck{check}, "", domain.HealthConfigModeAuto)
+}
+
 func (s *Store) buildDiscoveredServices(ctx context.Context, records []discoveredServiceRecord) ([]domain.DiscoveredService, error) {
 	if len(records) == 0 {
 		return []domain.DiscoveredService{}, nil
@@ -520,6 +615,7 @@ func (s *Store) buildDiscoveredServices(ctx context.Context, records []discovere
 			Name:                record.Name,
 			ServiceType:         record.ServiceType,
 			ConfidenceScore:     record.ConfidenceScore,
+			ServiceDefinitionID: record.ServiceDefinitionID,
 			AddressSource:       record.AddressSource,
 			HostValue:           record.HostValue,
 			Scheme:              record.Scheme,
@@ -529,6 +625,7 @@ func (s *Store) buildDiscoveredServices(ctx context.Context, records []discovere
 			State:               record.State,
 			IgnoreFingerprint:   record.IgnoreFingerprint,
 			AutomationMode:      record.AutomationMode,
+			HealthConfigMode:    record.HealthConfigMode,
 			Status:              record.Status,
 			AcceptedServiceID:   record.AcceptedServiceID,
 			AcceptedBookmarkID:  record.AcceptedBookmarkID,
@@ -598,6 +695,7 @@ func (s *Store) lookupDiscoveredServiceByMergeKeyTx(ctx context.Context, tx *sql
 			ds.name,
 			ds.service_type,
 			ds.confidence_score,
+			COALESCE(ds.service_definition_id, ''),
 			ds.address_source,
 			ds.host_value,
 			ds.scheme,
@@ -608,6 +706,7 @@ func (s *Store) lookupDiscoveredServiceByMergeKeyTx(ctx context.Context, tx *sql
 			ds.state,
 			ds.ignore_fingerprint,
 			ds.automation_mode,
+			COALESCE(ds.health_config_mode, 'auto'),
 			ds.status,
 			COALESCE(ds.accepted_service_id, ''),
 			COALESCE(ds.accepted_bookmark_id, ''),
@@ -651,6 +750,9 @@ func (s *Store) saveDiscoveredServiceTx(ctx context.Context, tx *sql.Tx, record 
 	if record.AutomationMode == "" {
 		record.AutomationMode = domain.BookmarkAutomationManual
 	}
+	if record.HealthConfigMode == "" {
+		record.HealthConfigMode = domain.HealthConfigModeAuto
+	}
 	if record.State == "" {
 		record.State = domain.DiscoveryStatePending
 	}
@@ -659,17 +761,18 @@ func (s *Store) saveDiscoveredServiceTx(ctx context.Context, tx *sql.Tx, record 
 	}
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO discovered_services(
-			id, device_id, merge_key, name, service_type, confidence_score, address_source, host_value,
-			scheme, port, path, url, icon, state, ignore_fingerprint, automation_mode, status,
+			id, device_id, merge_key, name, service_type, confidence_score, service_definition_id, address_source, host_value,
+			scheme, port, path, url, icon, state, ignore_fingerprint, automation_mode, health_config_mode, status,
 			last_checked_at, last_fingerprinted_at, accepted_service_id, accepted_bookmark_id, details_json,
 			first_seen_at, last_seen_at, created_at, updated_at
-		) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			device_id = excluded.device_id,
 			merge_key = excluded.merge_key,
 			name = excluded.name,
 			service_type = excluded.service_type,
 			confidence_score = excluded.confidence_score,
+			service_definition_id = excluded.service_definition_id,
 			address_source = excluded.address_source,
 			host_value = excluded.host_value,
 			scheme = excluded.scheme,
@@ -680,6 +783,7 @@ func (s *Store) saveDiscoveredServiceTx(ctx context.Context, tx *sql.Tx, record 
 			state = excluded.state,
 			ignore_fingerprint = excluded.ignore_fingerprint,
 			automation_mode = excluded.automation_mode,
+			health_config_mode = excluded.health_config_mode,
 			status = excluded.status,
 			last_checked_at = excluded.last_checked_at,
 			last_fingerprinted_at = excluded.last_fingerprinted_at,
@@ -689,7 +793,7 @@ func (s *Store) saveDiscoveredServiceTx(ctx context.Context, tx *sql.Tx, record 
 			first_seen_at = MIN(discovered_services.first_seen_at, excluded.first_seen_at),
 			last_seen_at = excluded.last_seen_at,
 			updated_at = excluded.updated_at
-	`, record.ID, nullableString(record.DeviceID), record.MergeKey, record.Name, record.ServiceType, record.ConfidenceScore, record.AddressSource, record.HostValue, record.Scheme, record.Port, record.Path, record.URL, nullableString(record.Icon), record.State, record.IgnoreFingerprint, record.AutomationMode, record.Status, nullableTime(record.LastCheckedAt), nullableTime(record.LastFingerprintedAt), nullableString(record.AcceptedServiceID), nullableString(record.AcceptedBookmarkID), string(mustJSON(record.Details)), record.FirstSeenAt.Format(time.RFC3339Nano), record.LastSeenAt.Format(time.RFC3339Nano), record.CreatedAt.Format(time.RFC3339Nano), record.UpdatedAt.Format(time.RFC3339Nano))
+	`, record.ID, nullableString(record.DeviceID), record.MergeKey, record.Name, record.ServiceType, record.ConfidenceScore, nullableString(record.ServiceDefinitionID), record.AddressSource, record.HostValue, record.Scheme, record.Port, record.Path, record.URL, nullableString(record.Icon), record.State, record.IgnoreFingerprint, record.AutomationMode, record.HealthConfigMode, record.Status, nullableTime(record.LastCheckedAt), nullableTime(record.LastFingerprintedAt), nullableString(record.AcceptedServiceID), nullableString(record.AcceptedBookmarkID), string(mustJSON(record.Details)), record.FirstSeenAt.Format(time.RFC3339Nano), record.LastSeenAt.Format(time.RFC3339Nano), record.CreatedAt.Format(time.RFC3339Nano), record.UpdatedAt.Format(time.RFC3339Nano))
 	return err
 }
 
@@ -771,6 +875,7 @@ func scanDiscoveredService(scanner interface{ Scan(dest ...any) error }) (discov
 		&record.Name,
 		&record.ServiceType,
 		&record.ConfidenceScore,
+		&record.ServiceDefinitionID,
 		&record.AddressSource,
 		&record.HostValue,
 		&record.Scheme,
@@ -781,6 +886,7 @@ func scanDiscoveredService(scanner interface{ Scan(dest ...any) error }) (discov
 		&record.State,
 		&record.IgnoreFingerprint,
 		&record.AutomationMode,
+		&record.HealthConfigMode,
 		&record.Status,
 		&record.AcceptedServiceID,
 		&record.AcceptedBookmarkID,

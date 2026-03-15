@@ -2,10 +2,7 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"slices"
-	"strings"
-	"time"
 
 	"github.com/deleema/homelabwatch/internal/domain"
 	"github.com/deleema/homelabwatch/internal/monitoring"
@@ -51,6 +48,7 @@ func (a *App) CreateBookmarkFromDiscoveredService(ctx context.Context, input dom
 	}
 
 	serviceID := item.AcceptedServiceID
+	createdService := false
 	if serviceID == "" {
 		service, err := a.SaveManualService(ctx, domain.Service{
 			Name:                      firstNonEmpty(input.Name, item.Name),
@@ -78,6 +76,11 @@ func (a *App) CreateBookmarkFromDiscoveredService(ctx context.Context, input dom
 			return domain.Bookmark{}, err
 		}
 		serviceID = service.ID
+		createdService = true
+		if err := a.store.CopyDiscoveredChecksToService(ctx, item.ID, serviceID); err != nil {
+			_ = a.store.DeleteService(ctx, serviceID)
+			return domain.Bookmark{}, err
+		}
 	}
 
 	bookmark, err := a.store.CreateBookmarkFromService(ctx, domain.CreateBookmarkFromServiceInput{
@@ -91,7 +94,7 @@ func (a *App) CreateBookmarkFromDiscoveredService(ctx context.Context, input dom
 		FavoritePosition: input.FavoritePosition,
 	})
 	if err != nil {
-		if item.AcceptedServiceID == "" && serviceID != "" {
+		if createdService && serviceID != "" {
 			_ = a.store.DeleteService(ctx, serviceID)
 		}
 		return domain.Bookmark{}, err
@@ -109,34 +112,16 @@ func (a *App) CreateBookmarkFromDiscoveredService(ctx context.Context, input dom
 }
 
 func (a *App) runDiscoveredMonitoring(ctx context.Context) error {
-	items, err := a.store.ListDiscoveredServicesDueForHealth(ctx, time.Minute)
+	checks, err := a.store.GetDiscoveredChecksDue(ctx)
 	if err != nil {
 		return err
 	}
-	for _, item := range items {
-		check := domain.ServiceCheck{
-			ID:                "discovered-" + item.ID,
-			ServiceID:         item.ID,
-			TimeoutSeconds:    5,
-			ExpectedStatusMin: 200,
-			ExpectedStatusMax: 399,
-			Enabled:           true,
-		}
-		switch {
-		case strings.HasPrefix(item.URL, "http://"), strings.HasPrefix(item.URL, "https://"):
-			check.Type = domain.CheckTypeHTTP
-			check.Target = item.URL
-		case item.Host != "" && item.Port > 0:
-			check.Type = domain.CheckTypeTCP
-			check.Target = fmt.Sprintf("%s:%d", item.Host, item.Port)
-		default:
-			check.Type = domain.CheckTypePing
-			check.Target = item.Host
-		}
+	for _, check := range checks {
 		result := monitoring.RunAdhocCheck(ctx, check)
-		if err := a.store.UpdateDiscoveredServiceHealth(ctx, item.ID, result.Status, result.CheckedAt); err != nil {
+		if err := a.store.SaveCheckResult(ctx, result); err != nil {
 			return err
 		}
+		a.publish("check", result.CheckID, "recorded", result)
 	}
 	return nil
 }

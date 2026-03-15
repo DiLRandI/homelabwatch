@@ -39,6 +39,10 @@ func New(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if err := store.seedBuiltInServiceDefinitions(context.Background()); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 	return store, nil
 }
 
@@ -306,11 +310,16 @@ func (s *Store) GetSettingsView(ctx context.Context) (domain.SettingsView, error
 	if err != nil {
 		return domain.SettingsView{}, err
 	}
+	serviceDefinitions, err := s.ListServiceDefinitions(ctx)
+	if err != nil {
+		return domain.SettingsView{}, err
+	}
 	return domain.SettingsView{
-		AppSettings:     appSettings,
-		DockerEndpoints: dockerEndpoints,
-		ScanTargets:     scanTargets,
-		JobState:        jobState,
+		AppSettings:        appSettings,
+		DockerEndpoints:    dockerEndpoints,
+		ScanTargets:        scanTargets,
+		JobState:           jobState,
+		ServiceDefinitions: serviceDefinitions,
 		APIAccess: domain.APIAccessView{
 			Tokens:                apiTokens,
 			LegacyAdminTokenAlive: appSettings.AdminTokenHash != "",
@@ -571,7 +580,7 @@ func (s *Store) DeleteScanTarget(ctx context.Context, id string) error {
 }
 
 func (s *Store) ListServices(ctx context.Context) ([]domain.Service, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_type, ''), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id ORDER BY s.hidden ASC, s.name`)
+	rows, err := s.db.QueryContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id ORDER BY s.hidden ASC, s.name`)
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +606,7 @@ func (s *Store) ListServices(ctx context.Context) ([]domain.Service, error) {
 }
 
 func (s *Store) GetService(ctx context.Context, id string) (domain.Service, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_type, ''), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.id = ?`, id)
+	row := s.db.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.id = ?`, id)
 	item, err := scanService(row)
 	if err != nil {
 		return domain.Service{}, err
@@ -638,6 +647,9 @@ func (s *Store) SaveManualService(ctx context.Context, service domain.Service) (
 	if service.Status == "" {
 		service.Status = domain.HealthStatusUnknown
 	}
+	if service.HealthConfigMode == "" {
+		service.HealthConfigMode = domain.HealthConfigModeAuto
+	}
 	if service.AddressSource == "" {
 		service.AddressSource = domain.ServiceAddressLiteralHost
 	}
@@ -654,7 +666,7 @@ func (s *Store) SaveManualService(ctx context.Context, service domain.Service) (
 		service.Details = map[string]any{}
 	}
 	service.UpdatedAt = now
-	if _, err := tx.ExecContext(ctx, `INSERT INTO services(id, name, slug, source_type, source_ref, origin_discovered_service_id, service_type, address_source, host_value, device_id, icon, scheme, host, port, path, url, hidden, status, last_seen_at, last_checked_at, details_json, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, slug = excluded.slug, source_type = excluded.source_type, source_ref = excluded.source_ref, origin_discovered_service_id = excluded.origin_discovered_service_id, service_type = excluded.service_type, address_source = excluded.address_source, host_value = excluded.host_value, device_id = excluded.device_id, icon = excluded.icon, scheme = excluded.scheme, host = excluded.host, port = excluded.port, path = excluded.path, url = excluded.url, hidden = excluded.hidden, details_json = excluded.details_json, updated_at = excluded.updated_at`, service.ID, service.Name, service.Slug, service.Source, service.SourceRef, nullableString(service.OriginDiscoveredServiceID), service.ServiceType, service.AddressSource, service.HostValue, nullableString(service.DeviceID), nullableString(service.Icon), nullableString(service.Scheme), service.Host, service.Port, nullableString(service.Path), service.URL, boolInt(service.Hidden), service.Status, nullableTime(service.LastSeenAt), nullableTime(service.LastCheckedAt), string(mustJSON(service.Details)), service.CreatedAt.Format(time.RFC3339Nano), service.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO services(id, name, slug, source_type, source_ref, origin_discovered_service_id, service_definition_id, service_type, health_config_mode, address_source, host_value, device_id, icon, scheme, host, port, path, url, hidden, status, last_seen_at, last_checked_at, fingerprinted_at, details_json, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, slug = excluded.slug, source_type = excluded.source_type, source_ref = excluded.source_ref, origin_discovered_service_id = excluded.origin_discovered_service_id, service_definition_id = excluded.service_definition_id, service_type = excluded.service_type, health_config_mode = excluded.health_config_mode, address_source = excluded.address_source, host_value = excluded.host_value, device_id = excluded.device_id, icon = excluded.icon, scheme = excluded.scheme, host = excluded.host, port = excluded.port, path = excluded.path, url = excluded.url, hidden = excluded.hidden, details_json = excluded.details_json, fingerprinted_at = excluded.fingerprinted_at, updated_at = excluded.updated_at`, service.ID, service.Name, service.Slug, service.Source, service.SourceRef, nullableString(service.OriginDiscoveredServiceID), nullableString(service.ServiceDefinitionID), service.ServiceType, service.HealthConfigMode, service.AddressSource, service.HostValue, nullableString(service.DeviceID), nullableString(service.Icon), nullableString(service.Scheme), service.Host, service.Port, nullableString(service.Path), service.URL, boolInt(service.Hidden), service.Status, nullableTime(service.LastSeenAt), nullableTime(service.LastCheckedAt), nullableTime(service.FingerprintedAt), string(mustJSON(service.Details)), service.CreatedAt.Format(time.RFC3339Nano), service.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
 		return domain.Service{}, err
 	}
 	if err := s.ensureDefaultCheckTx(ctx, tx, service); err != nil {
@@ -676,8 +688,8 @@ func (s *Store) UpsertDiscoveredService(ctx context.Context, observation domain.
 	if now.IsZero() {
 		now = time.Now().UTC()
 	}
-	service := domain.Service{ID: newID("svc"), Name: observation.Name, Slug: slugify(observation.Name), Source: observation.Source, SourceRef: observation.SourceRef, ServiceType: observation.ServiceTypeHint, AddressSource: firstNonEmptyAddressSource(observation.AddressSource, domain.ServiceAddressLiteralHost), HostValue: firstNonEmpty(observation.HostValue, observation.Host), DeviceID: deviceID, Icon: observation.Icon, Scheme: observation.Scheme, Host: resolveAddressSourceHost(firstNonEmptyAddressSource(observation.AddressSource, domain.ServiceAddressLiteralHost), firstNonEmpty(observation.HostValue, observation.Host), ""), Port: observation.Port, Path: observation.Path, URL: firstNonEmpty(observation.URL, buildServiceURL(observation.Scheme, firstNonEmpty(observation.HostValue, observation.Host), observation.Port, observation.Path)), Status: domain.HealthStatusUnknown, LastSeenAt: now, Details: observation.Details, CreatedAt: now, UpdatedAt: now}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO services(id, name, slug, source_type, source_ref, origin_discovered_service_id, service_type, address_source, host_value, device_id, icon, scheme, host, port, path, url, hidden, status, last_seen_at, last_checked_at, details_json, created_at, updated_at) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, ?, ?, ?) ON CONFLICT(source_type, source_ref) DO UPDATE SET name = excluded.name, service_type = excluded.service_type, address_source = excluded.address_source, host_value = excluded.host_value, device_id = excluded.device_id, icon = excluded.icon, scheme = excluded.scheme, host = excluded.host, port = excluded.port, path = excluded.path, url = excluded.url, last_seen_at = excluded.last_seen_at, details_json = excluded.details_json, updated_at = excluded.updated_at`, service.ID, service.Name, service.Slug, service.Source, service.SourceRef, service.ServiceType, service.AddressSource, service.HostValue, nullableString(deviceID), nullableString(service.Icon), nullableString(service.Scheme), service.Host, service.Port, nullableString(service.Path), service.URL, service.Status, service.LastSeenAt.Format(time.RFC3339Nano), string(mustJSON(service.Details)), service.CreatedAt.Format(time.RFC3339Nano), service.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
+	service := domain.Service{ID: newID("svc"), Name: observation.Name, Slug: slugify(observation.Name), Source: observation.Source, SourceRef: observation.SourceRef, ServiceType: observation.ServiceTypeHint, HealthConfigMode: domain.HealthConfigModeAuto, AddressSource: firstNonEmptyAddressSource(observation.AddressSource, domain.ServiceAddressLiteralHost), HostValue: firstNonEmpty(observation.HostValue, observation.Host), DeviceID: deviceID, Icon: observation.Icon, Scheme: observation.Scheme, Host: resolveAddressSourceHost(firstNonEmptyAddressSource(observation.AddressSource, domain.ServiceAddressLiteralHost), firstNonEmpty(observation.HostValue, observation.Host), ""), Port: observation.Port, Path: observation.Path, URL: firstNonEmpty(observation.URL, buildServiceURL(observation.Scheme, firstNonEmpty(observation.HostValue, observation.Host), observation.Port, observation.Path)), Status: domain.HealthStatusUnknown, LastSeenAt: now, Details: observation.Details, CreatedAt: now, UpdatedAt: now}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO services(id, name, slug, source_type, source_ref, origin_discovered_service_id, service_definition_id, service_type, health_config_mode, address_source, host_value, device_id, icon, scheme, host, port, path, url, hidden, status, last_seen_at, last_checked_at, fingerprinted_at, details_json, created_at, updated_at) VALUES(?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, NULL, ?, ?, ?) ON CONFLICT(source_type, source_ref) DO UPDATE SET name = excluded.name, service_type = excluded.service_type, health_config_mode = excluded.health_config_mode, address_source = excluded.address_source, host_value = excluded.host_value, device_id = excluded.device_id, icon = excluded.icon, scheme = excluded.scheme, host = excluded.host, port = excluded.port, path = excluded.path, url = excluded.url, last_seen_at = excluded.last_seen_at, details_json = excluded.details_json, updated_at = excluded.updated_at`, service.ID, service.Name, service.Slug, service.Source, service.SourceRef, service.ServiceType, service.HealthConfigMode, service.AddressSource, service.HostValue, nullableString(deviceID), nullableString(service.Icon), nullableString(service.Scheme), service.Host, service.Port, nullableString(service.Path), service.URL, service.Status, service.LastSeenAt.Format(time.RFC3339Nano), string(mustJSON(service.Details)), service.CreatedAt.Format(time.RFC3339Nano), service.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
 		return domain.Service{}, err
 	}
 	if err := tx.QueryRowContext(ctx, "SELECT id FROM services WHERE source_type = ? AND source_ref = ?", observation.Source, observation.SourceRef).Scan(&service.ID); err != nil {
@@ -719,7 +731,7 @@ func (s *Store) ListServiceEvents(ctx context.Context, serviceID string, limit i
 	return items, rows.Err()
 }
 
-func (s *Store) ListServiceChecks(ctx context.Context, serviceID string) ([]domain.ServiceCheck, error) {
+func (s *Store) listLegacyServiceChecks(ctx context.Context, serviceID string) ([]domain.ServiceCheck, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT c.id, c.service_id, c.name, c.type, c.target, c.interval_seconds, c.timeout_seconds, c.expected_status_min, c.expected_status_max, c.enabled, c.created_at, c.updated_at, COALESCE(r.id, ''), COALESCE(r.status, ''), COALESCE(r.latency_ms, 0), COALESCE(r.message, ''), COALESCE(r.checked_at, '') FROM service_checks c LEFT JOIN (SELECT cr1.* FROM check_results cr1 JOIN (SELECT check_id, MAX(checked_at) AS checked_at FROM check_results GROUP BY check_id) latest ON latest.check_id = cr1.check_id AND latest.checked_at = cr1.checked_at) r ON r.check_id = c.id WHERE c.service_id = ? ORDER BY c.name`, serviceID)
 	if err != nil {
 		return nil, err
@@ -746,7 +758,7 @@ func (s *Store) ListServiceChecks(ctx context.Context, serviceID string) ([]doma
 	return items, rows.Err()
 }
 
-func (s *Store) SaveServiceCheck(ctx context.Context, check domain.ServiceCheck) (domain.ServiceCheck, error) {
+func (s *Store) saveLegacyServiceCheck(ctx context.Context, check domain.ServiceCheck) (domain.ServiceCheck, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return domain.ServiceCheck{}, err
@@ -793,7 +805,7 @@ func (s *Store) SaveServiceCheck(ctx context.Context, check domain.ServiceCheck)
 	return domain.ServiceCheck{}, sql.ErrNoRows
 }
 
-func (s *Store) DeleteServiceCheck(ctx context.Context, id string) error {
+func (s *Store) deleteLegacyServiceCheck(ctx context.Context, id string) error {
 	_, err := s.db.ExecContext(ctx, "DELETE FROM service_checks WHERE id = ?", id)
 	return err
 }
@@ -987,7 +999,7 @@ func (s *Store) ListRecentEvents(ctx context.Context, limit int) ([]domain.Servi
 	return items, rows.Err()
 }
 
-func (s *Store) SaveCheckResult(ctx context.Context, result domain.CheckResult) error {
+func (s *Store) saveLegacyCheckResult(ctx context.Context, result domain.CheckResult) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -1021,7 +1033,7 @@ func (s *Store) SaveCheckResult(ctx context.Context, result domain.CheckResult) 
 	return tx.Commit()
 }
 
-func (s *Store) rollupServiceStatusTx(ctx context.Context, tx *sql.Tx, serviceID string) (domain.HealthStatus, error) {
+func (s *Store) rollupLegacyServiceStatusTx(ctx context.Context, tx *sql.Tx, serviceID string) (domain.HealthStatus, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT COALESCE(r.status, 'unknown') FROM service_checks c LEFT JOIN (SELECT cr1.* FROM check_results cr1 JOIN (SELECT check_id, MAX(checked_at) AS checked_at FROM check_results GROUP BY check_id) latest ON latest.check_id = cr1.check_id AND latest.checked_at = cr1.checked_at) r ON r.check_id = c.id WHERE c.service_id = ? AND c.enabled = 1`, serviceID)
 	if err != nil {
 		return domain.HealthStatusUnknown, err
@@ -1060,7 +1072,7 @@ func (s *Store) rollupServiceStatusTx(ctx context.Context, tx *sql.Tx, serviceID
 	return domain.HealthStatusDegraded, nil
 }
 
-func (s *Store) GetChecksDue(ctx context.Context) ([]domain.MonitorCheck, error) {
+func (s *Store) getLegacyChecksDue(ctx context.Context) ([]domain.MonitorCheck, error) {
 	primaryAddresses, err := s.loadPrimaryDeviceAddresses(ctx)
 	if err != nil {
 		return nil, err
@@ -1131,7 +1143,7 @@ func (s *Store) GetChecksDue(ctx context.Context) ([]domain.MonitorCheck, error)
 	return items, rows.Err()
 }
 
-func (s *Store) Cleanup(ctx context.Context, retain time.Duration) error {
+func (s *Store) legacyCleanup(ctx context.Context, retain time.Duration) error {
 	cutoff := time.Now().UTC().Add(-retain).Format(time.RFC3339Nano)
 	if _, err := s.db.ExecContext(ctx, "DELETE FROM check_results WHERE checked_at < ?", cutoff); err != nil {
 		return err
@@ -1262,7 +1274,7 @@ func (s *Store) listDevicePorts(ctx context.Context, deviceID string) ([]domain.
 	return items, rows.Err()
 }
 
-func (s *Store) ensureDefaultCheckTx(ctx context.Context, tx *sql.Tx, service domain.Service) error {
+func (s *Store) ensureLegacyDefaultCheckTx(ctx context.Context, tx *sql.Tx, service domain.Service) error {
 	var count int
 	if err := tx.QueryRowContext(ctx, "SELECT COUNT(1) FROM service_checks WHERE service_id = ?", service.ID).Scan(&count); err != nil {
 		return err
@@ -1300,13 +1312,15 @@ func (s *Store) insertServiceEventTx(ctx context.Context, tx *sql.Tx, serviceID,
 
 func scanService(scanner interface{ Scan(dest ...any) error }) (domain.Service, error) {
 	var item domain.Service
-	var originDiscoveredServiceID, serviceType, addressSource, hostValue, deviceID, deviceName, icon, scheme, path, lastSeenAt, lastCheckedAt, detailsJSON, createdAt, updatedAt string
+	var originDiscoveredServiceID, serviceDefinitionID, serviceType, healthConfigMode, addressSource, hostValue, deviceID, deviceName, icon, scheme, path, lastSeenAt, lastCheckedAt, fingerprintedAt, detailsJSON, createdAt, updatedAt string
 	var hidden int
-	if err := scanner.Scan(&item.ID, &item.Name, &item.Slug, &item.Source, &item.SourceRef, &originDiscoveredServiceID, &serviceType, &addressSource, &hostValue, &deviceID, &deviceName, &icon, &scheme, &item.Host, &item.Port, &path, &item.URL, &hidden, &item.Status, &lastSeenAt, &lastCheckedAt, &detailsJSON, &createdAt, &updatedAt); err != nil {
+	if err := scanner.Scan(&item.ID, &item.Name, &item.Slug, &item.Source, &item.SourceRef, &originDiscoveredServiceID, &serviceDefinitionID, &serviceType, &healthConfigMode, &addressSource, &hostValue, &deviceID, &deviceName, &icon, &scheme, &item.Host, &item.Port, &path, &item.URL, &hidden, &item.Status, &lastSeenAt, &lastCheckedAt, &fingerprintedAt, &detailsJSON, &createdAt, &updatedAt); err != nil {
 		return domain.Service{}, err
 	}
 	item.OriginDiscoveredServiceID = originDiscoveredServiceID
+	item.ServiceDefinitionID = serviceDefinitionID
 	item.ServiceType = serviceType
+	item.HealthConfigMode = domain.HealthConfigMode(healthConfigMode)
 	item.AddressSource = domain.ServiceAddressSource(addressSource)
 	item.HostValue = hostValue
 	item.DeviceID = deviceID
@@ -1317,6 +1331,7 @@ func scanService(scanner interface{ Scan(dest ...any) error }) (domain.Service, 
 	item.Hidden = hidden == 1
 	item.LastSeenAt = parseTime(lastSeenAt)
 	item.LastCheckedAt = parseTime(lastCheckedAt)
+	item.FingerprintedAt = parseTime(fingerprintedAt)
 	item.CreatedAt = parseTime(createdAt)
 	item.UpdatedAt = parseTime(updatedAt)
 	_ = json.Unmarshal([]byte(detailsJSON), &item.Details)

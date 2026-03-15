@@ -9,6 +9,7 @@ import {
   ActivityIcon,
   BookmarkIcon,
   ClockIcon,
+  DatabaseIcon,
   DevicesIcon,
   DiscoveryIcon,
   OverviewIcon,
@@ -31,6 +32,7 @@ import DevicesSection from "./DevicesSection";
 import DiscoverySection from "./DiscoverySection";
 import DiscoveredServicesPanel from "../discovery/DiscoveredServicesPanel";
 import BookmarkSuggestionDialog from "../discovery/BookmarkSuggestionDialog";
+import ServiceDefinitionsSection from "./ServiceDefinitionsSection";
 import ServicesSection from "./ServicesSection";
 import WorkersSection from "./WorkersSection";
 
@@ -92,10 +94,14 @@ export default function DashboardScreen({
   onCreateAPIToken,
   onDeleteBookmark,
   onDeleteFolder,
+  onDeleteServiceDefinition,
+  onDeleteServiceHealthCheck,
   onExportBookmarks,
+  onFetchServiceHealthChecks,
   onIgnoreDiscoveredService,
   onImportBookmarks,
   onRefresh,
+  onReapplyServiceDefinition,
   onReorderBookmarks,
   onReorderFolders,
   onRevokeAPIToken,
@@ -108,8 +114,11 @@ export default function DashboardScreen({
   onSaveDockerEndpoint,
   onSaveFolder,
   onSaveManualService,
+  onSaveServiceDefinition,
+  onSaveServiceHealthCheck,
   onSaveScanTarget,
   onRestoreDiscoveredService,
+  onTestServiceCheck,
   settings,
   tags,
   onUploadBookmarkIcon,
@@ -216,6 +225,12 @@ export default function DashboardScreen({
       href: "#devices",
       icon: DevicesIcon,
       label: "Devices",
+    },
+    {
+      count: settings?.serviceDefinitions?.length ?? 0,
+      href: "#service-definitions",
+      icon: DatabaseIcon,
+      label: "Definitions",
     },
     {
       count: dashboard?.recentEvents?.length ?? 0,
@@ -404,6 +419,10 @@ export default function DashboardScreen({
               serviceId: service.id,
             })
           }
+          onDeleteHealthCheck={onDeleteServiceHealthCheck}
+          onFetchHealthChecks={onFetchServiceHealthChecks}
+          onSaveHealthCheck={onSaveServiceHealthCheck}
+          onTestHealthCheck={onTestServiceCheck}
           services={dashboard?.services ?? []}
         />
         <ContainersSection containers={dashboard?.containers ?? []} />
@@ -420,6 +439,13 @@ export default function DashboardScreen({
           devices={dashboard?.devices ?? []}
           discoveryCounts={discoveryCounts}
           serviceCounts={serviceCounts}
+        />
+        <ServiceDefinitionsSection
+          canManage={canManageUI}
+          definitions={settings?.serviceDefinitions ?? []}
+          onDeleteDefinition={onDeleteServiceDefinition}
+          onReapplyDefinition={onReapplyServiceDefinition}
+          onSaveDefinition={onSaveServiceDefinition}
         />
         <WorkersSection
           jobState={settings?.jobState ?? []}

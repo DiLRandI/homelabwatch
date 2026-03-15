@@ -51,6 +51,29 @@ const (
 	CheckTypePing CheckType = "ping"
 )
 
+type HealthCheckSubjectType string
+
+const (
+	HealthCheckSubjectService           HealthCheckSubjectType = "service"
+	HealthCheckSubjectDiscoveredService HealthCheckSubjectType = "discovered_service"
+)
+
+type HealthConfigMode string
+
+const (
+	HealthConfigModeAuto   HealthConfigMode = "auto"
+	HealthConfigModeCustom HealthConfigMode = "custom"
+)
+
+type HealthCheckConfigSource string
+
+const (
+	HealthCheckConfigSourceDefinition HealthCheckConfigSource = "definition"
+	HealthCheckConfigSourceUser       HealthCheckConfigSource = "user"
+	HealthCheckConfigSourceMigrated   HealthCheckConfigSource = "migrated"
+	HealthCheckConfigSourceFallback   HealthCheckConfigSource = "fallback"
+)
+
 type IdentityConfidence string
 
 const (
@@ -115,12 +138,13 @@ type AppSettings struct {
 }
 
 type SettingsView struct {
-	AppSettings     AppSettings       `json:"appSettings"`
-	DockerEndpoints []DockerEndpoint  `json:"dockerEndpoints"`
-	ScanTargets     []ScanTarget      `json:"scanTargets"`
-	JobState        []JobState        `json:"jobState"`
-	APIAccess       APIAccessView     `json:"apiAccess"`
-	Discovery       DiscoverySettings `json:"discovery"`
+	AppSettings        AppSettings         `json:"appSettings"`
+	DockerEndpoints    []DockerEndpoint    `json:"dockerEndpoints"`
+	ScanTargets        []ScanTarget        `json:"scanTargets"`
+	JobState           []JobState          `json:"jobState"`
+	APIAccess          APIAccessView       `json:"apiAccess"`
+	Discovery          DiscoverySettings   `json:"discovery"`
+	ServiceDefinitions []ServiceDefinition `json:"serviceDefinitions"`
 }
 
 type DashboardSummary struct {
@@ -184,7 +208,9 @@ type Service struct {
 	Source                    ServiceSource        `json:"source"`
 	SourceRef                 string               `json:"sourceRef"`
 	OriginDiscoveredServiceID string               `json:"originDiscoveredServiceId,omitempty"`
+	ServiceDefinitionID       string               `json:"serviceDefinitionId,omitempty"`
 	ServiceType               string               `json:"serviceType,omitempty"`
+	HealthConfigMode          HealthConfigMode     `json:"healthConfigMode,omitempty"`
 	AddressSource             ServiceAddressSource `json:"addressSource,omitempty"`
 	HostValue                 string               `json:"hostValue,omitempty"`
 	DeviceID                  string               `json:"deviceId,omitempty"`
@@ -199,6 +225,7 @@ type Service struct {
 	Status                    HealthStatus         `json:"status"`
 	LastSeenAt                time.Time            `json:"lastSeenAt"`
 	LastCheckedAt             time.Time            `json:"lastCheckedAt"`
+	FingerprintedAt           time.Time            `json:"fingerprintedAt"`
 	Details                   map[string]any       `json:"details,omitempty"`
 	CreatedAt                 time.Time            `json:"createdAt"`
 	UpdatedAt                 time.Time            `json:"updatedAt"`
@@ -206,29 +233,46 @@ type Service struct {
 }
 
 type ServiceCheck struct {
-	ID                string       `json:"id"`
-	ServiceID         string       `json:"serviceId"`
-	Name              string       `json:"name"`
-	Type              CheckType    `json:"type"`
-	Target            string       `json:"target"`
-	IntervalSeconds   int          `json:"intervalSeconds"`
-	TimeoutSeconds    int          `json:"timeoutSeconds"`
-	ExpectedStatusMin int          `json:"expectedStatusMin,omitempty"`
-	ExpectedStatusMax int          `json:"expectedStatusMax,omitempty"`
-	Enabled           bool         `json:"enabled"`
-	CreatedAt         time.Time    `json:"createdAt"`
-	UpdatedAt         time.Time    `json:"updatedAt"`
-	LastResult        *CheckResult `json:"lastResult,omitempty"`
+	ID                  string                  `json:"id"`
+	SubjectType         HealthCheckSubjectType  `json:"subjectType,omitempty"`
+	SubjectID           string                  `json:"subjectId,omitempty"`
+	ServiceID           string                  `json:"serviceId,omitempty"`
+	Name                string                  `json:"name"`
+	Type                CheckType               `json:"type"`
+	Protocol            string                  `json:"protocol,omitempty"`
+	AddressSource       ServiceAddressSource    `json:"addressSource,omitempty"`
+	HostValue           string                  `json:"hostValue,omitempty"`
+	Host                string                  `json:"host,omitempty"`
+	Port                int                     `json:"port,omitempty"`
+	Path                string                  `json:"path,omitempty"`
+	Method              string                  `json:"method,omitempty"`
+	Target              string                  `json:"target,omitempty"`
+	IntervalSeconds     int                     `json:"intervalSeconds"`
+	TimeoutSeconds      int                     `json:"timeoutSeconds"`
+	ExpectedStatusMin   int                     `json:"expectedStatusMin,omitempty"`
+	ExpectedStatusMax   int                     `json:"expectedStatusMax,omitempty"`
+	Enabled             bool                    `json:"enabled"`
+	SortOrder           int                     `json:"sortOrder,omitempty"`
+	ConfigSource        HealthCheckConfigSource `json:"configSource,omitempty"`
+	ServiceDefinitionID string                  `json:"serviceDefinitionId,omitempty"`
+	CreatedAt           time.Time               `json:"createdAt"`
+	UpdatedAt           time.Time               `json:"updatedAt"`
+	LastResult          *CheckResult            `json:"lastResult,omitempty"`
 }
 
 type CheckResult struct {
-	ID        string       `json:"id"`
-	CheckID   string       `json:"checkId"`
-	ServiceID string       `json:"serviceId"`
-	Status    HealthStatus `json:"status"`
-	LatencyMS int64        `json:"latencyMs"`
-	Message   string       `json:"message,omitempty"`
-	CheckedAt time.Time    `json:"checkedAt"`
+	ID                string                 `json:"id"`
+	CheckID           string                 `json:"checkId"`
+	ServiceID         string                 `json:"serviceId,omitempty"`
+	SubjectType       HealthCheckSubjectType `json:"subjectType,omitempty"`
+	SubjectID         string                 `json:"subjectId,omitempty"`
+	Status            HealthStatus           `json:"status"`
+	LatencyMS         int64                  `json:"latencyMs"`
+	HTTPStatusCode    int                    `json:"httpStatusCode,omitempty"`
+	ResponseSizeBytes int64                  `json:"responseSizeBytes,omitempty"`
+	ResolvedTarget    string                 `json:"resolvedTarget,omitempty"`
+	Message           string                 `json:"message,omitempty"`
+	CheckedAt         time.Time              `json:"checkedAt"`
 }
 
 type ServiceEvent struct {
@@ -333,6 +377,7 @@ type DiscoveredService struct {
 	Name                string                   `json:"name"`
 	ServiceType         string                   `json:"serviceType,omitempty"`
 	ConfidenceScore     int                      `json:"confidenceScore"`
+	ServiceDefinitionID string                   `json:"serviceDefinitionId,omitempty"`
 	AddressSource       ServiceAddressSource     `json:"addressSource,omitempty"`
 	HostValue           string                   `json:"hostValue,omitempty"`
 	Host                string                   `json:"host"`
@@ -344,6 +389,7 @@ type DiscoveredService struct {
 	State               DiscoveryState           `json:"state"`
 	IgnoreFingerprint   string                   `json:"ignoreFingerprint,omitempty"`
 	AutomationMode      BookmarkAutomationPolicy `json:"automationMode,omitempty"`
+	HealthConfigMode    HealthConfigMode         `json:"healthConfigMode,omitempty"`
 	Status              HealthStatus             `json:"status"`
 	AcceptedServiceID   string                   `json:"acceptedServiceId,omitempty"`
 	AcceptedBookmarkID  string                   `json:"acceptedBookmarkId,omitempty"`

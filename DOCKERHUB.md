@@ -1,17 +1,20 @@
 # HomelabWatch
 
 HomelabWatch is a self-hosted homelab operations dashboard for service
-discovery, Docker workload visibility, health monitoring, device tracking, and
-bookmarks. It runs as a single container with SQLite persistence.
+discovery, Docker workload visibility, device tracking, bookmarks, and health
+monitoring. It runs as a single container with SQLite persistence.
 
-## What It Does
+## Highlights
 
 - Discovers services from Docker and LAN scan targets
-- Shows running containers as first-class dashboard inventory
-- Tracks devices using MAC-aware identity where available
-- Runs HTTP, TCP, and ping health checks
+- Tracks devices with MAC-aware identity where available
+- Monitors services with HTTP, TCP, and ping checks
+- Supports custom HTTP health endpoints instead of assuming `/`
+- Includes built-in service definitions for common apps such as Grafana,
+  Prometheus, Pi-hole, Home Assistant, and Plex
+- Lets you test endpoints from the UI before saving them
 - Streams live updates into the dashboard
-- Lets you create scoped bearer tokens for external automation
+- Provides scoped bearer tokens for external automation
 
 ## Quick Start
 
@@ -29,13 +32,8 @@ Then open:
 http://localhost:8080
 ```
 
-On an empty `/data` volume, HomelabWatch starts with a 3-step setup wizard:
-
-1. name the appliance
-2. configure discovery defaults
-3. launch the initial discovery run
-
-No admin token paste step is required in the browser.
+On an empty `/data` volume, HomelabWatch starts with a setup wizard. No admin
+token paste step is required in the browser UI.
 
 ## Recommended Linux Run
 
@@ -50,16 +48,56 @@ docker run --rm \
   deleema1/homelabwatch:latest
 ```
 
+## Health Checks
+
+Health checks are configurable per service from the dashboard.
+
+HTTP checks can define:
+
+- protocol
+- host
+- port
+- path
+- method
+- expected status range
+- timeout
+- interval
+
+You can also run an on-demand endpoint test to see:
+
+- HTTP status
+- latency
+- response size
+- resolved URL
+- matched service definition
+
+## Service Definitions
+
+HomelabWatch ships with a built-in service-definition registry and supports
+custom definitions stored in SQLite through the UI and API.
+
+Definitions drive:
+
+- automatic fingerprinting
+- default health endpoints
+- ports
+- icons
+- health-check templates
+
+Services that users customize manually are not overwritten by later automatic
+reapply runs.
+
 ## Volumes And Runtime Expectations
 
 - Persist `/data` if you want state to survive restarts.
 - Mount `/var/run/docker.sock` if you want local Docker discovery.
-- Without a persistent `/data` volume, each fresh container will start the
-  setup wizard again.
+- Without a persistent `/data` volume, a fresh container starts the setup
+  wizard again.
+- Database migrations run automatically at startup.
 
 ## Security Model
 
-- The built-in web UI is open by design for trusted local/LAN use.
+- The built-in web UI is open by design for trusted local or LAN use.
 - Browser writes are limited to trusted networks, same-origin requests, and a
   server-issued CSRF token.
 - External scripts and integrations should use bearer tokens created from
