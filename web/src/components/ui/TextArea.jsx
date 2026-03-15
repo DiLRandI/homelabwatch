@@ -5,7 +5,7 @@ export default function TextArea({ label, value, onChange, placeholder }) {
         {label}
       </span>
       <textarea
-        className="mt-2 min-h-24 w-full rounded-2xl border border-white/10 bg-base/80 px-4 py-3 text-sm text-ink outline-none placeholder:text-muted/60 focus:border-accent/60"
+        className="mt-2 min-h-24 w-full rounded-2xl border border-white/10 bg-base/80 px-4 py-3 text-sm text-ink outline-hidden placeholder:text-muted/60 focus:border-accent/60"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         value={value}

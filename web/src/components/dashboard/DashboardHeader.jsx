@@ -14,7 +14,7 @@ export default function DashboardHeader({
   onRunMonitoring,
 }) {
   return (
-    <header className="animate-floatIn rounded-[2rem] border border-white/10 bg-panel/80 p-6 shadow-halo backdrop-blur">
+    <header className="animate-floatIn rounded-4xl border border-white/10 bg-panel/80 p-6 shadow-halo backdrop-blur-sm">
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-sm uppercase tracking-[0.35em] text-accent">

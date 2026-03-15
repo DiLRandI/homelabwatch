@@ -23,7 +23,7 @@ export default function BootstrapScreen({ error, notice, onSubmit }) {
   }
 
   return (
-    <section className="mx-auto max-w-3xl animate-floatIn rounded-[2rem] border border-white/10 bg-panel/80 p-8 shadow-halo backdrop-blur">
+    <section className="mx-auto max-w-3xl animate-floatIn rounded-4xl border border-white/10 bg-panel/80 p-8 shadow-halo backdrop-blur-sm">
       <div className="mb-8 flex items-end justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.35em] text-accent">

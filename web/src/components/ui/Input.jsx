@@ -14,7 +14,7 @@ export default function Input({
         {label}
       </span>
       <input
-        className="mt-2 w-full rounded-2xl border border-white/10 bg-base/80 px-4 py-3 text-sm text-ink outline-none ring-0 transition placeholder:text-muted/60 focus:border-accent/60"
+        className="mt-2 w-full rounded-2xl border border-white/10 bg-base/80 px-4 py-3 text-sm text-ink outline-hidden ring-0 transition placeholder:text-muted/60 focus:border-accent/60"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type={type}
