@@ -97,22 +97,32 @@ func (p *Provider) discoverEndpoint(ctx context.Context, endpoint domain.DockerE
 			if urlValue == "" {
 				urlValue = buildURL(scheme, serviceHost, port, overridePath)
 			}
+			serviceType := serviceTypeFromImage(container.Image)
+			addressSource := domain.ServiceAddressLiteralHost
+			hostValue := serviceHost
+			if ip != "" {
+				addressSource = domain.ServiceAddressDevicePrimary
+				hostValue = ip
+			}
 			serviceName := name
 			if len(container.Ports) > 1 && port > 0 {
 				serviceName = fmt.Sprintf("%s %d", name, port)
 			}
 			services = append(services, domain.ServiceObservation{
-				Name:       serviceName,
-				Source:     domain.ServiceSourceDocker,
-				SourceRef:  fmt.Sprintf("%s:%s:%d", endpoint.ID, container.ID, port),
-				DeviceKey:  device.IdentityKey,
-				Icon:       icon,
-				Scheme:     scheme,
-				Host:       serviceHost,
-				Port:       port,
-				Path:       overridePath,
-				URL:        urlValue,
-				LastSeenAt: now,
+				Name:            serviceName,
+				Source:          domain.ServiceSourceDocker,
+				SourceRef:       fmt.Sprintf("%s:%s:%d", endpoint.ID, container.ID, port),
+				DeviceKey:       device.IdentityKey,
+				ServiceTypeHint: serviceType,
+				AddressSource:   addressSource,
+				HostValue:       hostValue,
+				Icon:            firstNonEmpty(icon, serviceType),
+				Scheme:          scheme,
+				Host:            serviceHost,
+				Port:            port,
+				Path:            overridePath,
+				URL:             urlValue,
+				LastSeenAt:      now,
 				Details: map[string]any{
 					"containerID":   container.ID,
 					"containerName": firstContainerName(container.Names),
@@ -128,6 +138,26 @@ func (p *Provider) discoverEndpoint(ctx context.Context, endpoint domain.DockerE
 		}
 	}
 	return observations, nil
+}
+
+func serviceTypeFromImage(image string) string {
+	image = strings.ToLower(strings.TrimSpace(image))
+	switch {
+	case strings.Contains(image, "grafana/grafana"):
+		return "grafana"
+	case strings.Contains(image, "homeassistant/home-assistant"):
+		return "home-assistant"
+	case strings.Contains(image, "prom/prometheus"):
+		return "prometheus"
+	case strings.Contains(image, "plexinc/pms-docker"), strings.Contains(image, "linuxserver/plex"):
+		return "plex"
+	case strings.Contains(image, "portainer/portainer"):
+		return "portainer"
+	case strings.Contains(image, "nextcloud"):
+		return "nextcloud"
+	default:
+		return ""
+	}
 }
 
 type containerSummary struct {

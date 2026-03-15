@@ -11,7 +11,11 @@ import {
   TableRow,
 } from "../ui/Table";
 
-export default function DevicesSection({ devices }) {
+export default function DevicesSection({
+  devices,
+  discoveryCounts = {},
+  serviceCounts = {},
+}) {
   return (
     <section id="devices">
       <Card>
@@ -48,6 +52,14 @@ export default function DevicesSection({ devices }) {
                       <p className="mt-1 text-sm text-slate-500">
                         {device.primaryMac || device.identityKey}
                       </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Badge tone="info">
+                          {serviceCounts[device.id] || 0} accepted services
+                        </Badge>
+                        <Badge tone="neutral">
+                          {discoveryCounts[device.id] || 0} discoveries
+                        </Badge>
+                      </div>
                     </TableCell>
                     <TableCell className="max-w-[260px]">
                       <p

@@ -44,6 +44,7 @@ func New(cfg config.Config, store *sqlite.Store, bus *events.Bus) *App {
 	instance.scheduler = worker.NewScheduler(
 		worker.Job{Name: "docker-sync", Interval: 30 * time.Second, Run: instance.runDockerDiscovery},
 		worker.Job{Name: "lan-scan", Interval: 5 * time.Minute, Run: instance.runLANDiscovery},
+		worker.Job{Name: "service-fingerprinting", Interval: 45 * time.Second, Run: instance.runFingerprinting},
 		worker.Job{Name: "health-checks", Interval: 30 * time.Second, Run: instance.runMonitoring},
 		worker.Job{Name: "cleanup", Interval: 24 * time.Hour, Run: instance.runCleanup},
 	)
@@ -317,8 +318,21 @@ func (a *App) runMonitoring(ctx context.Context) error {
 	for _, item := range results {
 		a.publish("check", item.CheckID, "recorded", item)
 	}
+	if err := a.runDiscoveredMonitoring(ctx); err != nil {
+		_ = a.store.RecordJobRun(ctx, "health-checks", err)
+		return err
+	}
 	_ = a.store.RecordJobRun(ctx, "health-checks", nil)
 	return nil
+}
+
+func (a *App) runFingerprinting(ctx context.Context) error {
+	if !a.isBootstrapped(ctx) {
+		return nil
+	}
+	err := a.store.RefingerprintDiscoveredServices(ctx)
+	_ = a.store.RecordJobRun(ctx, "service-fingerprinting", err)
+	return err
 }
 
 func (a *App) runCleanup(ctx context.Context) error {
@@ -331,6 +345,10 @@ func (a *App) runCleanup(ctx context.Context) error {
 }
 
 func (a *App) processObservations(ctx context.Context, observations []domain.Observation) error {
+	settings, err := a.store.GetDiscoverySettings(ctx)
+	if err != nil {
+		return err
+	}
 	for _, observation := range observations {
 		deviceID := ""
 		if hasDevice(observation.Device) {
@@ -342,11 +360,19 @@ func (a *App) processObservations(ctx context.Context, observations []domain.Obs
 			a.publish("device", device.ID, "seen", device)
 		}
 		for _, serviceObservation := range observation.Services {
-			service, err := a.store.UpsertDiscoveredService(ctx, serviceObservation, deviceID)
+			discovered, err := a.store.UpsertDiscoveredServiceObservation(ctx, serviceObservation, deviceID)
 			if err != nil {
 				return err
 			}
-			a.publish("service", service.ID, "seen", service)
+			a.publish("discovered-service", discovered.ID, "seen", discovered)
+			if a.shouldAutoBookmark(discovered, settings) {
+				bookmark, createErr := a.CreateBookmarkFromDiscoveredService(ctx, domain.CreateBookmarkFromDiscoveredServiceInput{
+					DiscoveredServiceID: discovered.ID,
+				})
+				if createErr == nil {
+					a.publish("bookmark", bookmark.ID, "upserted", bookmark)
+				}
+			}
 		}
 	}
 	return nil

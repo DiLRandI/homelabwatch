@@ -27,6 +27,12 @@ type bookmarkRecord struct {
 	ServiceSourceRef        string
 	ServiceHidden           bool
 	ServiceURL              string
+	ServiceAddressSource    domain.ServiceAddressSource
+	ServiceHostValue        string
+	ServiceScheme           string
+	ServiceHost             string
+	ServicePort             int
+	ServicePath             string
 	ServiceIcon             string
 	ServiceDeviceID         string
 	ServiceDeviceName       string
@@ -559,6 +565,15 @@ func (s *Store) upsertBookmarkOwnedServiceTx(ctx context.Context, tx *sql.Tx, bo
 	}
 	service.Slug = slugify(service.Name)
 	service.Status = domain.HealthStatusUnknown
+	if service.AddressSource == "" {
+		service.AddressSource = domain.ServiceAddressLiteralHost
+	}
+	if service.AddressSource == domain.ServiceAddressLiteralHost && strings.TrimSpace(service.Host) != "" {
+		service.HostValue = service.Host
+	} else if service.HostValue == "" {
+		service.HostValue = firstNonEmpty(service.Host, extractHost(service.URL))
+	}
+	service.Host = resolveAddressSourceHost(service.AddressSource, service.HostValue, "")
 	service.UpdatedAt = now
 	if service.Details == nil {
 		service.Details = map[string]any{}
@@ -567,12 +582,16 @@ func (s *Store) upsertBookmarkOwnedServiceTx(ctx context.Context, tx *sql.Tx, bo
 	service.Details["bookmarkManaged"] = true
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO services(
-			id, name, slug, source_type, source_ref, device_id, icon, scheme, host, port, path,
-			url, hidden, status, last_seen_at, last_checked_at, details_json, created_at, updated_at
-		) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			id, name, slug, source_type, source_ref, origin_discovered_service_id, service_type, address_source,
+			host_value, device_id, icon, scheme, host, port, path, url, hidden, status, last_seen_at,
+			last_checked_at, details_json, created_at, updated_at
+		) VALUES(?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name = excluded.name,
 			slug = excluded.slug,
+			service_type = excluded.service_type,
+			address_source = excluded.address_source,
+			host_value = excluded.host_value,
 			device_id = excluded.device_id,
 			scheme = excluded.scheme,
 			host = excluded.host,
@@ -582,7 +601,7 @@ func (s *Store) upsertBookmarkOwnedServiceTx(ctx context.Context, tx *sql.Tx, bo
 			hidden = excluded.hidden,
 			details_json = excluded.details_json,
 			updated_at = excluded.updated_at
-	`, service.ID, service.Name, service.Slug, service.Source, service.SourceRef, nullableString(service.DeviceID), nullableString(service.Icon), nullableString(service.Scheme), service.Host, service.Port, nullableString(service.Path), service.URL, boolInt(service.Hidden), service.Status, nullableTime(service.LastSeenAt), nullableTime(service.LastCheckedAt), string(mustJSON(service.Details)), service.CreatedAt.Format(time.RFC3339Nano), service.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
+	`, service.ID, service.Name, service.Slug, service.Source, service.SourceRef, service.ServiceType, service.AddressSource, service.HostValue, nullableString(service.DeviceID), nullableString(service.Icon), nullableString(service.Scheme), service.Host, service.Port, nullableString(service.Path), service.URL, boolInt(service.Hidden), service.Status, nullableTime(service.LastSeenAt), nullableTime(service.LastCheckedAt), string(mustJSON(service.Details)), service.CreatedAt.Format(time.RFC3339Nano), service.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
 		return domain.Service{}, err
 	}
 	if err := s.ensureDefaultCheckTx(ctx, tx, service); err != nil {
@@ -592,12 +611,12 @@ func (s *Store) upsertBookmarkOwnedServiceTx(ctx context.Context, tx *sql.Tx, bo
 }
 
 func (s *Store) getServiceTx(ctx context.Context, tx *sql.Tx, id string) (domain.Service, error) {
-	row := tx.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.id = ?`, id)
+	row := tx.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_type, ''), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.id = ?`, id)
 	return scanService(row)
 }
 
 func (s *Store) FindServiceBySource(ctx context.Context, source domain.ServiceSource, sourceRef string) (domain.Service, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.source_type = ? AND s.source_ref = ?`, source, sourceRef)
+	row := s.db.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_type, ''), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.source_type = ? AND s.source_ref = ?`, source, sourceRef)
 	return scanService(row)
 }
 
@@ -613,6 +632,12 @@ func (s *Store) loadBookmarkRecords(ctx context.Context) ([]bookmarkRecord, erro
 			COALESCE(s.source_ref, ''),
 			COALESCE(s.hidden, 0),
 			COALESCE(s.url, ''),
+			COALESCE(s.address_source, 'literal_host'),
+			COALESCE(s.host_value, s.host, ''),
+			COALESCE(s.scheme, ''),
+			COALESCE(s.host, ''),
+			COALESCE(s.port, 0),
+			COALESCE(s.path, ''),
 			COALESCE(s.icon, ''),
 			COALESCE(s.device_id, ''),
 			COALESCE(sd.display_name, sd.hostname, ''),
@@ -662,6 +687,12 @@ func (s *Store) loadBookmarkRecords(ctx context.Context) ([]bookmarkRecord, erro
 			&item.ServiceSourceRef,
 			&serviceHidden,
 			&item.ServiceURL,
+			&item.ServiceAddressSource,
+			&item.ServiceHostValue,
+			&item.ServiceScheme,
+			&item.ServiceHost,
+			&item.ServicePort,
+			&item.ServicePath,
 			&item.ServiceIcon,
 			&item.ServiceDeviceID,
 			&item.ServiceDeviceName,
@@ -782,7 +813,14 @@ func buildBookmark(record bookmarkRecord, tags []string, primaryAddresses map[st
 	}
 	if record.ServiceID != "" {
 		item.Name = firstNonEmpty(record.ManualName, record.ServiceName)
-		item.URL = record.ServiceURL
+		item.Scheme = record.ServiceScheme
+		item.Port = record.ServicePort
+		item.Path = record.ServicePath
+		item.Host = resolveAddressSourceHost(record.ServiceAddressSource, record.ServiceHostValue, primaryAddresses[record.ServiceDeviceID])
+		item.URL = buildServiceURL(item.Scheme, item.Host, item.Port, item.Path)
+		if item.URL == "" {
+			item.URL = record.ServiceURL
+		}
 		item.DeviceID = record.ServiceDeviceID
 		item.DeviceName = record.ServiceDeviceName
 		item.HealthStatus = record.ServiceHealthStatus

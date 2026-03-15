@@ -17,6 +17,30 @@ const (
 	ServiceSourceManual ServiceSource = "manual"
 	ServiceSourceDocker ServiceSource = "docker"
 	ServiceSourceLAN    ServiceSource = "lan"
+	ServiceSourceMDNS   ServiceSource = "mdns"
+)
+
+type ServiceAddressSource string
+
+const (
+	ServiceAddressLiteralHost   ServiceAddressSource = "literal_host"
+	ServiceAddressDevicePrimary ServiceAddressSource = "device_primary_ip"
+	ServiceAddressMDNSHostname  ServiceAddressSource = "mdns_hostname"
+)
+
+type DiscoveryState string
+
+const (
+	DiscoveryStatePending  DiscoveryState = "pending"
+	DiscoveryStateAccepted DiscoveryState = "accepted"
+	DiscoveryStateIgnored  DiscoveryState = "ignored"
+)
+
+type BookmarkAutomationPolicy string
+
+const (
+	BookmarkAutomationManual             BookmarkAutomationPolicy = "manual"
+	BookmarkAutomationAutoHighConfidence BookmarkAutomationPolicy = "auto_high_confidence"
 )
 
 type CheckType string
@@ -74,44 +98,50 @@ type ScanTargetSeed struct {
 }
 
 type AppSettings struct {
-	Initialized        bool      `json:"initialized"`
-	AdminTokenHash     string    `json:"-"`
-	ApplianceName      string    `json:"applianceName,omitempty"`
-	InitializedAt      time.Time `json:"initializedAt"`
-	LastBootstrapAt    time.Time `json:"lastBootstrapAt"`
-	AutoScanEnabled    bool      `json:"autoScanEnabled"`
-	DefaultScanPorts   []int     `json:"defaultScanPorts"`
-	UpdatedAt          time.Time `json:"updatedAt"`
-	TrustedCIDRs       []string  `json:"trustedCidrs,omitempty"`
-	TrustedNetwork     bool      `json:"trustedNetwork,omitempty"`
-	LegacyTokenEnabled bool      `json:"legacyTokenEnabled,omitempty"`
+	Initialized               bool                     `json:"initialized"`
+	AdminTokenHash            string                   `json:"-"`
+	ApplianceName             string                   `json:"applianceName,omitempty"`
+	InitializedAt             time.Time                `json:"initializedAt"`
+	LastBootstrapAt           time.Time                `json:"lastBootstrapAt"`
+	AutoScanEnabled           bool                     `json:"autoScanEnabled"`
+	DefaultScanPorts          []int                    `json:"defaultScanPorts"`
+	BookmarkPolicy            BookmarkAutomationPolicy `json:"bookmarkPolicy,omitempty"`
+	AutoBookmarkSources       []ServiceSource          `json:"autoBookmarkSources,omitempty"`
+	AutoBookmarkMinConfidence int                      `json:"autoBookmarkMinConfidence,omitempty"`
+	UpdatedAt                 time.Time                `json:"updatedAt"`
+	TrustedCIDRs              []string                 `json:"trustedCidrs,omitempty"`
+	TrustedNetwork            bool                     `json:"trustedNetwork,omitempty"`
+	LegacyTokenEnabled        bool                     `json:"legacyTokenEnabled,omitempty"`
 }
 
 type SettingsView struct {
-	AppSettings     AppSettings      `json:"appSettings"`
-	DockerEndpoints []DockerEndpoint `json:"dockerEndpoints"`
-	ScanTargets     []ScanTarget     `json:"scanTargets"`
-	JobState        []JobState       `json:"jobState"`
-	APIAccess       APIAccessView    `json:"apiAccess"`
+	AppSettings     AppSettings       `json:"appSettings"`
+	DockerEndpoints []DockerEndpoint  `json:"dockerEndpoints"`
+	ScanTargets     []ScanTarget      `json:"scanTargets"`
+	JobState        []JobState        `json:"jobState"`
+	APIAccess       APIAccessView     `json:"apiAccess"`
+	Discovery       DiscoverySettings `json:"discovery"`
 }
 
 type DashboardSummary struct {
-	TotalServices     int `json:"totalServices"`
-	HealthyServices   int `json:"healthyServices"`
-	DegradedServices  int `json:"degradedServices"`
-	UnhealthyServices int `json:"unhealthyServices"`
-	DevicesSeen       int `json:"devicesSeen"`
-	Bookmarks         int `json:"bookmarks"`
-	RunningContainers int `json:"runningContainers"`
+	TotalServices      int `json:"totalServices"`
+	HealthyServices    int `json:"healthyServices"`
+	DegradedServices   int `json:"degradedServices"`
+	UnhealthyServices  int `json:"unhealthyServices"`
+	DevicesSeen        int `json:"devicesSeen"`
+	Bookmarks          int `json:"bookmarks"`
+	RunningContainers  int `json:"runningContainers"`
+	DiscoveredServices int `json:"discoveredServices"`
 }
 
 type Dashboard struct {
-	Summary      DashboardSummary `json:"summary"`
-	Services     []Service        `json:"services"`
-	Containers   []Service        `json:"containers"`
-	Devices      []Device         `json:"devices"`
-	Bookmarks    []Bookmark       `json:"bookmarks"`
-	RecentEvents []ServiceEvent   `json:"recentEvents"`
+	Summary            DashboardSummary    `json:"summary"`
+	Services           []Service           `json:"services"`
+	Containers         []Service           `json:"containers"`
+	Devices            []Device            `json:"devices"`
+	Bookmarks          []Bookmark          `json:"bookmarks"`
+	DiscoveredServices []DiscoveredService `json:"discoveredServices"`
+	RecentEvents       []ServiceEvent      `json:"recentEvents"`
 }
 
 type TokenScope string
@@ -148,27 +178,31 @@ type CreatedAPIToken struct {
 }
 
 type Service struct {
-	ID            string         `json:"id"`
-	Name          string         `json:"name"`
-	Slug          string         `json:"slug"`
-	Source        ServiceSource  `json:"source"`
-	SourceRef     string         `json:"sourceRef"`
-	DeviceID      string         `json:"deviceId,omitempty"`
-	DeviceName    string         `json:"deviceName,omitempty"`
-	Icon          string         `json:"icon,omitempty"`
-	Scheme        string         `json:"scheme,omitempty"`
-	Host          string         `json:"host"`
-	Port          int            `json:"port"`
-	Path          string         `json:"path,omitempty"`
-	URL           string         `json:"url"`
-	Hidden        bool           `json:"hidden"`
-	Status        HealthStatus   `json:"status"`
-	LastSeenAt    time.Time      `json:"lastSeenAt"`
-	LastCheckedAt time.Time      `json:"lastCheckedAt"`
-	Details       map[string]any `json:"details,omitempty"`
-	CreatedAt     time.Time      `json:"createdAt"`
-	UpdatedAt     time.Time      `json:"updatedAt"`
-	Checks        []ServiceCheck `json:"checks,omitempty"`
+	ID                        string               `json:"id"`
+	Name                      string               `json:"name"`
+	Slug                      string               `json:"slug"`
+	Source                    ServiceSource        `json:"source"`
+	SourceRef                 string               `json:"sourceRef"`
+	OriginDiscoveredServiceID string               `json:"originDiscoveredServiceId,omitempty"`
+	ServiceType               string               `json:"serviceType,omitempty"`
+	AddressSource             ServiceAddressSource `json:"addressSource,omitempty"`
+	HostValue                 string               `json:"hostValue,omitempty"`
+	DeviceID                  string               `json:"deviceId,omitempty"`
+	DeviceName                string               `json:"deviceName,omitempty"`
+	Icon                      string               `json:"icon,omitempty"`
+	Scheme                    string               `json:"scheme,omitempty"`
+	Host                      string               `json:"host"`
+	Port                      int                  `json:"port"`
+	Path                      string               `json:"path,omitempty"`
+	URL                       string               `json:"url"`
+	Hidden                    bool                 `json:"hidden"`
+	Status                    HealthStatus         `json:"status"`
+	LastSeenAt                time.Time            `json:"lastSeenAt"`
+	LastCheckedAt             time.Time            `json:"lastCheckedAt"`
+	Details                   map[string]any       `json:"details,omitempty"`
+	CreatedAt                 time.Time            `json:"createdAt"`
+	UpdatedAt                 time.Time            `json:"updatedAt"`
+	Checks                    []ServiceCheck       `json:"checks,omitempty"`
 }
 
 type ServiceCheck struct {
@@ -263,23 +297,82 @@ type PortObservation struct {
 }
 
 type ServiceObservation struct {
-	Name       string         `json:"name"`
-	Source     ServiceSource  `json:"source"`
-	SourceRef  string         `json:"sourceRef"`
-	DeviceKey  string         `json:"deviceKey,omitempty"`
-	Icon       string         `json:"icon,omitempty"`
-	Scheme     string         `json:"scheme,omitempty"`
-	Host       string         `json:"host"`
-	Port       int            `json:"port"`
-	Path       string         `json:"path,omitempty"`
-	URL        string         `json:"url,omitempty"`
-	LastSeenAt time.Time      `json:"lastSeenAt"`
-	Details    map[string]any `json:"details,omitempty"`
+	Name            string               `json:"name"`
+	Source          ServiceSource        `json:"source"`
+	SourceRef       string               `json:"sourceRef"`
+	DeviceKey       string               `json:"deviceKey,omitempty"`
+	ServiceTypeHint string               `json:"serviceTypeHint,omitempty"`
+	AddressSource   ServiceAddressSource `json:"addressSource,omitempty"`
+	HostValue       string               `json:"hostValue,omitempty"`
+	Icon            string               `json:"icon,omitempty"`
+	Scheme          string               `json:"scheme,omitempty"`
+	Host            string               `json:"host"`
+	Port            int                  `json:"port"`
+	Path            string               `json:"path,omitempty"`
+	URL             string               `json:"url,omitempty"`
+	LastSeenAt      time.Time            `json:"lastSeenAt"`
+	Details         map[string]any       `json:"details,omitempty"`
 }
 
 type Observation struct {
 	Device   DeviceObservation    `json:"device"`
 	Services []ServiceObservation `json:"services,omitempty"`
+}
+
+type DiscoverySettings struct {
+	BookmarkPolicy            BookmarkAutomationPolicy `json:"bookmarkPolicy"`
+	AutoBookmarkSources       []ServiceSource          `json:"autoBookmarkSources"`
+	AutoBookmarkMinConfidence int                      `json:"autoBookmarkMinConfidence"`
+}
+
+type DiscoveredService struct {
+	ID                  string                   `json:"id"`
+	DeviceID            string                   `json:"deviceId,omitempty"`
+	DeviceName          string                   `json:"deviceName,omitempty"`
+	MergeKey            string                   `json:"mergeKey"`
+	Name                string                   `json:"name"`
+	ServiceType         string                   `json:"serviceType,omitempty"`
+	ConfidenceScore     int                      `json:"confidenceScore"`
+	AddressSource       ServiceAddressSource     `json:"addressSource,omitempty"`
+	HostValue           string                   `json:"hostValue,omitempty"`
+	Host                string                   `json:"host"`
+	Scheme              string                   `json:"scheme,omitempty"`
+	Port                int                      `json:"port"`
+	Path                string                   `json:"path,omitempty"`
+	URL                 string                   `json:"url"`
+	Icon                string                   `json:"icon,omitempty"`
+	State               DiscoveryState           `json:"state"`
+	IgnoreFingerprint   string                   `json:"ignoreFingerprint,omitempty"`
+	AutomationMode      BookmarkAutomationPolicy `json:"automationMode,omitempty"`
+	Status              HealthStatus             `json:"status"`
+	AcceptedServiceID   string                   `json:"acceptedServiceId,omitempty"`
+	AcceptedBookmarkID  string                   `json:"acceptedBookmarkId,omitempty"`
+	SourceTypes         []ServiceSource          `json:"sourceTypes,omitempty"`
+	FirstSeenAt         time.Time                `json:"firstSeenAt"`
+	LastSeenAt          time.Time                `json:"lastSeenAt"`
+	LastCheckedAt       time.Time                `json:"lastCheckedAt"`
+	LastFingerprintedAt time.Time                `json:"lastFingerprintedAt"`
+	CreatedAt           time.Time                `json:"createdAt"`
+	UpdatedAt           time.Time                `json:"updatedAt"`
+	Details             map[string]any           `json:"details,omitempty"`
+	Evidence            []DiscoveryEvidence      `json:"evidence,omitempty"`
+}
+
+type DiscoveryEvidence struct {
+	ID                  string         `json:"id"`
+	DiscoveredServiceID string         `json:"discoveredServiceId"`
+	Source              ServiceSource  `json:"source"`
+	SourceRef           string         `json:"sourceRef"`
+	ServiceTypeHint     string         `json:"serviceTypeHint,omitempty"`
+	Name                string         `json:"name,omitempty"`
+	Host                string         `json:"host,omitempty"`
+	Port                int            `json:"port,omitempty"`
+	Path                string         `json:"path,omitempty"`
+	URL                 string         `json:"url,omitempty"`
+	FingerprintHash     string         `json:"fingerprintHash,omitempty"`
+	Details             map[string]any `json:"details,omitempty"`
+	FirstSeenAt         time.Time      `json:"firstSeenAt"`
+	LastSeenAt          time.Time      `json:"lastSeenAt"`
 }
 
 type Bookmark struct {

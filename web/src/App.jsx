@@ -26,6 +26,7 @@ export default function App() {
           onDeleteBookmark={app.removeBookmark}
           onDeleteFolder={app.removeFolder}
           onExportBookmarks={app.exportBookmarksData}
+          onIgnoreDiscoveredService={app.ignoreSuggestion}
           onImportBookmarks={app.importBookmarksData}
           onRefresh={app.refreshAll}
           onReorderBookmarks={app.saveBookmarkOrder}
@@ -34,11 +35,14 @@ export default function App() {
           onRunDiscovery={app.runDiscovery}
           onRunMonitoring={app.runMonitoring}
           onSaveBookmark={app.saveBookmark}
+          onSaveBookmarkFromDiscoveredService={app.saveBookmarkFromDiscoveredService}
           onSaveBookmarkFromService={app.saveBookmarkFromService}
+          onSaveDiscoveryPolicy={app.saveDiscoveryPolicy}
           onSaveDockerEndpoint={app.saveDockerEndpoint}
           onSaveFolder={app.saveFolder}
           onSaveManualService={app.saveManualService}
           onSaveScanTarget={app.saveScanTarget}
+          onRestoreDiscoveredService={app.restoreSuggestion}
           settings={app.settings}
           tags={app.tags}
           onUploadBookmarkIcon={app.uploadBookmarkIcon}

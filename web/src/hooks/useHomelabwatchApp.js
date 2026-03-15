@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   createAPIToken,
   createBookmark,
+  createBookmarkFromDiscoveredService,
   createBookmarkFromService,
   createFolder,
   createDockerEndpoint,
@@ -17,13 +18,16 @@ import {
   fetchSettings,
   fetchTags,
   fetchUIBootstrap,
+  ignoreDiscoveredService,
   importBookmarks,
   initializeSetup,
   reorderBookmarks,
   reorderFolders,
+  restoreDiscoveredService,
   revokeAPIToken,
   runDiscoveryJob,
   runMonitoringJob,
+  updateDiscoverySettings,
   updateBookmark,
   updateFolder,
   uploadBookmarkAsset,
@@ -175,6 +179,13 @@ export function useHomelabwatchApp() {
     }, "Bookmark created from service.");
   }
 
+  async function saveBookmarkFromDiscoveredService(id, payload) {
+    return performAction(async () => {
+      await createBookmarkFromDiscoveredService(id, payload, csrfToken);
+      await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
+    }, "Bookmark created from discovery.");
+  }
+
   async function saveBookmarkOrder(items) {
     return performAction(async () => {
       await reorderBookmarks(items, csrfToken);
@@ -229,6 +240,27 @@ export function useHomelabwatchApp() {
       await createScanTarget(payload, csrfToken);
       await loadSettings();
     }, "Scan target saved.");
+  }
+
+  async function saveDiscoveryPolicy(payload) {
+    return performAction(async () => {
+      await updateDiscoverySettings(payload, csrfToken);
+      await loadSettings();
+    }, "Discovery settings saved.");
+  }
+
+  async function ignoreSuggestion(id) {
+    return performAction(async () => {
+      await ignoreDiscoveredService(id, csrfToken);
+      await loadDashboard();
+    }, "Suggestion ignored.");
+  }
+
+  async function restoreSuggestion(id) {
+    return performAction(async () => {
+      await restoreDiscoveredService(id, csrfToken);
+      await loadDashboard();
+    }, "Suggestion restored.");
   }
 
   async function createExternalToken(payload) {
@@ -296,8 +328,10 @@ export function useHomelabwatchApp() {
     runDiscovery,
     runMonitoring,
     saveBookmark,
+    saveBookmarkFromDiscoveredService,
     saveBookmarkFromService,
     saveBookmarkOrder,
+    saveDiscoveryPolicy,
     saveDockerEndpoint,
     saveFolder,
     saveFolderOrder,
@@ -307,6 +341,8 @@ export function useHomelabwatchApp() {
     submitSetup,
     tags,
     trustedNetwork,
+    ignoreSuggestion,
+    restoreSuggestion,
     uploadBookmarkIcon,
     exportBookmarksData,
   };

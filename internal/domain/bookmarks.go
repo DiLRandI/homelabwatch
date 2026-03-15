@@ -38,6 +38,17 @@ type CreateBookmarkFromServiceInput struct {
 	FavoritePosition int      `json:"favoritePosition,omitempty"`
 }
 
+type CreateBookmarkFromDiscoveredServiceInput struct {
+	DiscoveredServiceID string   `json:"discoveredServiceId"`
+	FolderID            string   `json:"folderId,omitempty"`
+	Tags                []string `json:"tags,omitempty"`
+	Name                string   `json:"name,omitempty"`
+	IconMode            string   `json:"iconMode,omitempty"`
+	IconValue           string   `json:"iconValue,omitempty"`
+	IsFavorite          bool     `json:"isFavorite"`
+	FavoritePosition    int      `json:"favoritePosition,omitempty"`
+}
+
 type BookmarkListOptions struct {
 	Query     string
 	FolderID  string

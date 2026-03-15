@@ -80,6 +80,11 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	mux.Handle("POST /api/ui/v1/discovery/scan-targets", router.withTrustedConsole(http.HandlerFunc(router.handleScanTargets)))
 	mux.Handle("PATCH /api/ui/v1/discovery/scan-targets/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleScanTargetByID)))
 	mux.Handle("DELETE /api/ui/v1/discovery/scan-targets/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleScanTargetByID)))
+	mux.HandleFunc("GET /api/ui/v1/discovered-services", router.handleDiscoveredServices)
+	mux.Handle("POST /api/ui/v1/discovered-services/{id}/bookmark", router.withTrustedConsole(http.HandlerFunc(router.handleDiscoveredServiceBookmark)))
+	mux.Handle("POST /api/ui/v1/discovered-services/{id}/ignore", router.withTrustedConsole(http.HandlerFunc(router.handleDiscoveredServiceIgnore)))
+	mux.Handle("POST /api/ui/v1/discovered-services/{id}/restore", router.withTrustedConsole(http.HandlerFunc(router.handleDiscoveredServiceRestore)))
+	mux.Handle("PATCH /api/ui/v1/discovery/settings", router.withTrustedConsole(http.HandlerFunc(router.handleDiscoverySettings)))
 	mux.Handle("POST /api/ui/v1/discovery/run", router.withTrustedConsole(http.HandlerFunc(router.handleDiscoveryRun)))
 	mux.Handle("POST /api/ui/v1/monitoring/run", router.withTrustedConsole(http.HandlerFunc(router.handleMonitoringRun)))
 	mux.Handle("GET /api/ui/v1/events", router.sse)
@@ -123,6 +128,11 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	mux.Handle("POST /api/external/v1/discovery/scan-targets", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargets)))
 	mux.Handle("PATCH /api/external/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
 	mux.Handle("DELETE /api/external/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("GET /api/external/v1/discovered-services", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDiscoveredServices)))
+	mux.Handle("POST /api/external/v1/discovered-services/{id}/bookmark", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveredServiceBookmark)))
+	mux.Handle("POST /api/external/v1/discovered-services/{id}/ignore", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveredServiceIgnore)))
+	mux.Handle("POST /api/external/v1/discovered-services/{id}/restore", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveredServiceRestore)))
+	mux.Handle("PATCH /api/external/v1/discovery/settings", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoverySettings)))
 	mux.Handle("POST /api/external/v1/discovery/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveryRun)))
 	mux.Handle("POST /api/external/v1/monitoring/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleMonitoringRun)))
 
@@ -165,6 +175,11 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	mux.Handle("POST /api/v1/discovery/scan-targets", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargets)))
 	mux.Handle("PATCH /api/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
 	mux.Handle("DELETE /api/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("GET /api/v1/discovered-services", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDiscoveredServices)))
+	mux.Handle("POST /api/v1/discovered-services/{id}/bookmark", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveredServiceBookmark)))
+	mux.Handle("POST /api/v1/discovered-services/{id}/ignore", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveredServiceIgnore)))
+	mux.Handle("POST /api/v1/discovered-services/{id}/restore", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveredServiceRestore)))
+	mux.Handle("PATCH /api/v1/discovery/settings", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoverySettings)))
 	mux.Handle("POST /api/v1/discovery/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveryRun)))
 	mux.Handle("POST /api/v1/monitoring/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleMonitoringRun)))
 	mux.HandleFunc("/", router.handleStatic)
@@ -591,6 +606,62 @@ func (r *Router) handleScanTargetByID(w http.ResponseWriter, req *http.Request) 
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func (r *Router) handleDiscoveredServices(w http.ResponseWriter, req *http.Request) {
+	items, err := r.app.ListDiscoveredServices(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleDiscoveredServiceBookmark(w http.ResponseWriter, req *http.Request) {
+	var input domain.CreateBookmarkFromDiscoveredServiceInput
+	if err := decodeJSON(req.Body, &input); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	input.DiscoveredServiceID = req.PathValue("id")
+	item, err := r.app.CreateBookmarkFromDiscoveredService(req.Context(), input)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, item)
+}
+
+func (r *Router) handleDiscoveredServiceIgnore(w http.ResponseWriter, req *http.Request) {
+	item, err := r.app.IgnoreDiscoveredService(req.Context(), req.PathValue("id"))
+	if err != nil {
+		writeLookupError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (r *Router) handleDiscoveredServiceRestore(w http.ResponseWriter, req *http.Request) {
+	item, err := r.app.RestoreDiscoveredService(req.Context(), req.PathValue("id"))
+	if err != nil {
+		writeLookupError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (r *Router) handleDiscoverySettings(w http.ResponseWriter, req *http.Request) {
+	var input domain.DiscoverySettings
+	if err := decodeJSON(req.Body, &input); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	item, err := r.app.SaveDiscoverySettings(req.Context(), input)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
 }
 
 func (r *Router) handleDiscoveryRun(w http.ResponseWriter, req *http.Request) {

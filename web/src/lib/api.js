@@ -109,6 +109,30 @@ export function createBookmarkFromService(payload, csrfToken) {
   });
 }
 
+export function createBookmarkFromDiscoveredService(id, payload, csrfToken) {
+  return request(`/api/ui/v1/discovered-services/${id}/bookmark`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function ignoreDiscoveredService(id, csrfToken) {
+  return request(`/api/ui/v1/discovered-services/${id}/ignore`, {
+    body: JSON.stringify({}),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function restoreDiscoveredService(id, csrfToken) {
+  return request(`/api/ui/v1/discovered-services/${id}/restore`, {
+    body: JSON.stringify({}),
+    csrfToken,
+    method: "POST",
+  });
+}
+
 export function reorderBookmarks(payload, csrfToken) {
   return request("/api/ui/v1/bookmarks/reorder", {
     body: JSON.stringify(payload),
@@ -189,6 +213,14 @@ export function createScanTarget(payload, csrfToken) {
     body: JSON.stringify(payload),
     csrfToken,
     method: "POST",
+  });
+}
+
+export function updateDiscoverySettings(payload, csrfToken) {
+  return request("/api/ui/v1/discovery/settings", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
   });
 }
 

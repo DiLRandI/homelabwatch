@@ -75,6 +75,10 @@ func runCheck(ctx context.Context, item domain.MonitorCheck) domain.CheckResult 
 	return result
 }
 
+func RunAdhocCheck(ctx context.Context, check domain.ServiceCheck) domain.CheckResult {
+	return runCheck(ctx, domain.MonitorCheck{Check: check})
+}
+
 func runHTTPCheck(ctx context.Context, item domain.MonitorCheck, result *domain.CheckResult) {
 	check := item.Check
 	timeout := durationFromTimeout(check.TimeoutSeconds)
