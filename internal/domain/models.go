@@ -1,0 +1,299 @@
+package domain
+
+import "time"
+
+type HealthStatus string
+
+const (
+	HealthStatusUnknown   HealthStatus = "unknown"
+	HealthStatusHealthy   HealthStatus = "healthy"
+	HealthStatusDegraded  HealthStatus = "degraded"
+	HealthStatusUnhealthy HealthStatus = "unhealthy"
+)
+
+type ServiceSource string
+
+const (
+	ServiceSourceManual ServiceSource = "manual"
+	ServiceSourceDocker ServiceSource = "docker"
+	ServiceSourceLAN    ServiceSource = "lan"
+)
+
+type CheckType string
+
+const (
+	CheckTypeHTTP CheckType = "http"
+	CheckTypeTCP  CheckType = "tcp"
+	CheckTypePing CheckType = "ping"
+)
+
+type IdentityConfidence string
+
+const (
+	IdentityConfidenceLow  IdentityConfidence = "low"
+	IdentityConfidenceHigh IdentityConfidence = "high"
+)
+
+type BootstrapStatus struct {
+	Initialized bool `json:"initialized"`
+}
+
+type BootstrapInput struct {
+	AdminToken       string               `json:"adminToken"`
+	AutoScanEnabled  bool                 `json:"autoScanEnabled"`
+	DefaultScanPorts []int                `json:"defaultScanPorts"`
+	DockerEndpoints  []DockerEndpointSeed `json:"dockerEndpoints"`
+	ScanTargets      []ScanTargetSeed     `json:"scanTargets"`
+}
+
+type DockerEndpointSeed struct {
+	Name                string `json:"name"`
+	Kind                string `json:"kind"`
+	Address             string `json:"address"`
+	TLSCAPath           string `json:"tlsCaPath,omitempty"`
+	TLSCertPath         string `json:"tlsCertPath,omitempty"`
+	TLSKeyPath          string `json:"tlsKeyPath,omitempty"`
+	Enabled             bool   `json:"enabled"`
+	ScanIntervalSeconds int    `json:"scanIntervalSeconds"`
+}
+
+type ScanTargetSeed struct {
+	Name                string `json:"name"`
+	CIDR                string `json:"cidr"`
+	AutoDetected        bool   `json:"autoDetected"`
+	Enabled             bool   `json:"enabled"`
+	ScanIntervalSeconds int    `json:"scanIntervalSeconds"`
+	CommonPorts         []int  `json:"commonPorts"`
+}
+
+type AppSettings struct {
+	Initialized      bool      `json:"initialized"`
+	AdminTokenHash   string    `json:"-"`
+	InitializedAt    time.Time `json:"initializedAt"`
+	LastBootstrapAt  time.Time `json:"lastBootstrapAt"`
+	AutoScanEnabled  bool      `json:"autoScanEnabled"`
+	DefaultScanPorts []int     `json:"defaultScanPorts"`
+	UpdatedAt        time.Time `json:"updatedAt"`
+}
+
+type SettingsView struct {
+	AppSettings     AppSettings      `json:"appSettings"`
+	DockerEndpoints []DockerEndpoint `json:"dockerEndpoints"`
+	ScanTargets     []ScanTarget     `json:"scanTargets"`
+	JobState        []JobState       `json:"jobState"`
+}
+
+type DashboardSummary struct {
+	TotalServices     int `json:"totalServices"`
+	HealthyServices   int `json:"healthyServices"`
+	DegradedServices  int `json:"degradedServices"`
+	UnhealthyServices int `json:"unhealthyServices"`
+	DevicesSeen       int `json:"devicesSeen"`
+	Bookmarks         int `json:"bookmarks"`
+}
+
+type Dashboard struct {
+	Summary      DashboardSummary `json:"summary"`
+	Services     []Service        `json:"services"`
+	Devices      []Device         `json:"devices"`
+	Bookmarks    []Bookmark       `json:"bookmarks"`
+	RecentEvents []ServiceEvent   `json:"recentEvents"`
+}
+
+type Service struct {
+	ID            string         `json:"id"`
+	Name          string         `json:"name"`
+	Slug          string         `json:"slug"`
+	Source        ServiceSource  `json:"source"`
+	SourceRef     string         `json:"sourceRef"`
+	DeviceID      string         `json:"deviceId,omitempty"`
+	DeviceName    string         `json:"deviceName,omitempty"`
+	Icon          string         `json:"icon,omitempty"`
+	Scheme        string         `json:"scheme,omitempty"`
+	Host          string         `json:"host"`
+	Port          int            `json:"port"`
+	Path          string         `json:"path,omitempty"`
+	URL           string         `json:"url"`
+	Hidden        bool           `json:"hidden"`
+	Status        HealthStatus   `json:"status"`
+	LastSeenAt    time.Time      `json:"lastSeenAt"`
+	LastCheckedAt time.Time      `json:"lastCheckedAt"`
+	Details       map[string]any `json:"details,omitempty"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	Checks        []ServiceCheck `json:"checks,omitempty"`
+}
+
+type ServiceCheck struct {
+	ID                string       `json:"id"`
+	ServiceID         string       `json:"serviceId"`
+	Name              string       `json:"name"`
+	Type              CheckType    `json:"type"`
+	Target            string       `json:"target"`
+	IntervalSeconds   int          `json:"intervalSeconds"`
+	TimeoutSeconds    int          `json:"timeoutSeconds"`
+	ExpectedStatusMin int          `json:"expectedStatusMin,omitempty"`
+	ExpectedStatusMax int          `json:"expectedStatusMax,omitempty"`
+	Enabled           bool         `json:"enabled"`
+	CreatedAt         time.Time    `json:"createdAt"`
+	UpdatedAt         time.Time    `json:"updatedAt"`
+	LastResult        *CheckResult `json:"lastResult,omitempty"`
+}
+
+type CheckResult struct {
+	ID        string       `json:"id"`
+	CheckID   string       `json:"checkId"`
+	ServiceID string       `json:"serviceId"`
+	Status    HealthStatus `json:"status"`
+	LatencyMS int64        `json:"latencyMs"`
+	Message   string       `json:"message,omitempty"`
+	CheckedAt time.Time    `json:"checkedAt"`
+}
+
+type ServiceEvent struct {
+	ID        string       `json:"id"`
+	ServiceID string       `json:"serviceId"`
+	EventType string       `json:"eventType"`
+	Status    HealthStatus `json:"status"`
+	Message   string       `json:"message"`
+	CreatedAt time.Time    `json:"createdAt"`
+}
+
+type Device struct {
+	ID                 string             `json:"id"`
+	IdentityKey        string             `json:"identityKey"`
+	PrimaryMAC         string             `json:"primaryMac,omitempty"`
+	Hostname           string             `json:"hostname,omitempty"`
+	DisplayName        string             `json:"displayName,omitempty"`
+	IdentityConfidence IdentityConfidence `json:"identityConfidence"`
+	Hidden             bool               `json:"hidden"`
+	FirstSeenAt        time.Time          `json:"firstSeenAt"`
+	LastSeenAt         time.Time          `json:"lastSeenAt"`
+	CreatedAt          time.Time          `json:"createdAt"`
+	UpdatedAt          time.Time          `json:"updatedAt"`
+	Addresses          []DeviceAddress    `json:"addresses,omitempty"`
+	Ports              []DevicePort       `json:"ports,omitempty"`
+}
+
+type DeviceAddress struct {
+	ID            string    `json:"id"`
+	DeviceID      string    `json:"deviceId"`
+	IPAddress     string    `json:"ipAddress"`
+	MACAddress    string    `json:"macAddress,omitempty"`
+	InterfaceName string    `json:"interfaceName,omitempty"`
+	IsPrimary     bool      `json:"isPrimary"`
+	FirstSeenAt   time.Time `json:"firstSeenAt"`
+	LastSeenAt    time.Time `json:"lastSeenAt"`
+}
+
+type DevicePort struct {
+	ID          string    `json:"id"`
+	DeviceID    string    `json:"deviceId"`
+	Port        int       `json:"port"`
+	Protocol    string    `json:"protocol"`
+	ServiceHint string    `json:"serviceHint,omitempty"`
+	Open        bool      `json:"open"`
+	FirstSeenAt time.Time `json:"firstSeenAt"`
+	LastSeenAt  time.Time `json:"lastSeenAt"`
+}
+
+type DeviceObservation struct {
+	IdentityKey string             `json:"identityKey"`
+	PrimaryMAC  string             `json:"primaryMac,omitempty"`
+	Hostname    string             `json:"hostname,omitempty"`
+	DisplayName string             `json:"displayName,omitempty"`
+	IPAddress   string             `json:"ipAddress,omitempty"`
+	Interface   string             `json:"interface,omitempty"`
+	Confidence  IdentityConfidence `json:"confidence"`
+	Ports       []PortObservation  `json:"ports,omitempty"`
+	LastSeenAt  time.Time          `json:"lastSeenAt"`
+}
+
+type PortObservation struct {
+	Port        int    `json:"port"`
+	Protocol    string `json:"protocol"`
+	ServiceHint string `json:"serviceHint,omitempty"`
+}
+
+type ServiceObservation struct {
+	Name       string         `json:"name"`
+	Source     ServiceSource  `json:"source"`
+	SourceRef  string         `json:"sourceRef"`
+	DeviceKey  string         `json:"deviceKey,omitempty"`
+	Icon       string         `json:"icon,omitempty"`
+	Scheme     string         `json:"scheme,omitempty"`
+	Host       string         `json:"host"`
+	Port       int            `json:"port"`
+	Path       string         `json:"path,omitempty"`
+	URL        string         `json:"url,omitempty"`
+	LastSeenAt time.Time      `json:"lastSeenAt"`
+	Details    map[string]any `json:"details,omitempty"`
+}
+
+type Observation struct {
+	Device   DeviceObservation    `json:"device"`
+	Services []ServiceObservation `json:"services,omitempty"`
+}
+
+type Bookmark struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	URL         string    `json:"url"`
+	Description string    `json:"description,omitempty"`
+	Icon        string    `json:"icon,omitempty"`
+	Tags        []string  `json:"tags,omitempty"`
+	SortOrder   int       `json:"sortOrder"`
+	ServiceID   string    `json:"serviceId,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type DockerEndpoint struct {
+	ID                  string    `json:"id"`
+	Name                string    `json:"name"`
+	Kind                string    `json:"kind"`
+	Address             string    `json:"address"`
+	TLSCAPath           string    `json:"tlsCaPath,omitempty"`
+	TLSCertPath         string    `json:"tlsCertPath,omitempty"`
+	TLSKeyPath          string    `json:"tlsKeyPath,omitempty"`
+	Enabled             bool      `json:"enabled"`
+	ScanIntervalSeconds int       `json:"scanIntervalSeconds"`
+	LastSuccessAt       time.Time `json:"lastSuccessAt"`
+	LastError           string    `json:"lastError,omitempty"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+}
+
+type ScanTarget struct {
+	ID                  string    `json:"id"`
+	Name                string    `json:"name"`
+	CIDR                string    `json:"cidr"`
+	AutoDetected        bool      `json:"autoDetected"`
+	Enabled             bool      `json:"enabled"`
+	ScanIntervalSeconds int       `json:"scanIntervalSeconds"`
+	CommonPorts         []int     `json:"commonPorts"`
+	CreatedAt           time.Time `json:"createdAt"`
+	UpdatedAt           time.Time `json:"updatedAt"`
+}
+
+type JobState struct {
+	JobName       string    `json:"jobName"`
+	LastRunAt     time.Time `json:"lastRunAt"`
+	LastSuccessAt time.Time `json:"lastSuccessAt"`
+	LastError     string    `json:"lastError,omitempty"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+type MonitorCheck struct {
+	Check   ServiceCheck `json:"check"`
+	Service Service      `json:"service"`
+}
+
+type EventEnvelope struct {
+	Type       string    `json:"type"`
+	Resource   string    `json:"resource"`
+	ID         string    `json:"id"`
+	Action     string    `json:"action"`
+	Payload    any       `json:"payload,omitempty"`
+	OccurredAt time.Time `json:"occurredAt"`
+}

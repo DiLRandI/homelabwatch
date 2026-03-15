@@ -1,0 +1,20 @@
+server:
+  listenAddr: ":8080"
+
+storage:
+  dataDir: "./data"
+  dbPath: "./data/homelabwatch.db"
+
+frontend:
+  staticDir: "./web/dist"
+
+discovery:
+  seedDockerSocket: true
+  seedCidrs:
+    - "192.168.1.0/24"
+  defaultScanPorts:
+    - 22
+    - 80
+    - 443
+    - 8080
+    - 8443

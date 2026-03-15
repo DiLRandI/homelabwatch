@@ -1,0 +1,510 @@
+package httpapi
+
+import (
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/deleema/homelabwatch/internal/api/sse"
+	"github.com/deleema/homelabwatch/internal/app"
+	"github.com/deleema/homelabwatch/internal/config"
+	"github.com/deleema/homelabwatch/internal/domain"
+)
+
+type Router struct {
+	app    *app.App
+	config config.Config
+	sse    http.Handler
+}
+
+func NewRouter(application *app.App, cfg config.Config) http.Handler {
+	router := &Router{
+		app:    application,
+		config: cfg,
+		sse:    sse.NewHandler(busAdapter{application: application}),
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", router.healthz)
+	mux.HandleFunc("GET /api/v1/bootstrap/status", router.handleBootstrapStatus)
+	mux.HandleFunc("POST /api/v1/bootstrap/init", router.handleBootstrapInit)
+	mux.HandleFunc("GET /api/v1/dashboard", router.handleDashboard)
+	mux.HandleFunc("GET /api/v1/settings", router.handleSettings)
+	mux.HandleFunc("GET /api/v1/services", router.handleServices)
+	mux.Handle("POST /api/v1/services", router.withAdmin(http.HandlerFunc(router.handleServices)))
+	mux.HandleFunc("GET /api/v1/services/{id}", router.handleServiceByID)
+	mux.Handle("PATCH /api/v1/services/{id}", router.withAdmin(http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("DELETE /api/v1/services/{id}", router.withAdmin(http.HandlerFunc(router.handleServiceByID)))
+	mux.HandleFunc("GET /api/v1/services/{id}/events", router.handleServiceEvents)
+	mux.HandleFunc("GET /api/v1/services/{id}/checks", router.handleServiceChecks)
+	mux.Handle("POST /api/v1/services/{id}/checks", router.withAdmin(http.HandlerFunc(router.handleServiceChecks)))
+	mux.Handle("PATCH /api/v1/checks/{id}", router.withAdmin(http.HandlerFunc(router.handleCheckByID)))
+	mux.Handle("DELETE /api/v1/checks/{id}", router.withAdmin(http.HandlerFunc(router.handleCheckByID)))
+	mux.HandleFunc("GET /api/v1/devices", router.handleDevices)
+	mux.HandleFunc("GET /api/v1/devices/{id}", router.handleDeviceByID)
+	mux.Handle("PATCH /api/v1/devices/{id}", router.withAdmin(http.HandlerFunc(router.handleDeviceByID)))
+	mux.HandleFunc("GET /api/v1/bookmarks", router.handleBookmarks)
+	mux.Handle("POST /api/v1/bookmarks", router.withAdmin(http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("PATCH /api/v1/bookmarks/{id}", router.withAdmin(http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("DELETE /api/v1/bookmarks/{id}", router.withAdmin(http.HandlerFunc(router.handleBookmarkByID)))
+	mux.HandleFunc("GET /api/v1/discovery/docker-endpoints", router.handleDockerEndpoints)
+	mux.Handle("POST /api/v1/discovery/docker-endpoints", router.withAdmin(http.HandlerFunc(router.handleDockerEndpoints)))
+	mux.Handle("PATCH /api/v1/discovery/docker-endpoints/{id}", router.withAdmin(http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.Handle("DELETE /api/v1/discovery/docker-endpoints/{id}", router.withAdmin(http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.HandleFunc("GET /api/v1/discovery/scan-targets", router.handleScanTargets)
+	mux.Handle("POST /api/v1/discovery/scan-targets", router.withAdmin(http.HandlerFunc(router.handleScanTargets)))
+	mux.Handle("PATCH /api/v1/discovery/scan-targets/{id}", router.withAdmin(http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("DELETE /api/v1/discovery/scan-targets/{id}", router.withAdmin(http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("POST /api/v1/discovery/run", router.withAdmin(http.HandlerFunc(router.handleDiscoveryRun)))
+	mux.Handle("POST /api/v1/monitoring/run", router.withAdmin(http.HandlerFunc(router.handleMonitoringRun)))
+	mux.Handle("GET /api/v1/events", router.sse)
+	mux.HandleFunc("/", router.handleStatic)
+	return mux
+}
+
+type busAdapter struct {
+	application *app.App
+}
+
+func (b busAdapter) Subscribe(buffer int) chan domain.EventEnvelope {
+	return b.application.SubscribeEvents(buffer)
+}
+func (b busAdapter) Unsubscribe(ch chan domain.EventEnvelope) { b.application.UnsubscribeEvents(ch) }
+
+func (r *Router) healthz(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (r *Router) handleBootstrapStatus(w http.ResponseWriter, req *http.Request) {
+	status, err := r.app.BootstrapStatus(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (r *Router) handleBootstrapInit(w http.ResponseWriter, req *http.Request) {
+	var input domain.BootstrapInput
+	if err := decodeJSON(req.Body, &input); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := r.app.Initialize(req.Context(), input); err != nil {
+		status := http.StatusBadRequest
+		if strings.Contains(err.Error(), "already completed") {
+			status = http.StatusConflict
+		}
+		writeError(w, status, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"status": "initialized"})
+}
+
+func (r *Router) handleDashboard(w http.ResponseWriter, req *http.Request) {
+	item, err := r.app.Dashboard(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
+	item, err := r.app.Settings(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, item)
+}
+
+func (r *Router) handleServices(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.app.ListServices(req.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var item domain.Service
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		saved, err := r.app.SaveManualService(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, saved)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleServiceByID(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	switch req.Method {
+	case http.MethodGet:
+		item, err := r.app.GetService(req.Context(), id)
+		if err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case http.MethodPatch:
+		var item domain.Service
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item.ID = id
+		saved, err := r.app.SaveManualService(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		if err := r.app.DeleteService(req.Context(), id); err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (r *Router) handleServiceEvents(w http.ResponseWriter, req *http.Request) {
+	items, err := r.app.ListServiceEvents(req.Context(), req.PathValue("id"))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleServiceChecks(w http.ResponseWriter, req *http.Request) {
+	serviceID := req.PathValue("id")
+	switch req.Method {
+	case http.MethodGet:
+		service, err := r.app.GetService(req.Context(), serviceID)
+		if err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, service.Checks)
+	case http.MethodPost:
+		var item domain.ServiceCheck
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item.ServiceID = serviceID
+		saved, err := r.app.SaveServiceCheck(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, saved)
+	}
+}
+
+func (r *Router) handleCheckByID(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	switch req.Method {
+	case http.MethodPatch:
+		var item domain.ServiceCheck
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item.ID = id
+		saved, err := r.app.SaveServiceCheck(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		if err := r.app.DeleteServiceCheck(req.Context(), id); err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (r *Router) handleDevices(w http.ResponseWriter, req *http.Request) {
+	items, err := r.app.ListDevices(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (r *Router) handleDeviceByID(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	switch req.Method {
+	case http.MethodGet:
+		item, err := r.app.GetDevice(req.Context(), id)
+		if err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case http.MethodPatch:
+		var payload struct {
+			DisplayName *string `json:"displayName"`
+			Hidden      *bool   `json:"hidden"`
+		}
+		if err := decodeJSON(req.Body, &payload); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item, err := r.app.UpdateDevice(req.Context(), id, payload.DisplayName, payload.Hidden)
+		if err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	}
+}
+
+func (r *Router) handleBookmarks(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.app.ListBookmarks(req.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var item domain.Bookmark
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		saved, err := r.app.SaveBookmark(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, saved)
+	}
+}
+
+func (r *Router) handleBookmarkByID(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	switch req.Method {
+	case http.MethodPatch:
+		var item domain.Bookmark
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item.ID = id
+		saved, err := r.app.SaveBookmark(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		if err := r.app.DeleteBookmark(req.Context(), id); err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (r *Router) handleDockerEndpoints(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.app.ListDockerEndpoints(req.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var item domain.DockerEndpoint
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		saved, err := r.app.SaveDockerEndpoint(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, saved)
+	}
+}
+
+func (r *Router) handleDockerEndpointByID(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	switch req.Method {
+	case http.MethodPatch:
+		var item domain.DockerEndpoint
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item.ID = id
+		saved, err := r.app.SaveDockerEndpoint(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		if err := r.app.DeleteDockerEndpoint(req.Context(), id); err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (r *Router) handleScanTargets(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		items, err := r.app.ListScanTargets(req.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var item domain.ScanTarget
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		saved, err := r.app.SaveScanTarget(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, saved)
+	}
+}
+
+func (r *Router) handleScanTargetByID(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	switch req.Method {
+	case http.MethodPatch:
+		var item domain.ScanTarget
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item.ID = id
+		saved, err := r.app.SaveScanTarget(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		if err := r.app.DeleteScanTarget(req.Context(), id); err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func (r *Router) handleDiscoveryRun(w http.ResponseWriter, req *http.Request) {
+	if err := r.app.TriggerDiscovery(req.Context()); err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "discovery-triggered"})
+}
+
+func (r *Router) handleMonitoringRun(w http.ResponseWriter, req *http.Request) {
+	if err := r.app.TriggerMonitoring(req.Context()); err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "monitoring-triggered"})
+}
+
+func (r *Router) handleStatic(w http.ResponseWriter, req *http.Request) {
+	if strings.HasPrefix(req.URL.Path, "/api/") {
+		http.NotFound(w, req)
+		return
+	}
+	cleanPath := filepath.Clean(strings.TrimPrefix(req.URL.Path, "/"))
+	if cleanPath == "." {
+		cleanPath = "index.html"
+	}
+	target := filepath.Join(r.config.StaticDir, cleanPath)
+	if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		http.ServeFile(w, req, target)
+		return
+	}
+	http.ServeFile(w, req, filepath.Join(r.config.StaticDir, "index.html"))
+}
+
+func (r *Router) withAdmin(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		ok, err := r.app.ValidateAdminToken(req.Context(), adminToken(req))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if !ok {
+			writeError(w, http.StatusUnauthorized, errors.New("missing or invalid admin token"))
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
+}
+
+func adminToken(req *http.Request) string {
+	if token := strings.TrimSpace(req.Header.Get("X-Admin-Token")); token != "" {
+		return token
+	}
+	if auth := strings.TrimSpace(req.Header.Get("Authorization")); strings.HasPrefix(auth, "Bearer ") {
+		return strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+	}
+	return ""
+}
+
+func decodeJSON(body io.ReadCloser, target any) error {
+	defer body.Close()
+	decoder := json.NewDecoder(body)
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(target)
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func writeError(w http.ResponseWriter, status int, err error) {
+	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+func writeLookupError(w http.ResponseWriter, err error) {
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusNotFound, err)
+		return
+	}
+	writeError(w, http.StatusInternalServerError, err)
+}
