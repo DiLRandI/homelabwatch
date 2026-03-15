@@ -24,7 +24,7 @@ export default function WorkersSection({ jobState, recentEvents }) {
           {jobState.length === 0 ? (
             <div className="px-5 py-5 sm:px-6">
               <EmptyState
-                body="Background jobs will report here after bootstrap completes and the scheduler starts running."
+                body="Background jobs will report here after setup completes and the scheduler starts running."
                 title="No worker runs yet"
               />
             </div>

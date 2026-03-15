@@ -30,13 +30,13 @@ const sourceMeta = {
   },
 };
 
-export default function ServicesSection({ onAdd, services }) {
+export default function ServicesSection({ canManage = true, onAdd, services }) {
   return (
     <section id="services">
       <Card>
         <CardHeader
           action={
-            <Button leadingIcon={PlusIcon} onClick={onAdd}>
+            <Button disabled={!canManage} leadingIcon={PlusIcon} onClick={onAdd}>
               Add service
             </Button>
           }
@@ -46,7 +46,7 @@ export default function ServicesSection({ onAdd, services }) {
         <CardContent>
           {services.length === 0 ? (
             <EmptyState
-              action={onAdd}
+              action={canManage ? onAdd : undefined}
               actionLabel="Add your first service"
               body="Run discovery or create a manual service to start monitoring the control plane."
               title="No services connected yet"

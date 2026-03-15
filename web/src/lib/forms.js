@@ -1,7 +1,8 @@
-export const defaultBootstrapForm = {
-  adminToken: "",
+export const defaultSetupForm = {
+  applianceName: "HomelabWatch",
   autoScanEnabled: true,
   defaultScanPorts: "22,80,443,8080,8443",
+  runDiscovery: true,
   seedCIDRs: "",
 };
 
@@ -30,6 +31,11 @@ export const defaultScanTargetForm = {
   commonPorts: "22,80,443,8080,8443",
   enabled: true,
   scanIntervalSeconds: 300,
+};
+
+export const defaultAPITokenForm = {
+  name: "Automation token",
+  scope: "write",
 };
 
 export function parsePorts(raw) {

@@ -2,37 +2,28 @@ package app
 
 import (
 	"context"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/deleema/homelabwatch/internal/config"
+	"github.com/deleema/homelabwatch/internal/domain"
 	"github.com/deleema/homelabwatch/internal/events"
 	"github.com/deleema/homelabwatch/internal/store/sqlite"
 )
 
-func TestEnsureBootstrapAutoGeneratesToken(t *testing.T) {
-	application, store, cfg := newTestApp(t, config.Config{
-		AutoBootstrap:    true,
+func TestSetupInitializesWorkspace(t *testing.T) {
+	application, store, _ := newTestApp(t, config.Config{
 		DefaultScanPorts: []int{22, 80},
 	})
 
-	result, err := application.EnsureBootstrap(context.Background())
+	err := application.Setup(context.Background(), domain.SetupInput{
+		ApplianceName:    "Rack Alpha",
+		AutoScanEnabled:  true,
+		DefaultScanPorts: []int{22, 80},
+		RunDiscovery:     false,
+	})
 	if err != nil {
-		t.Fatalf("ensure bootstrap: %v", err)
-	}
-	if !result.Performed {
-		t.Fatalf("expected bootstrap to run")
-	}
-	if !result.Generated {
-		t.Fatalf("expected token generation on first bootstrap")
-	}
-	if result.AdminToken == "" {
-		t.Fatalf("expected generated admin token")
-	}
-	if result.AdminTokenFile != cfg.AdminTokenFile {
-		t.Fatalf("expected token file %q, got %q", cfg.AdminTokenFile, result.AdminTokenFile)
+		t.Fatalf("setup workspace: %v", err)
 	}
 
 	status, err := store.BootstrapStatus(context.Background())
@@ -43,105 +34,73 @@ func TestEnsureBootstrapAutoGeneratesToken(t *testing.T) {
 		t.Fatalf("expected initialized store")
 	}
 
-	ok, err := application.ValidateAdminToken(context.Background(), result.AdminToken)
+	settings, err := application.Settings(context.Background())
 	if err != nil {
-		t.Fatalf("validate admin token: %v", err)
+		t.Fatalf("load settings: %v", err)
 	}
-	if !ok {
-		t.Fatalf("expected generated token to validate")
-	}
-
-	content, err := os.ReadFile(cfg.AdminTokenFile)
-	if err != nil {
-		t.Fatalf("read admin token file: %v", err)
-	}
-	if strings.TrimSpace(string(content)) != result.AdminToken {
-		t.Fatalf("unexpected admin token file contents")
+	if settings.AppSettings.ApplianceName != "Rack Alpha" {
+		t.Fatalf("expected appliance name to persist, got %q", settings.AppSettings.ApplianceName)
 	}
 }
 
-func TestEnsureBootstrapUsesConfiguredAdminToken(t *testing.T) {
-	application, _, cfg := newTestApp(t, config.Config{
-		AutoBootstrap:    true,
-		AdminToken:       "preset-token",
-		DefaultScanPorts: []int{22, 80},
-	})
-
-	result, err := application.EnsureBootstrap(context.Background())
-	if err != nil {
-		t.Fatalf("ensure bootstrap: %v", err)
-	}
-	if !result.Performed {
-		t.Fatalf("expected bootstrap to run")
-	}
-	if result.Generated {
-		t.Fatalf("did not expect generated token when config token is set")
-	}
-	if result.AdminToken != "preset-token" {
-		t.Fatalf("expected configured token to be used, got %q", result.AdminToken)
-	}
-
-	content, err := os.ReadFile(cfg.AdminTokenFile)
-	if err != nil {
-		t.Fatalf("read admin token file: %v", err)
-	}
-	if strings.TrimSpace(string(content)) != "preset-token" {
-		t.Fatalf("unexpected admin token file contents")
-	}
-}
-
-func TestEnsureBootstrapSkipsExistingState(t *testing.T) {
+func TestSetupRejectsSecondRun(t *testing.T) {
 	application, _, _ := newTestApp(t, config.Config{
-		AutoBootstrap:    true,
-		AdminToken:       "first-token",
 		DefaultScanPorts: []int{22, 80},
 	})
 
-	result, err := application.EnsureBootstrap(context.Background())
-	if err != nil {
-		t.Fatalf("first ensure bootstrap: %v", err)
-	}
-	if !result.Performed {
-		t.Fatalf("expected initial bootstrap to run")
-	}
-
-	next, err := application.EnsureBootstrap(context.Background())
-	if err != nil {
-		t.Fatalf("second ensure bootstrap: %v", err)
-	}
-	if next.Performed {
-		t.Fatalf("did not expect bootstrap to rerun on existing state")
+	if err := application.Setup(context.Background(), domain.SetupInput{
+		ApplianceName:    "Rack Alpha",
+		DefaultScanPorts: []int{22, 80},
+	}); err != nil {
+		t.Fatalf("first setup: %v", err)
 	}
 
-	ok, err := application.ValidateAdminToken(context.Background(), "first-token")
-	if err != nil {
-		t.Fatalf("validate admin token: %v", err)
-	}
-	if !ok {
-		t.Fatalf("expected existing token to remain valid")
+	err := application.Setup(context.Background(), domain.SetupInput{
+		ApplianceName:    "Rack Beta",
+		DefaultScanPorts: []int{22, 80},
+	})
+	if err == nil {
+		t.Fatalf("expected second setup attempt to fail")
 	}
 }
 
-func TestEnsureBootstrapRespectsDisableFlag(t *testing.T) {
-	application, store, _ := newTestApp(t, config.Config{
-		AutoBootstrap:    false,
+func TestCreateAPITokenSupportsScopedValidation(t *testing.T) {
+	application, _, _ := newTestApp(t, config.Config{
 		DefaultScanPorts: []int{22, 80},
 	})
 
-	result, err := application.EnsureBootstrap(context.Background())
-	if err != nil {
-		t.Fatalf("ensure bootstrap: %v", err)
-	}
-	if result.Performed {
-		t.Fatalf("did not expect bootstrap to run when disabled")
+	if err := application.Setup(context.Background(), domain.SetupInput{
+		ApplianceName:    "Rack Alpha",
+		DefaultScanPorts: []int{22, 80},
+	}); err != nil {
+		t.Fatalf("setup workspace: %v", err)
 	}
 
-	status, err := store.BootstrapStatus(context.Background())
+	created, err := application.CreateAPIToken(context.Background(), domain.CreateAPITokenInput{
+		Name:  "Read only",
+		Scope: domain.TokenScopeRead,
+	})
 	if err != nil {
-		t.Fatalf("bootstrap status: %v", err)
+		t.Fatalf("create api token: %v", err)
 	}
-	if status.Initialized {
-		t.Fatalf("expected uninitialized state when auto-bootstrap is disabled")
+	if created.Secret == "" {
+		t.Fatalf("expected raw api token secret")
+	}
+
+	ok, err := application.ValidateAPIToken(context.Background(), created.Secret, domain.TokenScopeRead)
+	if err != nil {
+		t.Fatalf("validate read token: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected read token to validate for read scope")
+	}
+
+	ok, err = application.ValidateAPIToken(context.Background(), created.Secret, domain.TokenScopeWrite)
+	if err != nil {
+		t.Fatalf("validate write scope with read token: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected read token to fail write scope validation")
 	}
 }
 
@@ -155,21 +114,14 @@ func newTestApp(t *testing.T, overrides config.Config) (*App, *sqlite.Store, con
 		DBPath:           filepath.Join(dataDir, "homelabwatch.db"),
 		StaticDir:        dataDir,
 		SeedDockerSocket: false,
-		AutoBootstrap:    true,
 		DefaultScanPorts: []int{22, 80, 443},
-		AdminTokenFile:   filepath.Join(dataDir, "admin-token"),
-	}
-	if overrides.AutoBootstrap != cfg.AutoBootstrap {
-		cfg.AutoBootstrap = overrides.AutoBootstrap
+		TrustedCIDRs:     []string{"127.0.0.1/32"},
 	}
 	if len(overrides.DefaultScanPorts) > 0 {
 		cfg.DefaultScanPorts = append([]int(nil), overrides.DefaultScanPorts...)
 	}
-	if overrides.AdminToken != "" {
-		cfg.AdminToken = overrides.AdminToken
-	}
-	if overrides.AdminTokenFile != "" {
-		cfg.AdminTokenFile = overrides.AdminTokenFile
+	if len(overrides.TrustedCIDRs) > 0 {
+		cfg.TrustedCIDRs = append([]string(nil), overrides.TrustedCIDRs...)
 	}
 
 	store, err := sqlite.New(cfg.DBPath)

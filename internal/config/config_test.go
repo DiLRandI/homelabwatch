@@ -1,23 +1,14 @@
 package config
 
-import (
-	"path/filepath"
-	"testing"
-)
+import "testing"
 
-func TestLoadDerivesAdminTokenFileFromDataDir(t *testing.T) {
-	dataDir := t.TempDir()
-	t.Setenv("HOMELABWATCH_DATA_DIR", dataDir)
-	t.Setenv("HOMELABWATCH_DB_PATH", filepath.Join(dataDir, "homelabwatch.db"))
-	t.Setenv("HOMELABWATCH_ADMIN_TOKEN_FILE", "")
-
+func TestLoadUsesDefaultTrustedCIDRs(t *testing.T) {
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("load config: %v", err)
 	}
 
-	expected := filepath.Join(dataDir, "admin-token")
-	if cfg.AdminTokenFile != expected {
-		t.Fatalf("expected admin token file %q, got %q", expected, cfg.AdminTokenFile)
+	if len(cfg.TrustedCIDRs) == 0 {
+		t.Fatalf("expected default trusted cidrs")
 	}
 }

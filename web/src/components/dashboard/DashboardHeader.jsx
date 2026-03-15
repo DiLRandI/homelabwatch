@@ -1,43 +1,42 @@
-import { formatDate } from "../../lib/format";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 import { Card, CardContent } from "../ui/Card";
 import {
-  ActivityIcon,
   BookmarkIcon,
-  ClockIcon,
+  PlusIcon,
+  TokenIcon,
+  ShieldIcon,
   DatabaseIcon,
   DiscoveryIcon,
-  PlusIcon,
   SparklesIcon,
-  TokenIcon,
 } from "../ui/Icons";
 
 const detailIcons = {
-  "Active scans": DiscoveryIcon,
-  "Bootstrap date": ClockIcon,
-  Persistence: DatabaseIcon,
+  Appliance: DatabaseIcon,
+  Access: ShieldIcon,
+  "Discovery footprint": DiscoveryIcon,
 };
 
 export default function DashboardHeader({
-  adminTokenFile,
+  canManageUI,
   metrics,
   onOpenModal,
   settings,
 }) {
   const details = [
     {
-      label: "Active scans",
-      value: `${settings?.scanTargets?.length ?? 0} targets across ${settings?.dockerEndpoints?.length ?? 0} Docker endpoints`,
+      label: "Appliance",
+      value: settings?.appSettings?.applianceName || "HomelabWatch",
     },
     {
-      label: "Bootstrap date",
-      value: formatDate(settings?.appSettings?.initializedAt),
+      label: "Discovery footprint",
+      value: `${settings?.scanTargets?.length ?? 0} scan targets, ${settings?.dockerEndpoints?.length ?? 0} Docker endpoints`,
     },
     {
-      label: "Persistence",
-      value: adminTokenFile || "Token stored in browser session",
-      truncate: true,
+      label: "Access",
+      value: canManageUI
+        ? "Trusted LAN writes enabled"
+        : "Read-only from this network",
     },
   ];
 
@@ -53,12 +52,12 @@ export default function DashboardHeader({
           </Badge>
           <div className="mt-5 max-w-3xl">
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
-              Run the homelab like a product, not a pile of tabs.
+              Operate the lab from one clean control plane.
             </h1>
             <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
-              Homelabwatch keeps discovery, health, bookmarks, and worker
-              activity in one operator view so you can see what changed and act
-              before users notice.
+              HomelabWatch keeps discovery, runtime health, containers, and
+              automation access in one operator console so you can see what
+              changed and act without credential juggling in the browser.
             </p>
           </div>
 
@@ -76,10 +75,7 @@ export default function DashboardHeader({
                   <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                     {detail.label}
                   </p>
-                  <p
-                    className={`mt-2 text-sm font-medium text-slate-900 ${detail.truncate ? "truncate" : ""}`}
-                    title={detail.value}
-                  >
+                  <p className="mt-2 text-sm font-medium text-slate-900">
                     {detail.value}
                   </p>
                 </div>
@@ -88,10 +84,15 @@ export default function DashboardHeader({
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
-            <Button leadingIcon={PlusIcon} onClick={() => onOpenModal("service")}>
+            <Button
+              disabled={!canManageUI}
+              leadingIcon={PlusIcon}
+              onClick={() => onOpenModal("service")}
+            >
               Add service
             </Button>
             <Button
+              disabled={!canManageUI}
               leadingIcon={BookmarkIcon}
               onClick={() => onOpenModal("bookmark")}
               variant="secondary"
@@ -99,11 +100,12 @@ export default function DashboardHeader({
               Add bookmark
             </Button>
             <Button
+              disabled={!canManageUI}
               leadingIcon={TokenIcon}
-              onClick={() => onOpenModal("endpoint")}
+              onClick={() => onOpenModal("apiToken")}
               variant="subtle"
             >
-              Add Docker endpoint
+              Create API token
             </Button>
           </div>
         </CardContent>

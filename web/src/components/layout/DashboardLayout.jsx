@@ -8,10 +8,10 @@ export default function DashboardLayout({
   children,
   metrics,
   navItems,
+  sidebarMeta,
   statusItems,
   subtitle,
   title,
-  tokenFile,
   toolbar,
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -23,7 +23,7 @@ export default function DashboardLayout({
         navItems={navItems}
         onClose={() => setSidebarOpen(false)}
         open={sidebarOpen}
-        tokenFile={tokenFile}
+        sidebarMeta={sidebarMeta}
       />
       <div className="min-w-0">
         <Navbar

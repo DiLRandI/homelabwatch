@@ -19,9 +19,7 @@ type Config struct {
 	SeedCIDRs        []string
 	DefaultScanPorts []int
 	SeedDockerSocket bool
-	AutoBootstrap    bool
-	AdminToken       string
-	AdminTokenFile   string
+	TrustedCIDRs     []string
 }
 
 type fileConfig struct {
@@ -40,40 +38,44 @@ type fileConfig struct {
 		DefaultScanPorts []int    `yaml:"defaultScanPorts"`
 		SeedDockerSocket *bool    `yaml:"seedDockerSocket"`
 	} `yaml:"discovery"`
-	Bootstrap struct {
-		AutoBootstrap  *bool  `yaml:"autoBootstrap"`
-		AdminTokenFile string `yaml:"adminTokenFile"`
-	} `yaml:"bootstrap"`
+	Security struct {
+		TrustedCIDRs []string `yaml:"trustedCidrs"`
+	} `yaml:"security"`
 }
 
 func Load() (Config, error) {
-	adminTokenFileExplicit := false
 	cfg := Config{
 		ListenAddr:       ":8080",
 		DataDir:          "./data",
 		StaticDir:        "./web/dist",
 		SeedDockerSocket: true,
 		DefaultScanPorts: []int{22, 80, 443, 8080, 8443},
-		AutoBootstrap:    true,
+		TrustedCIDRs: []string{
+			"127.0.0.1/32",
+			"::1/128",
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"169.254.0.0/16",
+			"fc00::/7",
+			"fe80::/10",
+		},
 	}
 	cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
-	cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	cfg.ConfigPath = envString("HOMELABWATCH_CONFIG", "")
 
 	if cfg.ConfigPath != "" {
-		explicit, err := loadYAML(&cfg, cfg.ConfigPath)
+		err := loadYAML(&cfg, cfg.ConfigPath)
 		if err != nil {
 			return Config{}, err
 		}
-		adminTokenFileExplicit = adminTokenFileExplicit || explicit
 	} else {
 		for _, candidate := range []string{"./config.yaml", "./config.yml"} {
 			if _, err := os.Stat(candidate); err == nil {
-				explicit, err := loadYAML(&cfg, candidate)
+				err := loadYAML(&cfg, candidate)
 				if err != nil {
 					return Config{}, err
 				}
-				adminTokenFileExplicit = adminTokenFileExplicit || explicit
 				cfg.ConfigPath = candidate
 				break
 			}
@@ -91,11 +93,8 @@ func Load() (Config, error) {
 		cfg.DefaultScanPorts = ports
 	}
 	cfg.SeedDockerSocket = envBool("HOMELABWATCH_SEED_DOCKER_SOCKET", cfg.SeedDockerSocket)
-	cfg.AutoBootstrap = envBool("HOMELABWATCH_AUTO_BOOTSTRAP", cfg.AutoBootstrap)
-	cfg.AdminToken = envString("HOMELABWATCH_ADMIN_TOKEN", cfg.AdminToken)
-	if tokenFile := envString("HOMELABWATCH_ADMIN_TOKEN_FILE", ""); tokenFile != "" {
-		cfg.AdminTokenFile = tokenFile
-		adminTokenFileExplicit = true
+	if cidrs := envCSV("HOMELABWATCH_TRUSTED_CIDRS"); len(cidrs) > 0 {
+		cfg.TrustedCIDRs = cidrs
 	}
 
 	if strings.TrimSpace(cfg.DBPath) == "" {
@@ -103,9 +102,6 @@ func Load() (Config, error) {
 	}
 	if strings.TrimSpace(cfg.DataDir) == "" {
 		cfg.DataDir = filepath.Dir(cfg.DBPath)
-	}
-	if !adminTokenFileExplicit || strings.TrimSpace(cfg.AdminTokenFile) == "" {
-		cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	}
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		return Config{}, err
@@ -116,16 +112,15 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-func loadYAML(cfg *Config, path string) (bool, error) {
+func loadYAML(cfg *Config, path string) error {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return false, err
+		return err
 	}
 	var fileCfg fileConfig
 	if err := yaml.Unmarshal(content, &fileCfg); err != nil {
-		return false, err
+		return err
 	}
-	adminTokenFileExplicit := false
 	if fileCfg.Server.ListenAddr != "" {
 		cfg.ListenAddr = fileCfg.Server.ListenAddr
 	}
@@ -147,17 +142,13 @@ func loadYAML(cfg *Config, path string) (bool, error) {
 	if fileCfg.Discovery.SeedDockerSocket != nil {
 		cfg.SeedDockerSocket = *fileCfg.Discovery.SeedDockerSocket
 	}
-	if fileCfg.Bootstrap.AutoBootstrap != nil {
-		cfg.AutoBootstrap = *fileCfg.Bootstrap.AutoBootstrap
-	}
-	if fileCfg.Bootstrap.AdminTokenFile != "" {
-		cfg.AdminTokenFile = fileCfg.Bootstrap.AdminTokenFile
-		adminTokenFileExplicit = true
+	if len(fileCfg.Security.TrustedCIDRs) > 0 {
+		cfg.TrustedCIDRs = append([]string(nil), fileCfg.Security.TrustedCIDRs...)
 	}
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
 	}
-	return adminTokenFileExplicit, nil
+	return nil
 }
 
 func envString(key, fallback string) string {

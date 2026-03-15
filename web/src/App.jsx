@@ -16,12 +16,13 @@ export default function App() {
         />
       ) : app.initialized ? (
         <DashboardScreen
-          adminToken={app.adminToken}
+          canManageUI={app.trustedNetwork}
           dashboard={app.dashboard}
           error={app.error}
           notice={app.notice}
-          onAdminTokenChange={app.setAdminToken}
+          onCreateAPIToken={app.createExternalToken}
           onRefresh={app.refreshAll}
+          onRevokeAPIToken={app.revokeExternalToken}
           onRunDiscovery={app.runDiscovery}
           onRunMonitoring={app.runMonitoring}
           onSaveBookmark={app.saveBookmark}
@@ -34,7 +35,8 @@ export default function App() {
         <BootstrapScreen
           error={app.error}
           notice={app.notice}
-          onSubmit={app.submitBootstrap}
+          onSubmit={app.submitSetup}
+          trustedNetwork={app.trustedNetwork}
         />
       )}
     </Shell>

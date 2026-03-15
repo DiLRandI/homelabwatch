@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,52 +18,117 @@ import (
 )
 
 type Router struct {
-	app    *app.App
-	config config.Config
-	sse    http.Handler
+	app             *app.App
+	config          config.Config
+	sse             http.Handler
+	trustedNetworks []netip.Prefix
 }
 
 func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	router := &Router{
-		app:    application,
-		config: cfg,
-		sse:    sse.NewHandler(busAdapter{application: application}),
+		app:             application,
+		config:          cfg,
+		sse:             sse.NewHandler(busAdapter{application: application}),
+		trustedNetworks: parseTrustedNetworks(cfg.TrustedCIDRs),
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", router.healthz)
 	mux.HandleFunc("GET /api/v1/bootstrap/status", router.handleBootstrapStatus)
-	mux.HandleFunc("POST /api/v1/bootstrap/init", router.handleBootstrapInit)
-	mux.HandleFunc("GET /api/v1/dashboard", router.handleDashboard)
-	mux.HandleFunc("GET /api/v1/settings", router.handleSettings)
-	mux.HandleFunc("GET /api/v1/services", router.handleServices)
-	mux.Handle("POST /api/v1/services", router.withAdmin(http.HandlerFunc(router.handleServices)))
-	mux.HandleFunc("GET /api/v1/services/{id}", router.handleServiceByID)
-	mux.Handle("PATCH /api/v1/services/{id}", router.withAdmin(http.HandlerFunc(router.handleServiceByID)))
-	mux.Handle("DELETE /api/v1/services/{id}", router.withAdmin(http.HandlerFunc(router.handleServiceByID)))
-	mux.HandleFunc("GET /api/v1/services/{id}/events", router.handleServiceEvents)
-	mux.HandleFunc("GET /api/v1/services/{id}/checks", router.handleServiceChecks)
-	mux.Handle("POST /api/v1/services/{id}/checks", router.withAdmin(http.HandlerFunc(router.handleServiceChecks)))
-	mux.Handle("PATCH /api/v1/checks/{id}", router.withAdmin(http.HandlerFunc(router.handleCheckByID)))
-	mux.Handle("DELETE /api/v1/checks/{id}", router.withAdmin(http.HandlerFunc(router.handleCheckByID)))
-	mux.HandleFunc("GET /api/v1/devices", router.handleDevices)
-	mux.HandleFunc("GET /api/v1/devices/{id}", router.handleDeviceByID)
-	mux.Handle("PATCH /api/v1/devices/{id}", router.withAdmin(http.HandlerFunc(router.handleDeviceByID)))
-	mux.HandleFunc("GET /api/v1/bookmarks", router.handleBookmarks)
-	mux.Handle("POST /api/v1/bookmarks", router.withAdmin(http.HandlerFunc(router.handleBookmarks)))
-	mux.Handle("PATCH /api/v1/bookmarks/{id}", router.withAdmin(http.HandlerFunc(router.handleBookmarkByID)))
-	mux.Handle("DELETE /api/v1/bookmarks/{id}", router.withAdmin(http.HandlerFunc(router.handleBookmarkByID)))
-	mux.HandleFunc("GET /api/v1/discovery/docker-endpoints", router.handleDockerEndpoints)
-	mux.Handle("POST /api/v1/discovery/docker-endpoints", router.withAdmin(http.HandlerFunc(router.handleDockerEndpoints)))
-	mux.Handle("PATCH /api/v1/discovery/docker-endpoints/{id}", router.withAdmin(http.HandlerFunc(router.handleDockerEndpointByID)))
-	mux.Handle("DELETE /api/v1/discovery/docker-endpoints/{id}", router.withAdmin(http.HandlerFunc(router.handleDockerEndpointByID)))
-	mux.HandleFunc("GET /api/v1/discovery/scan-targets", router.handleScanTargets)
-	mux.Handle("POST /api/v1/discovery/scan-targets", router.withAdmin(http.HandlerFunc(router.handleScanTargets)))
-	mux.Handle("PATCH /api/v1/discovery/scan-targets/{id}", router.withAdmin(http.HandlerFunc(router.handleScanTargetByID)))
-	mux.Handle("DELETE /api/v1/discovery/scan-targets/{id}", router.withAdmin(http.HandlerFunc(router.handleScanTargetByID)))
-	mux.Handle("POST /api/v1/discovery/run", router.withAdmin(http.HandlerFunc(router.handleDiscoveryRun)))
-	mux.Handle("POST /api/v1/monitoring/run", router.withAdmin(http.HandlerFunc(router.handleMonitoringRun)))
-	mux.Handle("GET /api/v1/events", router.sse)
+	mux.HandleFunc("GET /api/ui/v1/bootstrap", router.handleUIBootstrap)
+	mux.Handle("POST /api/ui/v1/setup", router.withTrustedConsole(http.HandlerFunc(router.handleSetup)))
+	mux.HandleFunc("GET /api/ui/v1/dashboard", router.handleDashboard)
+	mux.HandleFunc("GET /api/ui/v1/settings", router.handleSettings)
+	mux.Handle("POST /api/ui/v1/settings/api-tokens", router.withTrustedConsole(http.HandlerFunc(router.handleAPITokens)))
+	mux.Handle("DELETE /api/ui/v1/settings/api-tokens/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleAPITokenByID)))
+	mux.HandleFunc("GET /api/ui/v1/services", router.handleServices)
+	mux.Handle("POST /api/ui/v1/services", router.withTrustedConsole(http.HandlerFunc(router.handleServices)))
+	mux.HandleFunc("GET /api/ui/v1/services/{id}", router.handleServiceByID)
+	mux.Handle("PATCH /api/ui/v1/services/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("DELETE /api/ui/v1/services/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleServiceByID)))
+	mux.HandleFunc("GET /api/ui/v1/services/{id}/events", router.handleServiceEvents)
+	mux.HandleFunc("GET /api/ui/v1/services/{id}/checks", router.handleServiceChecks)
+	mux.Handle("POST /api/ui/v1/services/{id}/checks", router.withTrustedConsole(http.HandlerFunc(router.handleServiceChecks)))
+	mux.Handle("PATCH /api/ui/v1/checks/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleCheckByID)))
+	mux.Handle("DELETE /api/ui/v1/checks/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleCheckByID)))
+	mux.HandleFunc("GET /api/ui/v1/devices", router.handleDevices)
+	mux.HandleFunc("GET /api/ui/v1/devices/{id}", router.handleDeviceByID)
+	mux.Handle("PATCH /api/ui/v1/devices/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleDeviceByID)))
+	mux.HandleFunc("GET /api/ui/v1/bookmarks", router.handleBookmarks)
+	mux.Handle("POST /api/ui/v1/bookmarks", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("PATCH /api/ui/v1/bookmarks/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("DELETE /api/ui/v1/bookmarks/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkByID)))
+	mux.HandleFunc("GET /api/ui/v1/discovery/docker-endpoints", router.handleDockerEndpoints)
+	mux.Handle("POST /api/ui/v1/discovery/docker-endpoints", router.withTrustedConsole(http.HandlerFunc(router.handleDockerEndpoints)))
+	mux.Handle("PATCH /api/ui/v1/discovery/docker-endpoints/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.Handle("DELETE /api/ui/v1/discovery/docker-endpoints/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.HandleFunc("GET /api/ui/v1/discovery/scan-targets", router.handleScanTargets)
+	mux.Handle("POST /api/ui/v1/discovery/scan-targets", router.withTrustedConsole(http.HandlerFunc(router.handleScanTargets)))
+	mux.Handle("PATCH /api/ui/v1/discovery/scan-targets/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("DELETE /api/ui/v1/discovery/scan-targets/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("POST /api/ui/v1/discovery/run", router.withTrustedConsole(http.HandlerFunc(router.handleDiscoveryRun)))
+	mux.Handle("POST /api/ui/v1/monitoring/run", router.withTrustedConsole(http.HandlerFunc(router.handleMonitoringRun)))
+	mux.Handle("GET /api/ui/v1/events", router.sse)
+
+	mux.Handle("GET /api/external/v1/dashboard", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDashboard)))
+	mux.Handle("GET /api/external/v1/settings", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleSettings)))
+	mux.Handle("GET /api/external/v1/services", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServices)))
+	mux.Handle("POST /api/external/v1/services", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServices)))
+	mux.Handle("GET /api/external/v1/services/{id}", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("PATCH /api/external/v1/services/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("DELETE /api/external/v1/services/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("GET /api/external/v1/services/{id}/events", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServiceEvents)))
+	mux.Handle("GET /api/external/v1/services/{id}/checks", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServiceChecks)))
+	mux.Handle("POST /api/external/v1/services/{id}/checks", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServiceChecks)))
+	mux.Handle("PATCH /api/external/v1/checks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleCheckByID)))
+	mux.Handle("DELETE /api/external/v1/checks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleCheckByID)))
+	mux.Handle("GET /api/external/v1/devices", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDevices)))
+	mux.Handle("GET /api/external/v1/devices/{id}", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDeviceByID)))
+	mux.Handle("PATCH /api/external/v1/devices/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDeviceByID)))
+	mux.Handle("GET /api/external/v1/bookmarks", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("POST /api/external/v1/bookmarks", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("PATCH /api/external/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("DELETE /api/external/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("GET /api/external/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDockerEndpoints)))
+	mux.Handle("POST /api/external/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpoints)))
+	mux.Handle("PATCH /api/external/v1/discovery/docker-endpoints/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.Handle("DELETE /api/external/v1/discovery/docker-endpoints/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.Handle("GET /api/external/v1/discovery/scan-targets", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleScanTargets)))
+	mux.Handle("POST /api/external/v1/discovery/scan-targets", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargets)))
+	mux.Handle("PATCH /api/external/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("DELETE /api/external/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("POST /api/external/v1/discovery/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveryRun)))
+	mux.Handle("POST /api/external/v1/monitoring/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleMonitoringRun)))
+
+	mux.Handle("GET /api/v1/dashboard", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDashboard)))
+	mux.Handle("GET /api/v1/settings", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleSettings)))
+	mux.Handle("GET /api/v1/services", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServices)))
+	mux.Handle("POST /api/v1/services", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServices)))
+	mux.Handle("GET /api/v1/services/{id}", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("PATCH /api/v1/services/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("DELETE /api/v1/services/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServiceByID)))
+	mux.Handle("GET /api/v1/services/{id}/events", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServiceEvents)))
+	mux.Handle("GET /api/v1/services/{id}/checks", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleServiceChecks)))
+	mux.Handle("POST /api/v1/services/{id}/checks", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleServiceChecks)))
+	mux.Handle("PATCH /api/v1/checks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleCheckByID)))
+	mux.Handle("DELETE /api/v1/checks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleCheckByID)))
+	mux.Handle("GET /api/v1/devices", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDevices)))
+	mux.Handle("GET /api/v1/devices/{id}", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDeviceByID)))
+	mux.Handle("PATCH /api/v1/devices/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDeviceByID)))
+	mux.Handle("GET /api/v1/bookmarks", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("POST /api/v1/bookmarks", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("PATCH /api/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("DELETE /api/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("GET /api/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDockerEndpoints)))
+	mux.Handle("POST /api/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpoints)))
+	mux.Handle("PATCH /api/v1/discovery/docker-endpoints/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.Handle("DELETE /api/v1/discovery/docker-endpoints/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpointByID)))
+	mux.Handle("GET /api/v1/discovery/scan-targets", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleScanTargets)))
+	mux.Handle("POST /api/v1/discovery/scan-targets", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargets)))
+	mux.Handle("PATCH /api/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("DELETE /api/v1/discovery/scan-targets/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleScanTargetByID)))
+	mux.Handle("POST /api/v1/discovery/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDiscoveryRun)))
+	mux.Handle("POST /api/v1/monitoring/run", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleMonitoringRun)))
 	mux.HandleFunc("/", router.handleStatic)
 	return mux
 }
@@ -89,13 +155,31 @@ func (r *Router) handleBootstrapStatus(w http.ResponseWriter, req *http.Request)
 	writeJSON(w, http.StatusOK, status)
 }
 
-func (r *Router) handleBootstrapInit(w http.ResponseWriter, req *http.Request) {
-	var input domain.BootstrapInput
+func (r *Router) handleUIBootstrap(w http.ResponseWriter, req *http.Request) {
+	status, err := r.app.BootstrapStatus(req.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	csrfToken, err := issueConsoleCSRF(w, req)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, domain.UIBootstrap{
+		Initialized:    status.Initialized,
+		TrustedNetwork: r.isTrustedNetwork(req),
+		CSRFToken:      csrfToken,
+	})
+}
+
+func (r *Router) handleSetup(w http.ResponseWriter, req *http.Request) {
+	var input domain.SetupInput
 	if err := decodeJSON(req.Body, &input); err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
 	}
-	if err := r.app.Initialize(req.Context(), input); err != nil {
+	if err := r.app.Setup(req.Context(), input); err != nil {
 		status := http.StatusBadRequest
 		if strings.Contains(err.Error(), "already completed") {
 			status = http.StatusConflict
@@ -121,7 +205,41 @@ func (r *Router) handleSettings(w http.ResponseWriter, req *http.Request) {
 		writeError(w, http.StatusInternalServerError, err)
 		return
 	}
+	item.AppSettings.TrustedCIDRs = append([]string(nil), r.config.TrustedCIDRs...)
+	item.AppSettings.TrustedNetwork = r.isTrustedNetwork(req)
 	writeJSON(w, http.StatusOK, item)
+}
+
+func (r *Router) handleAPITokens(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodPost:
+		var input domain.CreateAPITokenInput
+		if err := decodeJSON(req.Body, &input); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item, err := r.app.CreateAPIToken(req.Context(), input)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, item)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleAPITokenByID(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodDelete:
+		if err := r.app.RevokeAPIToken(req.Context(), req.PathValue("id")); err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
 
 func (r *Router) handleServices(w http.ResponseWriter, req *http.Request) {
@@ -457,31 +575,6 @@ func (r *Router) handleStatic(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	http.ServeFile(w, req, filepath.Join(r.config.StaticDir, "index.html"))
-}
-
-func (r *Router) withAdmin(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		ok, err := r.app.ValidateAdminToken(req.Context(), adminToken(req))
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, err)
-			return
-		}
-		if !ok {
-			writeError(w, http.StatusUnauthorized, errors.New("missing or invalid admin token"))
-			return
-		}
-		next.ServeHTTP(w, req)
-	})
-}
-
-func adminToken(req *http.Request) string {
-	if token := strings.TrimSpace(req.Header.Get("X-Admin-Token")); token != "" {
-		return token
-	}
-	if auth := strings.TrimSpace(req.Header.Get("Authorization")); strings.HasPrefix(auth, "Bearer ") {
-		return strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
-	}
-	return ""
 }
 
 func decodeJSON(body io.ReadCloser, target any) error {

@@ -19,6 +19,7 @@ function cadenceLabel(value) {
 }
 
 export default function DiscoverySection({
+  canManage = true,
   dockerEndpoints,
   onAddDockerEndpoint,
   onAddScanTarget,
@@ -29,7 +30,12 @@ export default function DiscoverySection({
       <Card>
         <CardHeader
           action={
-            <Button leadingIcon={PlusIcon} onClick={onAddDockerEndpoint} variant="secondary">
+            <Button
+              disabled={!canManage}
+              leadingIcon={PlusIcon}
+              onClick={onAddDockerEndpoint}
+              variant="secondary"
+            >
               Add endpoint
             </Button>
           }
@@ -40,7 +46,7 @@ export default function DiscoverySection({
           {dockerEndpoints.length === 0 ? (
             <div className="px-5 py-5 sm:px-6">
               <EmptyState
-                action={onAddDockerEndpoint}
+                action={canManage ? onAddDockerEndpoint : undefined}
                 actionLabel="Add endpoint"
                 body="Attach a local or remote Docker engine to discover running workloads."
                 title="No Docker endpoints configured"
@@ -93,7 +99,12 @@ export default function DiscoverySection({
       <Card>
         <CardHeader
           action={
-            <Button leadingIcon={PlusIcon} onClick={onAddScanTarget} variant="secondary">
+            <Button
+              disabled={!canManage}
+              leadingIcon={PlusIcon}
+              onClick={onAddScanTarget}
+              variant="secondary"
+            >
               Add target
             </Button>
           }
@@ -104,7 +115,7 @@ export default function DiscoverySection({
           {scanTargets.length === 0 ? (
             <div className="px-5 py-5 sm:px-6">
               <EmptyState
-                action={onAddScanTarget}
+                action={canManage ? onAddScanTarget : undefined}
                 actionLabel="Add target"
                 body="Seed the dashboard with one or more subnets to discover devices beyond Docker."
                 title="No scan targets configured"

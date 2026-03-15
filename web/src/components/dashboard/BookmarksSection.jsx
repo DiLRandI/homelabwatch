@@ -11,13 +11,18 @@ import {
   TableRow,
 } from "../ui/Table";
 
-export default function BookmarksSection({ bookmarks, onAdd }) {
+export default function BookmarksSection({ bookmarks, canManage = true, onAdd }) {
   return (
     <section id="bookmarks">
       <Card>
         <CardHeader
           action={
-            <Button leadingIcon={PlusIcon} onClick={onAdd} variant="secondary">
+            <Button
+              disabled={!canManage}
+              leadingIcon={PlusIcon}
+              onClick={onAdd}
+              variant="secondary"
+            >
               Add bookmark
             </Button>
           }
@@ -28,7 +33,7 @@ export default function BookmarksSection({ bookmarks, onAdd }) {
           {bookmarks.length === 0 ? (
             <div className="px-5 py-5 sm:px-6">
               <EmptyState
-                action={onAdd}
+                action={canManage ? onAdd : undefined}
                 actionLabel="Add bookmark"
                 body="Pin operator docs, third-party dashboards, or external tools used alongside your homelab."
                 title="No bookmarks saved"

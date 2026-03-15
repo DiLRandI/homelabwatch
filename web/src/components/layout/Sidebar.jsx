@@ -7,7 +7,7 @@ export default function Sidebar({
   navItems,
   onClose,
   open = false,
-  tokenFile,
+  sidebarMeta,
 }) {
   return (
     <>
@@ -30,7 +30,7 @@ export default function Sidebar({
               Homelabwatch
             </p>
             <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
-              Control plane
+              {sidebarMeta?.applianceName || "Control plane"}
             </h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">
               One workspace for services, infrastructure, and runtime health.
@@ -98,15 +98,23 @@ export default function Sidebar({
               <ActivityIcon className="h-4 w-4" />
             </span>
             <div>
-              <p className="text-sm font-medium text-slate-900">Admin token</p>
+              <p className="text-sm font-medium text-slate-900">API access</p>
               <p className="text-sm text-slate-500">
-                First-run credential file for write access
+                Trusted local UI plus external bearer tokens
               </p>
             </div>
           </div>
-          <p className="mt-3 truncate rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500">
-            {tokenFile || "Stored in browser after entry"}
-          </p>
+          <div className="mt-3 grid gap-2">
+            <p className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500">
+              {sidebarMeta?.trustedNetwork
+                ? "This browser can perform local write actions"
+                : "This browser is outside the trusted write boundary"}
+            </p>
+            <p className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500">
+              {sidebarMeta?.apiTokenCount ?? 0} external API token
+              {(sidebarMeta?.apiTokenCount ?? 0) === 1 ? "" : "s"} configured
+            </p>
+          </div>
         </div>
       </aside>
     </>

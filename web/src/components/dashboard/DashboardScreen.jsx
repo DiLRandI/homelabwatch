@@ -4,7 +4,6 @@ import DashboardLayout from "../layout/DashboardLayout";
 import Alerts from "../ui/Alerts";
 import Button from "../ui/Button";
 import DropdownMenu from "../ui/DropdownMenu";
-import Input from "../ui/Input";
 import Modal from "../ui/Modal";
 import {
   ActivityIcon,
@@ -20,11 +19,14 @@ import {
   SparklesIcon,
   TokenIcon,
 } from "../ui/Icons";
+import APITokenForm from "../forms/APITokenForm";
 import BookmarkForm from "../forms/BookmarkForm";
 import DockerEndpointForm from "../forms/DockerEndpointForm";
 import ManualServiceForm from "../forms/ManualServiceForm";
 import ScanTargetForm from "../forms/ScanTargetForm";
+import ApiAccessSection from "./ApiAccessSection";
 import BookmarksSection from "./BookmarksSection";
+import ContainersSection from "./ContainersSection";
 import DashboardHeader from "./DashboardHeader";
 import DevicesSection from "./DevicesSection";
 import DiscoverySection from "./DiscoverySection";
@@ -32,35 +34,46 @@ import ServicesSection from "./ServicesSection";
 import WorkersSection from "./WorkersSection";
 
 const DEFAULT_SUMMARY = {
-  totalServices: 0,
-  healthyServices: 0,
-  degradedServices: 0,
-  unhealthyServices: 0,
-  devicesSeen: 0,
   bookmarks: 0,
+  degradedServices: 0,
+  devicesSeen: 0,
+  healthyServices: 0,
+  runningContainers: 0,
+  totalServices: 0,
+  unhealthyServices: 0,
 };
 
 function modalConfig(activeModal) {
   switch (activeModal) {
     case "service":
       return {
-        description: "Capture a stable URL that should be monitored alongside discovered infrastructure.",
+        description:
+          "Capture a stable URL that should be monitored alongside discovered infrastructure.",
         title: "Add manual service",
       };
     case "bookmark":
       return {
-        description: "Save a frequently used external dashboard or reference link for the team.",
+        description:
+          "Save a frequently used external dashboard or reference link for the team.",
         title: "Add bookmark",
       };
     case "endpoint":
       return {
-        description: "Connect a local or remote Docker engine so containers show up as first-class services.",
+        description:
+          "Connect a local or remote Docker engine so containers show up as first-class inventory.",
         title: "Add Docker endpoint",
       };
     case "target":
       return {
-        description: "Register a CIDR range and port profile for ongoing network discovery.",
+        description:
+          "Register a CIDR range and port profile for ongoing network discovery.",
         title: "Add scan target",
+      };
+    case "apiToken":
+      return {
+        description:
+          "Create a scoped bearer token for scripts, integrations, or external dashboards.",
+        title: "Create external API token",
       };
     default:
       return { description: "", title: "" };
@@ -68,12 +81,13 @@ function modalConfig(activeModal) {
 }
 
 export default function DashboardScreen({
-  adminToken,
+  canManageUI,
   dashboard,
   error,
   notice,
-  onAdminTokenChange,
+  onCreateAPIToken,
   onRefresh,
+  onRevokeAPIToken,
   onRunDiscovery,
   onRunMonitoring,
   onSaveBookmark,
@@ -83,10 +97,12 @@ export default function DashboardScreen({
   settings,
 }) {
   const [activeModal, setActiveModal] = useState("");
+  const [createdToken, setCreatedToken] = useState(null);
   const summary = dashboard?.summary ?? DEFAULT_SUMMARY;
+  const issuesCount = summary.degradedServices + summary.unhealthyServices;
   const metrics = [
     {
-      description: "Total tracked service endpoints across all sources.",
+      description: "Tracked endpoints across all discovery sources.",
       icon: ServicesIcon,
       iconTone: "bg-accent/10 text-accent-strong",
       label: "Services",
@@ -100,11 +116,11 @@ export default function DashboardScreen({
       value: summary.healthyServices,
     },
     {
-      description: "Detected issues that need operator attention.",
-      icon: SparklesIcon,
-      iconTone: "bg-warn/10 text-warn-strong",
-      label: "Degraded",
-      value: summary.degradedServices + summary.unhealthyServices,
+      description: "Running workloads discovered from attached Docker engines.",
+      icon: DiscoveryIcon,
+      iconTone: "bg-sky-50 text-sky-700",
+      label: "Containers",
+      value: summary.runningContainers,
     },
     {
       description: "Devices known to the control plane inventory.",
@@ -122,6 +138,12 @@ export default function DashboardScreen({
       href: "#services",
       icon: ServicesIcon,
       label: "Services",
+    },
+    {
+      count: summary.runningContainers,
+      href: "#containers",
+      icon: DiscoveryIcon,
+      label: "Containers",
     },
     {
       count: settings?.dockerEndpoints?.length ?? 0,
@@ -147,6 +169,12 @@ export default function DashboardScreen({
       icon: ActivityIcon,
       label: "Activity",
     },
+    {
+      count: settings?.apiAccess?.tokens?.length ?? 0,
+      href: "#settings",
+      icon: TokenIcon,
+      label: "Settings",
+    },
   ];
 
   const statusItems = [
@@ -156,14 +184,22 @@ export default function DashboardScreen({
       label: "Realtime updates",
     },
     {
-      className: "border-sky-200 bg-sky-50 text-sky-700",
-      icon: DiscoveryIcon,
-      label: `${settings?.dockerEndpoints?.length ?? 0} Docker endpoints`,
+      className:
+        issuesCount > 0
+          ? "border-warn/20 bg-warn/10 text-warn-strong"
+          : "border-ok/15 bg-ok/10 text-ok-strong",
+      icon: ShieldIcon,
+      label:
+        issuesCount > 0
+          ? `${issuesCount} services need attention`
+          : "Service health clear",
     },
     {
-      className: "border-slate-200 bg-white text-slate-600",
+      className: canManageUI
+        ? "border-accent/15 bg-accent/10 text-accent-strong"
+        : "border-slate-200 bg-white text-slate-600",
       icon: ClockIcon,
-      label: settings?.appSettings?.autoScanEnabled ? "Auto scan enabled" : "Auto scan off",
+      label: canManageUI ? "Trusted LAN writes enabled" : "Read-only network",
     },
   ];
 
@@ -175,44 +211,50 @@ export default function DashboardScreen({
     return successful;
   }
 
-  const quickActions = [
-    {
-      description: "Create a manual service entry.",
-      icon: ServicesIcon,
-      label: "Add service",
-      onSelect: () => setActiveModal("service"),
-    },
-    {
-      description: "Save a dashboard or docs link.",
-      icon: BookmarkIcon,
-      label: "Add bookmark",
-      onSelect: () => setActiveModal("bookmark"),
-    },
-    {
-      description: "Connect another Docker engine.",
-      icon: DiscoveryIcon,
-      label: "Add Docker endpoint",
-      onSelect: () => setActiveModal("endpoint"),
-    },
-    {
-      description: "Register a new scan target.",
-      icon: DevicesIcon,
-      label: "Add scan target",
-      onSelect: () => setActiveModal("target"),
-    },
-    {
-      description: "Run a fresh discovery sweep now.",
-      icon: RefreshIcon,
-      label: "Run discovery",
-      onSelect: () => void onRunDiscovery(),
-    },
-    {
-      description: "Execute health checks immediately.",
-      icon: ShieldIcon,
-      label: "Run checks",
-      onSelect: () => void onRunMonitoring(),
-    },
-  ];
+  async function createTokenAndClose(payload) {
+    const created = await onCreateAPIToken(payload);
+    if (!created) {
+      return false;
+    }
+    setCreatedToken(created);
+    setActiveModal("");
+    return true;
+  }
+
+  const quickActions = canManageUI
+    ? [
+        {
+          description: "Create a manual service entry.",
+          icon: ServicesIcon,
+          label: "Add service",
+          onSelect: () => setActiveModal("service"),
+        },
+        {
+          description: "Save a dashboard or docs link.",
+          icon: BookmarkIcon,
+          label: "Add bookmark",
+          onSelect: () => setActiveModal("bookmark"),
+        },
+        {
+          description: "Connect another Docker engine.",
+          icon: DiscoveryIcon,
+          label: "Add Docker endpoint",
+          onSelect: () => setActiveModal("endpoint"),
+        },
+        {
+          description: "Register a new scan target.",
+          icon: DevicesIcon,
+          label: "Add scan target",
+          onSelect: () => setActiveModal("target"),
+        },
+        {
+          description: "Create a token for external automation.",
+          icon: TokenIcon,
+          label: "Create API token",
+          onSelect: () => setActiveModal("apiToken"),
+        },
+      ]
+    : [];
 
   const currentModal = modalConfig(activeModal);
 
@@ -222,24 +264,18 @@ export default function DashboardScreen({
         alerts={<Alerts error={error} notice={notice} />}
         metrics={metrics}
         navItems={navItems}
+        sidebarMeta={{
+          apiTokenCount: settings?.apiAccess?.tokens?.length ?? 0,
+          applianceName: settings?.appSettings?.applianceName,
+          trustedNetwork: canManageUI,
+        }}
         statusItems={statusItems}
-        subtitle="A clean operator view for discovery, monitoring, and day-two homelab workflows."
+        subtitle="A professional operator view for discovery, containers, health, and automation."
         title="Operations"
-        tokenFile={settings?.appSettings?.adminTokenFile ?? ""}
         toolbar={
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,220px)_repeat(3,auto)_auto]">
-            <Input
-              autoComplete="off"
-              compact
-              containerClassName="min-w-0"
-              inputClassName="bg-white"
-              label="Admin token"
-              onChange={onAdminTokenChange}
-              placeholder="Paste write token"
-              type="password"
-              value={adminToken}
-            />
+          <div className="grid gap-3 xl:grid-cols-[repeat(3,auto)_auto]">
             <Button
+              disabled={!canManageUI}
               leadingIcon={DiscoveryIcon}
               onClick={() => void onRunDiscovery()}
               variant="secondary"
@@ -247,38 +283,36 @@ export default function DashboardScreen({
               Run discovery
             </Button>
             <Button
+              disabled={!canManageUI}
               leadingIcon={ShieldIcon}
               onClick={() => void onRunMonitoring()}
               variant="secondary"
             >
               Run checks
             </Button>
-            <Button
-              leadingIcon={RefreshIcon}
-              onClick={() => void onRefresh()}
-              variant="ghost"
-            >
+            <Button leadingIcon={RefreshIcon} onClick={() => void onRefresh()} variant="ghost">
               Refresh
             </Button>
-            <DropdownMenu
-              items={quickActions}
-              label="Quick actions"
-              leadingIcon={PlusIcon}
-            />
+            {quickActions.length > 0 ? (
+              <DropdownMenu items={quickActions} label="Quick actions" leadingIcon={PlusIcon} />
+            ) : null}
           </div>
         }
       >
         <DashboardHeader
-          adminTokenFile={settings?.appSettings?.adminTokenFile ?? ""}
+          canManageUI={canManageUI}
           metrics={metrics}
           onOpenModal={setActiveModal}
           settings={settings}
         />
         <ServicesSection
+          canManage={canManageUI}
           onAdd={() => setActiveModal("service")}
           services={dashboard?.services ?? []}
         />
+        <ContainersSection containers={dashboard?.containers ?? []} />
         <DiscoverySection
+          canManage={canManageUI}
           dockerEndpoints={settings?.dockerEndpoints ?? []}
           onAddDockerEndpoint={() => setActiveModal("endpoint")}
           onAddScanTarget={() => setActiveModal("target")}
@@ -287,11 +321,21 @@ export default function DashboardScreen({
         <DevicesSection devices={dashboard?.devices ?? []} />
         <BookmarksSection
           bookmarks={dashboard?.bookmarks ?? []}
+          canManage={canManageUI}
           onAdd={() => setActiveModal("bookmark")}
         />
         <WorkersSection
           jobState={settings?.jobState ?? []}
           recentEvents={dashboard?.recentEvents ?? []}
+        />
+        <ApiAccessSection
+          canManage={canManageUI}
+          createdToken={createdToken}
+          legacyTokenAlive={settings?.apiAccess?.legacyAdminTokenAlive ?? false}
+          onCreate={() => setActiveModal("apiToken")}
+          onDismissCreatedToken={() => setCreatedToken(null)}
+          onRevoke={onRevokeAPIToken}
+          tokens={settings?.apiAccess?.tokens ?? []}
         />
       </DashboardLayout>
 
@@ -320,6 +364,9 @@ export default function DashboardScreen({
           <ScanTargetForm
             onSubmit={(payload) => submitAndClose(onSaveScanTarget, payload)}
           />
+        ) : null}
+        {activeModal === "apiToken" ? (
+          <APITokenForm onSubmit={createTokenAndClose} />
         ) : null}
       </Modal>
     </>

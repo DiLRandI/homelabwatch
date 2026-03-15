@@ -6,11 +6,13 @@ runs health checks, and serves the UI and API from one container.
 
 ## Features
 
-- Dashboard for services, devices, bookmarks, worker state, and recent events
+- Dashboard for services, containers, devices, bookmarks, worker state, and recent events
 - Service discovery from Docker endpoints and seeded LAN scan targets
 - Device tracking keyed by MAC address when available, with fallback identity
 - Health monitoring with HTTP, TCP, and ping checks
 - Bookmark management for manual links and external services
+- First-run setup wizard instead of manual bootstrap secrets in the browser
+- Managed external API tokens with revocation from the settings surface
 - Single-container deployment with SQLite persistence
 - SSE updates from the backend to the frontend
 
@@ -53,10 +55,18 @@ docker run --rm \
   homelabwatch:local
 ```
 
-On a fresh `/data` volume, homelabwatch auto-bootstraps itself once. The
-first-run admin token is written to `./data/admin-token` and printed to the
-container logs. Open `http://localhost:8080`, paste that token into the
-dashboard header, and continue.
+On a fresh `/data` volume, homelabwatch starts with a 3-step setup wizard in
+the browser. The local web UI stays open for trusted LAN clients, and external
+automation tokens are created later from `Settings > API access` instead of
+being pasted into the dashboard.
+
+First-run flow:
+
+1. open `http://localhost:8080`
+2. name the appliance and confirm you are on a trusted local/LAN client
+3. choose discovery defaults and launch the initial discovery run
+4. create external bearer tokens later from `Settings > API access` if you
+   need automation or third-party integrations
 
 For LAN discovery and ping checks on Linux, host networking and raw socket
 access are typically required:
@@ -91,6 +101,16 @@ Then open `http://localhost:8080`.
 API requests on the same origin, so a dev proxy is needed if you want to use
 the Vite server against the Go API.
 
+## Deployment Notes
+
+- Mount `/data` if you want persistent SQLite state across container restarts.
+- Mount `/var/run/docker.sock` if you want automatic local Docker discovery.
+- Use `--network host --cap-add NET_RAW` on Linux if you want the best LAN
+  discovery and ping behavior.
+- If you expose the UI beyond your local network, put it behind a reverse
+  proxy or VPN and tighten `HOMELABWATCH_TRUSTED_CIDRS`.
+- A Docker Hub specific README is available in [`DOCKERHUB.md`](DOCKERHUB.md).
+
 ## Configuration
 
 Configuration can come from `config.yaml` / `config.yml` or environment
@@ -105,12 +125,16 @@ Important environment variables:
 - `HOMELABWATCH_DB_PATH`
 - `HOMELABWATCH_STATIC_DIR`
 - `HOMELABWATCH_CONFIG`
-- `HOMELABWATCH_AUTO_BOOTSTRAP`
-- `HOMELABWATCH_ADMIN_TOKEN`
-- `HOMELABWATCH_ADMIN_TOKEN_FILE`
 - `HOMELABWATCH_SEED_CIDRS`
 - `HOMELABWATCH_DEFAULT_SCAN_PORTS`
 - `HOMELABWATCH_SEED_DOCKER_SOCKET`
+- `HOMELABWATCH_TRUSTED_CIDRS`
+
+Example trust boundary override:
+
+```bash
+HOMELABWATCH_TRUSTED_CIDRS=127.0.0.1/32,192.168.1.0/24
+```
 
 ## Frontend Structure
 
@@ -133,7 +157,7 @@ web/src/
 Current responsibilities:
 
 - `App.jsx`: root composition only
-- `components/bootstrap`: bootstrap screen
+- `components/bootstrap`: first-run setup wizard
 - `components/dashboard`: dashboard sections and layout
 - `components/forms`: form-specific state and submit handling
 - `components/ui`: shared presentation primitives
@@ -155,12 +179,33 @@ Key directories:
 - `internal/store/sqlite`: persistence and migrations
 - `migrations`: schema bootstrap and upgrades
 
+## Security Model
+
+- The browser UI has no sign-in screen by product design.
+- The built-in UI is intended for trusted local or LAN use.
+- UI reads are open, but UI writes require all of:
+  - a client IP inside `HOMELABWATCH_TRUSTED_CIDRS`
+  - same-origin browser requests
+  - the console CSRF token issued by the server
+- External clients should not use the UI endpoints. They should use managed
+  bearer tokens against the external API.
+- Legacy `admin_token_hash` installs remain compatible on the external API
+  during migration, but the browser no longer asks for that token.
+
 ## API Notes
 
-- Read endpoints are available without a token
-- Write endpoints require `X-Admin-Token` after bootstrap
-- Bootstrap is completed through `POST /api/v1/bootstrap/init`
-- Live updates are streamed from `GET /api/v1/events`
+- The built-in browser UI uses `/api/ui/v1/*`
+- UI writes are restricted to trusted networks and same-origin browser requests
+- External automation uses bearer tokens against `/api/external/v1/*`
+- Legacy `/api/v1/*` token-auth endpoints remain for compatibility
+- Live updates for the browser UI are streamed from `GET /api/ui/v1/events`
+
+Common API flow:
+
+1. open the UI and finish setup
+2. go to `Settings > API access`
+3. create a read or write token
+4. call `/api/external/v1/*` with `Authorization: Bearer <token>`
 
 ## Verification
 

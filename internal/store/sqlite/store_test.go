@@ -13,8 +13,8 @@ func TestInitializeSeedsBootstrapState(t *testing.T) {
 	store := newTestStore(t)
 	ctx := context.Background()
 
-	err := store.Initialize(ctx, domain.BootstrapInput{
-		AdminToken:       "secret",
+	err := store.Initialize(ctx, domain.SetupInput{
+		ApplianceName:    "Lab",
 		AutoScanEnabled:  true,
 		DefaultScanPorts: []int{22, 80},
 		ScanTargets: []domain.ScanTargetSeed{
@@ -39,6 +39,41 @@ func TestInitializeSeedsBootstrapState(t *testing.T) {
 	}
 	if len(targets) != 1 {
 		t.Fatalf("expected 1 scan target, got %d", len(targets))
+	}
+}
+
+func TestCreateAndValidateAPIToken(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx := context.Background()
+
+	created, err := store.CreateAPIToken(ctx, domain.CreateAPITokenInput{
+		Name:  "Automation",
+		Scope: domain.TokenScopeWrite,
+	})
+	if err != nil {
+		t.Fatalf("create api token: %v", err)
+	}
+	if created.Secret == "" {
+		t.Fatalf("expected raw token secret")
+	}
+
+	ok, err := store.ValidateAPIToken(ctx, created.Secret, domain.TokenScopeWrite)
+	if err != nil {
+		t.Fatalf("validate api token: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected api token to validate")
+	}
+
+	if err := store.RevokeAPIToken(ctx, created.Token.ID); err != nil {
+		t.Fatalf("revoke api token: %v", err)
+	}
+	ok, err = store.ValidateAPIToken(ctx, created.Secret, domain.TokenScopeRead)
+	if err != nil {
+		t.Fatalf("validate revoked api token: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected revoked token to fail validation")
 	}
 }
 
@@ -160,8 +195,8 @@ func newTestStore(t *testing.T) *Store {
 func newBootstrappedStore(t *testing.T) *Store {
 	t.Helper()
 	store := newTestStore(t)
-	err := store.Initialize(context.Background(), domain.BootstrapInput{
-		AdminToken:       "secret",
+	err := store.Initialize(context.Background(), domain.SetupInput{
+		ApplianceName:    "Lab",
 		AutoScanEnabled:  true,
 		DefaultScanPorts: []int{22, 80},
 	})

@@ -21,7 +21,7 @@ export function useServerEvents(enabled, onRefresh) {
       return undefined;
     }
 
-    const events = new EventSource("/api/v1/events");
+    const events = new EventSource("/api/ui/v1/events");
     const handleRefresh = () => {
       refreshRef.current?.();
     };
