@@ -1,6 +1,51 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-base: #09121a;
+  --color-panel: #10202b;
+  --color-ink: #ecf3ed;
+  --color-accent: #f2c45a;
+  --color-danger: #ff7a6d;
+  --color-warn: #ffb347;
+  --color-ok: #52d49b;
+  --color-muted: #9bb2b5;
+
+  --font-display: 'Avenir Next', 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+
+  --shadow-halo: 0 18px 60px rgba(7, 13, 19, 0.35);
+
+  --animate-floatIn: floatIn 420ms ease-out;
+
+  @keyframes floatIn {
+    0% {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 :root {
   color-scheme: dark;
