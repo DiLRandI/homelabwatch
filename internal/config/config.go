@@ -19,6 +19,9 @@ type Config struct {
 	SeedCIDRs        []string
 	DefaultScanPorts []int
 	SeedDockerSocket bool
+	AutoBootstrap    bool
+	AdminToken       string
+	AdminTokenFile   string
 }
 
 type fileConfig struct {
@@ -37,6 +40,10 @@ type fileConfig struct {
 		DefaultScanPorts []int    `yaml:"defaultScanPorts"`
 		SeedDockerSocket *bool    `yaml:"seedDockerSocket"`
 	} `yaml:"discovery"`
+	Bootstrap struct {
+		AutoBootstrap  *bool  `yaml:"autoBootstrap"`
+		AdminTokenFile string `yaml:"adminTokenFile"`
+	} `yaml:"bootstrap"`
 }
 
 func Load() (Config, error) {
@@ -46,8 +53,10 @@ func Load() (Config, error) {
 		StaticDir:        "./web/dist",
 		SeedDockerSocket: true,
 		DefaultScanPorts: []int{22, 80, 443, 8080, 8443},
+		AutoBootstrap:    true,
 	}
 	cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
+	cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	cfg.ConfigPath = envString("HOMELABWATCH_CONFIG", "")
 
 	if cfg.ConfigPath != "" {
@@ -77,12 +86,18 @@ func Load() (Config, error) {
 		cfg.DefaultScanPorts = ports
 	}
 	cfg.SeedDockerSocket = envBool("HOMELABWATCH_SEED_DOCKER_SOCKET", cfg.SeedDockerSocket)
+	cfg.AutoBootstrap = envBool("HOMELABWATCH_AUTO_BOOTSTRAP", cfg.AutoBootstrap)
+	cfg.AdminToken = envString("HOMELABWATCH_ADMIN_TOKEN", cfg.AdminToken)
+	cfg.AdminTokenFile = envString("HOMELABWATCH_ADMIN_TOKEN_FILE", cfg.AdminTokenFile)
 
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
 	}
 	if strings.TrimSpace(cfg.DataDir) == "" {
 		cfg.DataDir = filepath.Dir(cfg.DBPath)
+	}
+	if strings.TrimSpace(cfg.AdminTokenFile) == "" {
+		cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	}
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		return Config{}, err
@@ -123,8 +138,17 @@ func loadYAML(cfg *Config, path string) error {
 	if fileCfg.Discovery.SeedDockerSocket != nil {
 		cfg.SeedDockerSocket = *fileCfg.Discovery.SeedDockerSocket
 	}
+	if fileCfg.Bootstrap.AutoBootstrap != nil {
+		cfg.AutoBootstrap = *fileCfg.Bootstrap.AutoBootstrap
+	}
+	if fileCfg.Bootstrap.AdminTokenFile != "" {
+		cfg.AdminTokenFile = fileCfg.Bootstrap.AdminTokenFile
+	}
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
+	}
+	if strings.TrimSpace(cfg.AdminTokenFile) == "" {
+		cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	}
 	return nil
 }

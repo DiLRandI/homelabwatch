@@ -69,6 +69,7 @@ type ScanTargetSeed struct {
 type AppSettings struct {
 	Initialized      bool      `json:"initialized"`
 	AdminTokenHash   string    `json:"-"`
+	AdminTokenFile   string    `json:"adminTokenFile,omitempty"`
 	InitializedAt    time.Time `json:"initializedAt"`
 	LastBootstrapAt  time.Time `json:"lastBootstrapAt"`
 	AutoScanEnabled  bool      `json:"autoScanEnabled"`

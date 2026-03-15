@@ -8,6 +8,10 @@ storage:
 frontend:
   staticDir: "./web/dist"
 
+bootstrap:
+  autoBootstrap: true
+  adminTokenFile: "./data/admin-token"
+
 discovery:
   seedDockerSocket: true
   seedCidrs:
