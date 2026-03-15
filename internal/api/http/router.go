@@ -54,10 +54,24 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	mux.HandleFunc("GET /api/ui/v1/devices", router.handleDevices)
 	mux.HandleFunc("GET /api/ui/v1/devices/{id}", router.handleDeviceByID)
 	mux.Handle("PATCH /api/ui/v1/devices/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleDeviceByID)))
+	mux.HandleFunc("GET /api/ui/v1/bookmark-assets/{name}", router.handleBookmarkAssetByName)
+	mux.Handle("POST /api/ui/v1/bookmark-assets", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkAssets)))
 	mux.HandleFunc("GET /api/ui/v1/bookmarks", router.handleBookmarks)
 	mux.Handle("POST /api/ui/v1/bookmarks", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("POST /api/ui/v1/bookmarks/from-service", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkFromService)))
+	mux.Handle("POST /api/ui/v1/bookmarks/reorder", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkReorder)))
+	mux.Handle("POST /api/ui/v1/bookmarks/import", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkImport)))
+	mux.HandleFunc("GET /api/ui/v1/bookmarks/export", router.handleBookmarkExport)
+	mux.Handle("PUT /api/ui/v1/bookmarks/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkByID)))
 	mux.Handle("PATCH /api/ui/v1/bookmarks/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkByID)))
+	mux.HandleFunc("GET /api/ui/v1/bookmarks/{id}/open", router.handleBookmarkOpen)
 	mux.Handle("DELETE /api/ui/v1/bookmarks/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleBookmarkByID)))
+	mux.HandleFunc("GET /api/ui/v1/folders", router.handleFolders)
+	mux.Handle("POST /api/ui/v1/folders", router.withTrustedConsole(http.HandlerFunc(router.handleFolders)))
+	mux.Handle("POST /api/ui/v1/folders/reorder", router.withTrustedConsole(http.HandlerFunc(router.handleFolderReorder)))
+	mux.Handle("PUT /api/ui/v1/folders/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleFolderByID)))
+	mux.Handle("DELETE /api/ui/v1/folders/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleFolderByID)))
+	mux.HandleFunc("GET /api/ui/v1/tags", router.handleTags)
 	mux.HandleFunc("GET /api/ui/v1/discovery/docker-endpoints", router.handleDockerEndpoints)
 	mux.Handle("POST /api/ui/v1/discovery/docker-endpoints", router.withTrustedConsole(http.HandlerFunc(router.handleDockerEndpoints)))
 	mux.Handle("PATCH /api/ui/v1/discovery/docker-endpoints/{id}", router.withTrustedConsole(http.HandlerFunc(router.handleDockerEndpointByID)))
@@ -87,8 +101,20 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	mux.Handle("PATCH /api/external/v1/devices/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDeviceByID)))
 	mux.Handle("GET /api/external/v1/bookmarks", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarks)))
 	mux.Handle("POST /api/external/v1/bookmarks", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("POST /api/external/v1/bookmarks/from-service", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkFromService)))
+	mux.Handle("POST /api/external/v1/bookmarks/reorder", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkReorder)))
+	mux.Handle("POST /api/external/v1/bookmarks/import", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkImport)))
+	mux.Handle("GET /api/external/v1/bookmarks/export", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarkExport)))
+	mux.Handle("PUT /api/external/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
 	mux.Handle("PATCH /api/external/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("GET /api/external/v1/bookmarks/{id}/open", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarkOpen)))
 	mux.Handle("DELETE /api/external/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("GET /api/external/v1/folders", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleFolders)))
+	mux.Handle("POST /api/external/v1/folders", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolders)))
+	mux.Handle("POST /api/external/v1/folders/reorder", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolderReorder)))
+	mux.Handle("PUT /api/external/v1/folders/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolderByID)))
+	mux.Handle("DELETE /api/external/v1/folders/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolderByID)))
+	mux.Handle("GET /api/external/v1/tags", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleTags)))
 	mux.Handle("GET /api/external/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDockerEndpoints)))
 	mux.Handle("POST /api/external/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpoints)))
 	mux.Handle("PATCH /api/external/v1/discovery/docker-endpoints/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpointByID)))
@@ -117,8 +143,20 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	mux.Handle("PATCH /api/v1/devices/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDeviceByID)))
 	mux.Handle("GET /api/v1/bookmarks", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarks)))
 	mux.Handle("POST /api/v1/bookmarks", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarks)))
+	mux.Handle("POST /api/v1/bookmarks/from-service", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkFromService)))
+	mux.Handle("POST /api/v1/bookmarks/reorder", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkReorder)))
+	mux.Handle("POST /api/v1/bookmarks/import", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkImport)))
+	mux.Handle("GET /api/v1/bookmarks/export", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarkExport)))
+	mux.Handle("PUT /api/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
 	mux.Handle("PATCH /api/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("GET /api/v1/bookmarks/{id}/open", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleBookmarkOpen)))
 	mux.Handle("DELETE /api/v1/bookmarks/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleBookmarkByID)))
+	mux.Handle("GET /api/v1/folders", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleFolders)))
+	mux.Handle("POST /api/v1/folders", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolders)))
+	mux.Handle("POST /api/v1/folders/reorder", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolderReorder)))
+	mux.Handle("PUT /api/v1/folders/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolderByID)))
+	mux.Handle("DELETE /api/v1/folders/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleFolderByID)))
+	mux.Handle("GET /api/v1/tags", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleTags)))
 	mux.Handle("GET /api/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeRead, http.HandlerFunc(router.handleDockerEndpoints)))
 	mux.Handle("POST /api/v1/discovery/docker-endpoints", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpoints)))
 	mux.Handle("PATCH /api/v1/discovery/docker-endpoints/{id}", router.withExternalToken(domain.TokenScopeWrite, http.HandlerFunc(router.handleDockerEndpointByID)))
@@ -400,14 +438,25 @@ func (r *Router) handleDeviceByID(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleBookmarks(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
-		items, err := r.app.ListBookmarks(req.Context())
+		options := domain.BookmarkListOptions{
+			Query:     strings.TrimSpace(req.URL.Query().Get("q")),
+			FolderID:  strings.TrimSpace(req.URL.Query().Get("folderId")),
+			Tag:       strings.TrimSpace(req.URL.Query().Get("tag")),
+			DeviceID:  strings.TrimSpace(req.URL.Query().Get("deviceId")),
+			ServiceID: strings.TrimSpace(req.URL.Query().Get("serviceId")),
+		}
+		if rawFavorites := strings.TrimSpace(req.URL.Query().Get("favorites")); rawFavorites != "" {
+			value := rawFavorites == "true"
+			options.Favorites = &value
+		}
+		items, err := r.app.QueryBookmarks(req.Context(), options)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, items)
 	case http.MethodPost:
-		var item domain.Bookmark
+		var item domain.BookmarkInput
 		if err := decodeJSON(req.Body, &item); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
@@ -424,8 +473,8 @@ func (r *Router) handleBookmarks(w http.ResponseWriter, req *http.Request) {
 func (r *Router) handleBookmarkByID(w http.ResponseWriter, req *http.Request) {
 	id := req.PathValue("id")
 	switch req.Method {
-	case http.MethodPatch:
-		var item domain.Bookmark
+	case http.MethodPut, http.MethodPatch:
+		var item domain.BookmarkInput
 		if err := decodeJSON(req.Body, &item); err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return

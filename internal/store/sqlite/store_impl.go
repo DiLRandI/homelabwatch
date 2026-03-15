@@ -871,58 +871,6 @@ func (s *Store) upsertDevicePortTx(ctx context.Context, tx *sql.Tx, deviceID str
 	return err
 }
 
-func (s *Store) ListBookmarks(ctx context.Context) ([]domain.Bookmark, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, url, COALESCE(description, ''), COALESCE(icon, ''), tags_json, sort_order, COALESCE(service_id, ''), created_at, updated_at FROM bookmarks ORDER BY sort_order ASC, name`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []domain.Bookmark
-	for rows.Next() {
-		var item domain.Bookmark
-		var tagsJSON, createdAt, updatedAt string
-		if err := rows.Scan(&item.ID, &item.Name, &item.URL, &item.Description, &item.Icon, &tagsJSON, &item.SortOrder, &item.ServiceID, &createdAt, &updatedAt); err != nil {
-			return nil, err
-		}
-		_ = json.Unmarshal([]byte(tagsJSON), &item.Tags)
-		item.CreatedAt = parseTime(createdAt)
-		item.UpdatedAt = parseTime(updatedAt)
-		items = append(items, item)
-	}
-	return items, rows.Err()
-}
-
-func (s *Store) SaveBookmark(ctx context.Context, bookmark domain.Bookmark) (domain.Bookmark, error) {
-	now := time.Now().UTC()
-	if bookmark.ID == "" {
-		bookmark.ID = newID("bmk")
-		bookmark.CreatedAt = now
-	}
-	bookmark.UpdatedAt = now
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO bookmarks(id, name, url, description, icon, tags_json, sort_order, service_id, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, url = excluded.url, description = excluded.description, icon = excluded.icon, tags_json = excluded.tags_json, sort_order = excluded.sort_order, service_id = excluded.service_id, updated_at = excluded.updated_at`, bookmark.ID, bookmark.Name, bookmark.URL, nullableString(bookmark.Description), nullableString(bookmark.Icon), string(mustJSON(bookmark.Tags)), bookmark.SortOrder, nullableString(bookmark.ServiceID), bookmark.CreatedAt.Format(time.RFC3339Nano), bookmark.UpdatedAt.Format(time.RFC3339Nano)); err != nil {
-		return domain.Bookmark{}, err
-	}
-	return s.getBookmark(ctx, bookmark.ID)
-}
-
-func (s *Store) getBookmark(ctx context.Context, id string) (domain.Bookmark, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT id, name, url, COALESCE(description, ''), COALESCE(icon, ''), tags_json, sort_order, COALESCE(service_id, ''), created_at, updated_at FROM bookmarks WHERE id = ?`, id)
-	var item domain.Bookmark
-	var tagsJSON, createdAt, updatedAt string
-	if err := row.Scan(&item.ID, &item.Name, &item.URL, &item.Description, &item.Icon, &tagsJSON, &item.SortOrder, &item.ServiceID, &createdAt, &updatedAt); err != nil {
-		return domain.Bookmark{}, err
-	}
-	_ = json.Unmarshal([]byte(tagsJSON), &item.Tags)
-	item.CreatedAt = parseTime(createdAt)
-	item.UpdatedAt = parseTime(updatedAt)
-	return item, nil
-}
-
-func (s *Store) DeleteBookmark(ctx context.Context, id string) error {
-	_, err := s.db.ExecContext(ctx, "DELETE FROM bookmarks WHERE id = ?", id)
-	return err
-}
-
 func (s *Store) GetDashboard(ctx context.Context) (domain.Dashboard, error) {
 	services, err := s.ListServices(ctx)
 	if err != nil {

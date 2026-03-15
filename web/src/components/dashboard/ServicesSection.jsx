@@ -30,7 +30,13 @@ const sourceMeta = {
   },
 };
 
-export default function ServicesSection({ canManage = true, onAdd, services }) {
+export default function ServicesSection({
+  bookmarkedServiceIds = new Set(),
+  canManage = true,
+  onAdd,
+  onAddBookmark,
+  services,
+}) {
   return (
     <section id="services">
       <Card>
@@ -118,6 +124,20 @@ export default function ServicesSection({ canManage = true, onAdd, services }) {
                     </dl>
 
                     <div className="mt-5 flex flex-wrap gap-2">
+                      {onAddBookmark ? (
+                        <Button
+                          disabled={!canManage || bookmarkedServiceIds.has(service.id)}
+                          onClick={() => onAddBookmark(service)}
+                          size="sm"
+                          variant={
+                            bookmarkedServiceIds.has(service.id) ? "subtle" : "ghost"
+                          }
+                        >
+                          {bookmarkedServiceIds.has(service.id)
+                            ? "Bookmarked"
+                            : "Add bookmark"}
+                        </Button>
+                      ) : null}
                       {service.checks?.length > 0 ? (
                         service.checks.map((check) => (
                           <Badge key={check.id}>
