@@ -1,13 +1,23 @@
-export default function TextArea({ label, value, onChange, placeholder }) {
+import { cn } from "../../lib/cn";
+
+export default function TextArea({
+  containerClassName,
+  label,
+  onChange,
+  placeholder,
+  rows = 4,
+  value,
+}) {
   return (
-    <label className="rounded-3xl border border-white/10 bg-white/5 p-4">
-      <span className="block text-xs uppercase tracking-[0.24em] text-muted">
+    <label className={cn("grid gap-2", containerClassName)}>
+      <span className="block text-sm font-medium text-slate-700">
         {label}
       </span>
       <textarea
-        className="mt-2 min-h-24 w-full rounded-2xl border border-white/10 bg-base/80 px-4 py-3 text-sm text-ink outline-hidden placeholder:text-muted/60 focus:border-accent/60"
+        className="min-h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-950 shadow-sm outline-hidden transition placeholder:text-slate-400 focus:border-accent focus-visible:ring-4 focus-visible:ring-accent/15"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        rows={rows}
         value={value}
       />
     </label>

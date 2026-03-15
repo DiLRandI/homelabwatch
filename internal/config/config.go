@@ -47,6 +47,7 @@ type fileConfig struct {
 }
 
 func Load() (Config, error) {
+	adminTokenFileExplicit := false
 	cfg := Config{
 		ListenAddr:       ":8080",
 		DataDir:          "./data",
@@ -60,15 +61,19 @@ func Load() (Config, error) {
 	cfg.ConfigPath = envString("HOMELABWATCH_CONFIG", "")
 
 	if cfg.ConfigPath != "" {
-		if err := loadYAML(&cfg, cfg.ConfigPath); err != nil {
+		explicit, err := loadYAML(&cfg, cfg.ConfigPath)
+		if err != nil {
 			return Config{}, err
 		}
+		adminTokenFileExplicit = adminTokenFileExplicit || explicit
 	} else {
 		for _, candidate := range []string{"./config.yaml", "./config.yml"} {
 			if _, err := os.Stat(candidate); err == nil {
-				if err := loadYAML(&cfg, candidate); err != nil {
+				explicit, err := loadYAML(&cfg, candidate)
+				if err != nil {
 					return Config{}, err
 				}
+				adminTokenFileExplicit = adminTokenFileExplicit || explicit
 				cfg.ConfigPath = candidate
 				break
 			}
@@ -88,7 +93,10 @@ func Load() (Config, error) {
 	cfg.SeedDockerSocket = envBool("HOMELABWATCH_SEED_DOCKER_SOCKET", cfg.SeedDockerSocket)
 	cfg.AutoBootstrap = envBool("HOMELABWATCH_AUTO_BOOTSTRAP", cfg.AutoBootstrap)
 	cfg.AdminToken = envString("HOMELABWATCH_ADMIN_TOKEN", cfg.AdminToken)
-	cfg.AdminTokenFile = envString("HOMELABWATCH_ADMIN_TOKEN_FILE", cfg.AdminTokenFile)
+	if tokenFile := envString("HOMELABWATCH_ADMIN_TOKEN_FILE", ""); tokenFile != "" {
+		cfg.AdminTokenFile = tokenFile
+		adminTokenFileExplicit = true
+	}
 
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
@@ -96,7 +104,7 @@ func Load() (Config, error) {
 	if strings.TrimSpace(cfg.DataDir) == "" {
 		cfg.DataDir = filepath.Dir(cfg.DBPath)
 	}
-	if strings.TrimSpace(cfg.AdminTokenFile) == "" {
+	if !adminTokenFileExplicit || strings.TrimSpace(cfg.AdminTokenFile) == "" {
 		cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	}
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
@@ -108,15 +116,16 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-func loadYAML(cfg *Config, path string) error {
+func loadYAML(cfg *Config, path string) (bool, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return false, err
 	}
 	var fileCfg fileConfig
 	if err := yaml.Unmarshal(content, &fileCfg); err != nil {
-		return err
+		return false, err
 	}
+	adminTokenFileExplicit := false
 	if fileCfg.Server.ListenAddr != "" {
 		cfg.ListenAddr = fileCfg.Server.ListenAddr
 	}
@@ -143,14 +152,12 @@ func loadYAML(cfg *Config, path string) error {
 	}
 	if fileCfg.Bootstrap.AdminTokenFile != "" {
 		cfg.AdminTokenFile = fileCfg.Bootstrap.AdminTokenFile
+		adminTokenFileExplicit = true
 	}
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
 	}
-	if strings.TrimSpace(cfg.AdminTokenFile) == "" {
-		cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
-	}
-	return nil
+	return adminTokenFileExplicit, nil
 }
 
 func envString(key, fallback string) string {

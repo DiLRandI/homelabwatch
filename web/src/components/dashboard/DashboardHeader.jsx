@@ -1,64 +1,136 @@
-import Alerts from "../ui/Alerts";
-import ActionButton from "../ui/ActionButton";
-import Input from "../ui/Input";
-import MetricCard from "../ui/MetricCard";
+import { formatDate } from "../../lib/format";
+import Badge from "../ui/Badge";
+import Button from "../ui/Button";
+import { Card, CardContent } from "../ui/Card";
+import {
+  ActivityIcon,
+  BookmarkIcon,
+  ClockIcon,
+  DatabaseIcon,
+  DiscoveryIcon,
+  PlusIcon,
+  SparklesIcon,
+  TokenIcon,
+} from "../ui/Icons";
+
+const detailIcons = {
+  "Active scans": DiscoveryIcon,
+  "Bootstrap date": ClockIcon,
+  Persistence: DatabaseIcon,
+};
 
 export default function DashboardHeader({
-  adminToken,
   adminTokenFile,
-  error,
   metrics,
-  notice,
-  onAdminTokenChange,
-  onRefresh,
-  onRunDiscovery,
-  onRunMonitoring,
+  onOpenModal,
+  settings,
 }) {
+  const details = [
+    {
+      label: "Active scans",
+      value: `${settings?.scanTargets?.length ?? 0} targets across ${settings?.dockerEndpoints?.length ?? 0} Docker endpoints`,
+    },
+    {
+      label: "Bootstrap date",
+      value: formatDate(settings?.appSettings?.initializedAt),
+    },
+    {
+      label: "Persistence",
+      value: adminTokenFile || "Token stored in browser session",
+      truncate: true,
+    },
+  ];
+
   return (
-    <header className="animate-floatIn rounded-4xl border border-white/10 bg-panel/80 p-6 shadow-halo backdrop-blur-sm">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm uppercase tracking-[0.35em] text-accent">
-            Homelabwatch
-          </p>
-          <h1 className="mt-2 font-display text-4xl font-semibold text-ink">
-            Discover, monitor, and reach everything in the lab.
-          </h1>
-          <p className="mt-3 max-w-3xl text-sm leading-7 text-muted">
-            The dashboard tracks devices by MAC identity, discovers Docker
-            workloads and LAN services, and streams health changes over a single
-            embedded control plane.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,18rem)_auto_auto_auto]">
-          <Input
-            compact
-            label="Admin token"
-            onChange={onAdminTokenChange}
-            placeholder="required for writes"
-            type="password"
-            value={adminToken}
-          />
-          <ActionButton onClick={() => void onRunDiscovery()}>
-            Run discovery
-          </ActionButton>
-          <ActionButton onClick={() => void onRunMonitoring()}>
-            Run checks
-          </ActionButton>
-          <ActionButton onClick={() => void onRefresh()}>Refresh</ActionButton>
-        </div>
-      </div>
-      {!adminToken && adminTokenFile ? (
-        <p className="mt-3 text-sm text-muted">
-          First-run admin token is stored at <code>{adminTokenFile}</code>.
-        </p>
-      ) : null}
-      <Alerts error={error} notice={notice} />
-      <div className="mt-6 grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+    <section
+      className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)]"
+      id="overview"
+    >
+      <Card className="overflow-hidden border-transparent bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_44%,#f8fafc_100%)]">
+        <CardContent className="p-6 sm:p-8">
+          <Badge tone="accent" withDot>
+            Operations overview
+          </Badge>
+          <div className="mt-5 max-w-3xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+              Run the homelab like a product, not a pile of tabs.
+            </h1>
+            <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
+              Homelabwatch keeps discovery, health, bookmarks, and worker
+              activity in one operator view so you can see what changed and act
+              before users notice.
+            </p>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            {details.map((detail) => {
+              const Icon = detailIcons[detail.label] || SparklesIcon;
+              return (
+                <div
+                  className="rounded-3xl border border-white bg-white/90 p-4 shadow-card"
+                  key={detail.label}
+                >
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {detail.label}
+                  </p>
+                  <p
+                    className={`mt-2 text-sm font-medium text-slate-900 ${detail.truncate ? "truncate" : ""}`}
+                    title={detail.value}
+                  >
+                    {detail.value}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button leadingIcon={PlusIcon} onClick={() => onOpenModal("service")}>
+              Add service
+            </Button>
+            <Button
+              leadingIcon={BookmarkIcon}
+              onClick={() => onOpenModal("bookmark")}
+              variant="secondary"
+            >
+              Add bookmark
+            </Button>
+            <Button
+              leadingIcon={TokenIcon}
+              onClick={() => onOpenModal("endpoint")}
+              variant="subtle"
+            >
+              Add Docker endpoint
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2">
         {metrics.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
+          <Card className="overflow-hidden" key={metric.label}>
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    {metric.label}
+                  </p>
+                  <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">
+                    {metric.value}
+                  </p>
+                </div>
+                <span className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ${metric.iconTone}`}>
+                  <metric.icon className="h-5 w-5" />
+                </span>
+              </div>
+              <p className="mt-4 text-sm text-slate-500">{metric.description}</p>
+            </CardContent>
+          </Card>
         ))}
       </div>
-    </header>
+    </section>
   );
 }

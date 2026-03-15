@@ -1,45 +1,91 @@
-import BookmarkForm from "../forms/BookmarkForm";
+import Button from "../ui/Button";
+import { Card, CardContent, CardHeader } from "../ui/Card";
 import EmptyState from "../ui/EmptyState";
-import Section from "../ui/Section";
+import { ArrowUpRightIcon, BookmarkIcon, PlusIcon } from "../ui/Icons";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/Table";
 
-export default function BookmarksSection({ bookmarks, onSubmit }) {
+export default function BookmarksSection({ bookmarks, onAdd }) {
   return (
-    <Section
-      title="Bookmarks"
-      subtitle="User-curated links that live beside auto-discovered services."
-    >
-      <div className="grid gap-3">
-        {bookmarks.length === 0 ? (
-          <EmptyState
-            title="No bookmarks yet"
-            body="Add external dashboards or docs here."
-            compact
-          />
-        ) : (
-          bookmarks.map((bookmark) => (
-            <a
-              key={bookmark.id}
-              className="rounded-3xl border border-white/10 bg-base/70 p-4 transition hover:border-accent/50"
-              href={bookmark.url}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-display text-lg font-semibold text-ink">
-                    {bookmark.name}
-                  </h3>
-                  <p className="mt-1 text-sm text-muted">{bookmark.url}</p>
-                </div>
-                <span className="text-xs uppercase tracking-[0.2em] text-accent">
-                  Open
-                </span>
-              </div>
-            </a>
-          ))
-        )}
-      </div>
-      <BookmarkForm onSubmit={onSubmit} />
-    </Section>
+    <section id="bookmarks">
+      <Card>
+        <CardHeader
+          action={
+            <Button leadingIcon={PlusIcon} onClick={onAdd} variant="secondary">
+              Add bookmark
+            </Button>
+          }
+          description="Curated links for docs, dashboards, and tools that sit next to the discovered estate."
+          title="Bookmarks"
+        />
+        <CardContent className="p-0">
+          {bookmarks.length === 0 ? (
+            <div className="px-5 py-5 sm:px-6">
+              <EmptyState
+                action={onAdd}
+                actionLabel="Add bookmark"
+                body="Pin operator docs, third-party dashboards, or external tools used alongside your homelab."
+                title="No bookmarks saved"
+              />
+            </div>
+          ) : (
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeader>Bookmark</TableHeader>
+                  <TableHeader>Destination</TableHeader>
+                  <TableHeader>Notes</TableHeader>
+                  <TableHeader className="text-right">Open</TableHeader>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {bookmarks.map((bookmark) => (
+                  <TableRow key={bookmark.id}>
+                    <TableCell className="min-w-[220px]">
+                      <div className="flex items-center gap-3">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                          <BookmarkIcon className="h-4 w-4" />
+                        </span>
+                        <div>
+                          <p className="font-medium text-slate-900">{bookmark.name}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="max-w-[320px]">
+                      <p className="truncate" title={bookmark.url}>
+                        {bookmark.url}
+                      </p>
+                    </TableCell>
+                    <TableCell className="max-w-[300px]">
+                      <p className="truncate" title={bookmark.description || "No description"}>
+                        {bookmark.description || "No description"}
+                      </p>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        onClick={() =>
+                          window.open(bookmark.url, "_blank", "noopener,noreferrer")
+                        }
+                        size="sm"
+                        trailingIcon={ArrowUpRightIcon}
+                        variant="ghost"
+                      >
+                        Open
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   );
 }
