@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -151,6 +152,8 @@ func (s *Store) GetAppSettings(ctx context.Context) (domain.AppSettings, error) 
 			settings.Initialized = value == "true"
 		case "admin_token_hash":
 			settings.AdminTokenHash = value
+		case "appliance_name":
+			settings.ApplianceName = value
 		case "initialized_at":
 			settings.InitializedAt = parseTime(value)
 		case "last_bootstrap_at":
@@ -162,13 +165,11 @@ func (s *Store) GetAppSettings(ctx context.Context) (domain.AppSettings, error) 
 		}
 		settings.UpdatedAt = parseTime(updatedAt)
 	}
+	settings.LegacyTokenEnabled = settings.AdminTokenHash != ""
 	return settings, rows.Err()
 }
 
-func (s *Store) Initialize(ctx context.Context, input domain.BootstrapInput) error {
-	if strings.TrimSpace(input.AdminToken) == "" {
-		return errors.New("admin token is required")
-	}
+func (s *Store) Initialize(ctx context.Context, input domain.SetupInput) error {
 	status, err := s.BootstrapStatus(ctx)
 	if err != nil {
 		return err
@@ -181,11 +182,10 @@ func (s *Store) Initialize(ctx context.Context, input domain.BootstrapInput) err
 		return err
 	}
 	defer tx.Rollback()
-	hash := sha256.Sum256([]byte(input.AdminToken))
 	now := nowString()
 	settings := map[string]string{
 		"initialized":        "true",
-		"admin_token_hash":   hex.EncodeToString(hash[:]),
+		"appliance_name":     firstNonEmpty(strings.TrimSpace(input.ApplianceName), "HomelabWatch"),
 		"initialized_at":     now,
 		"last_bootstrap_at":  now,
 		"auto_scan_enabled":  boolString(input.AutoScanEnabled),
@@ -229,16 +229,38 @@ func (s *Store) Initialize(ctx context.Context, input domain.BootstrapInput) err
 	return tx.Commit()
 }
 
-func (s *Store) ValidateAdminToken(ctx context.Context, token string) (bool, error) {
+func (s *Store) ValidateAPIToken(ctx context.Context, token string, requiredScope domain.TokenScope) (bool, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return false, nil
+	}
 	settings, err := s.GetAppSettings(ctx)
 	if err != nil {
 		return false, err
 	}
-	if settings.AdminTokenHash == "" {
+	sum := sha256.Sum256([]byte(token))
+	hash := hex.EncodeToString(sum[:])
+	if settings.AdminTokenHash != "" && hash == settings.AdminTokenHash {
+		return true, nil
+	}
+	var (
+		scope     string
+		revokedAt string
+	)
+	err = s.db.QueryRowContext(ctx, `SELECT scope, COALESCE(revoked_at, '') FROM api_tokens WHERE token_hash = ?`, hash).Scan(&scope, &revokedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	if revokedAt != "" || !tokenScopeAllows(domain.TokenScope(scope), requiredScope) {
 		return false, nil
 	}
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:]) == settings.AdminTokenHash, nil
+	if _, err := s.db.ExecContext(ctx, `UPDATE api_tokens SET last_used_at = ?, updated_at = ? WHERE token_hash = ?`, nowString(), nowString(), hash); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (s *Store) GetSettingsView(ctx context.Context) (domain.SettingsView, error) {
@@ -258,7 +280,94 @@ func (s *Store) GetSettingsView(ctx context.Context) (domain.SettingsView, error
 	if err != nil {
 		return domain.SettingsView{}, err
 	}
-	return domain.SettingsView{AppSettings: appSettings, DockerEndpoints: dockerEndpoints, ScanTargets: scanTargets, JobState: jobState}, nil
+	apiTokens, err := s.ListAPITokens(ctx)
+	if err != nil {
+		return domain.SettingsView{}, err
+	}
+	return domain.SettingsView{
+		AppSettings:     appSettings,
+		DockerEndpoints: dockerEndpoints,
+		ScanTargets:     scanTargets,
+		JobState:        jobState,
+		APIAccess: domain.APIAccessView{
+			Tokens:                apiTokens,
+			LegacyAdminTokenAlive: appSettings.AdminTokenHash != "",
+		},
+	}, nil
+}
+
+func (s *Store) ListAPITokens(ctx context.Context) ([]domain.APIToken, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, scope, token_prefix, COALESCE(last_used_at, ''), created_at, updated_at, COALESCE(revoked_at, '') FROM api_tokens ORDER BY revoked_at IS NOT NULL, created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []domain.APIToken
+	for rows.Next() {
+		var item domain.APIToken
+		var scope, lastUsedAt, createdAt, updatedAt, revokedAt string
+		if err := rows.Scan(&item.ID, &item.Name, &scope, &item.Prefix, &lastUsedAt, &createdAt, &updatedAt, &revokedAt); err != nil {
+			return nil, err
+		}
+		item.Scope = domain.TokenScope(scope)
+		item.LastUsedAt = parseTime(lastUsedAt)
+		item.CreatedAt = parseTime(createdAt)
+		item.UpdatedAt = parseTime(updatedAt)
+		item.RevokedAt = parseTime(revokedAt)
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (s *Store) CreateAPIToken(ctx context.Context, input domain.CreateAPITokenInput) (domain.CreatedAPIToken, error) {
+	name := strings.TrimSpace(input.Name)
+	if name == "" {
+		return domain.CreatedAPIToken{}, errors.New("token name is required")
+	}
+	scope := input.Scope
+	if scope == "" {
+		scope = domain.TokenScopeWrite
+	}
+	if scope != domain.TokenScopeRead && scope != domain.TokenScopeWrite {
+		return domain.CreatedAPIToken{}, errors.New("token scope must be read or write")
+	}
+	secret, err := generateAPITokenSecret()
+	if err != nil {
+		return domain.CreatedAPIToken{}, err
+	}
+	now := time.Now().UTC()
+	item := domain.APIToken{
+		ID:        newID("tok"),
+		Name:      name,
+		Scope:     scope,
+		Prefix:    tokenPrefix(secret),
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	sum := sha256.Sum256([]byte(secret))
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO api_tokens(id, name, scope, token_hash, token_prefix, last_used_at, revoked_at, created_at, updated_at) VALUES(?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
+		item.ID,
+		item.Name,
+		item.Scope,
+		hex.EncodeToString(sum[:]),
+		item.Prefix,
+		item.CreatedAt.Format(time.RFC3339Nano),
+		item.UpdatedAt.Format(time.RFC3339Nano),
+	); err != nil {
+		return domain.CreatedAPIToken{}, err
+	}
+	return domain.CreatedAPIToken{Token: item, Secret: secret}, nil
+}
+
+func (s *Store) RevokeAPIToken(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx, `UPDATE api_tokens SET revoked_at = ?, updated_at = ? WHERE id = ? AND revoked_at IS NULL`, nowString(), nowString(), id)
+	if err != nil {
+		return err
+	}
+	if rows, err := result.RowsAffected(); err == nil && rows == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (s *Store) ListDockerEndpoints(ctx context.Context) ([]domain.DockerEndpoint, error) {
@@ -832,7 +941,12 @@ func (s *Store) GetDashboard(ctx context.Context) (domain.Dashboard, error) {
 		return domain.Dashboard{}, err
 	}
 	summary := domain.DashboardSummary{TotalServices: len(services), DevicesSeen: len(devices), Bookmarks: len(bookmarks)}
+	containers := make([]domain.Service, 0)
 	for _, item := range services {
+		if item.Source == domain.ServiceSourceDocker {
+			containers = append(containers, item)
+			summary.RunningContainers++
+		}
 		switch item.Status {
 		case domain.HealthStatusHealthy:
 			summary.HealthyServices++
@@ -842,7 +956,14 @@ func (s *Store) GetDashboard(ctx context.Context) (domain.Dashboard, error) {
 			summary.UnhealthyServices++
 		}
 	}
-	return domain.Dashboard{Summary: summary, Services: services, Devices: devices, Bookmarks: bookmarks, RecentEvents: events}, nil
+	return domain.Dashboard{
+		Summary:      summary,
+		Services:     services,
+		Containers:   containers,
+		Devices:      devices,
+		Bookmarks:    bookmarks,
+		RecentEvents: events,
+	}, nil
 }
 
 func (s *Store) ListRecentEvents(ctx context.Context, limit int) ([]domain.ServiceEvent, error) {
@@ -1234,6 +1355,28 @@ func newID(prefix string) string {
 	buf := make([]byte, 8)
 	_, _ = rand.Read(buf)
 	return prefix + "_" + hex.EncodeToString(buf)
+}
+
+func generateAPITokenSecret() (string, error) {
+	buffer := make([]byte, 24)
+	if _, err := rand.Read(buffer); err != nil {
+		return "", err
+	}
+	return "hlw_" + base64.RawURLEncoding.EncodeToString(buffer), nil
+}
+
+func tokenPrefix(secret string) string {
+	if len(secret) <= 12 {
+		return secret
+	}
+	return secret[:12]
+}
+
+func tokenScopeAllows(actual, required domain.TokenScope) bool {
+	if actual == domain.TokenScopeWrite {
+		return true
+	}
+	return actual == required
 }
 
 func slugify(input string) string {

@@ -1,19 +1,26 @@
-@import 'tailwindcss';
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import "tailwindcss";
 
 @theme {
-  --color-base: #09121a;
-  --color-panel: #10202b;
-  --color-ink: #ecf3ed;
-  --color-accent: #f2c45a;
-  --color-danger: #ff7a6d;
-  --color-warn: #ffb347;
-  --color-ok: #52d49b;
-  --color-muted: #9bb2b5;
+  --color-page: #f3f6fb;
+  --color-base: #e2e8f0;
+  --color-panel: #ffffff;
+  --color-ink: #0f172a;
+  --color-accent: #2563eb;
+  --color-accent-strong: #1d4ed8;
+  --color-danger: #dc2626;
+  --color-danger-strong: #b91c1c;
+  --color-warn: #f59e0b;
+  --color-warn-strong: #b45309;
+  --color-ok: #16a34a;
+  --color-ok-strong: #15803d;
+  --color-muted: #64748b;
 
-  --font-display: 'Avenir Next', 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', monospace;
+  --font-display: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", monospace;
 
-  --shadow-halo: 0 18px 60px rgba(7, 13, 19, 0.35);
+  --shadow-card: 0 12px 36px rgba(15, 23, 42, 0.07);
+  --shadow-card-lg: 0 22px 60px rgba(15, 23, 42, 0.14);
 
   --animate-floatIn: floatIn 420ms ease-out;
 
@@ -29,32 +36,42 @@
   }
 }
 
-/*
-  The default border color has changed to `currentcolor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
   *,
   ::after,
   ::before,
   ::backdrop,
   ::file-selector-button {
-    border-color: var(--color-gray-200, currentcolor);
+    border-color: #dbe3ef;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 32%),
+      radial-gradient(circle at right 20%, rgba(14, 165, 233, 0.08), transparent 28%),
+      linear-gradient(180deg, #f8fbff 0%, #f3f6fb 22%, #eef3f9 100%);
+    color: #0f172a;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgba(37, 99, 235, 0.18);
+    color: #0f172a;
   }
 }
 
 :root {
-  color-scheme: dark;
-}
-
-body {
-  margin: 0;
-  font-family: "Avenir Next", "Segoe UI", sans-serif;
-  background: #09121a;
+  color-scheme: light;
 }
 
 * {

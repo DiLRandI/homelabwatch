@@ -1,14 +1,19 @@
-async function request(path, { token = "", ...options } = {}) {
+async function request(path, { csrfToken = "", ...options } = {}) {
   const headers = new Headers(options.headers || {});
+  const method = (options.method || "GET").toUpperCase();
 
   if (!headers.has("Content-Type") && options.body) {
     headers.set("Content-Type", "application/json");
   }
-  if (token) {
-    headers.set("X-Admin-Token", token);
+  if (method !== "GET" && method !== "HEAD" && csrfToken) {
+    headers.set("X-Homelabwatch-CSRF", csrfToken);
   }
 
-  const response = await fetch(path, { ...options, headers });
+  const response = await fetch(path, {
+    ...options,
+    credentials: "same-origin",
+    headers,
+  });
   if (!response.ok) {
     const payload = await response
       .json()
@@ -21,68 +26,83 @@ async function request(path, { token = "", ...options } = {}) {
   return response.json();
 }
 
-export function fetchBootstrapStatus() {
-  return request("/api/v1/bootstrap/status");
+export function fetchUIBootstrap() {
+  return request("/api/ui/v1/bootstrap");
 }
 
-export function fetchDashboard(token) {
-  return request("/api/v1/dashboard", { token });
+export function fetchDashboard() {
+  return request("/api/ui/v1/dashboard");
 }
 
-export function fetchSettings(token) {
-  return request("/api/v1/settings", { token });
+export function fetchSettings() {
+  return request("/api/ui/v1/settings");
 }
 
-export function initializeBootstrap(payload, token) {
-  return request("/api/v1/bootstrap/init", {
+export function initializeSetup(payload, csrfToken) {
+  return request("/api/ui/v1/setup", {
     body: JSON.stringify(payload),
+    csrfToken,
     method: "POST",
-    token,
   });
 }
 
-export function createService(payload, token) {
-  return request("/api/v1/services", {
+export function createService(payload, csrfToken) {
+  return request("/api/ui/v1/services", {
     body: JSON.stringify(payload),
+    csrfToken,
     method: "POST",
-    token,
   });
 }
 
-export function createBookmark(payload, token) {
-  return request("/api/v1/bookmarks", {
+export function createBookmark(payload, csrfToken) {
+  return request("/api/ui/v1/bookmarks", {
     body: JSON.stringify(payload),
+    csrfToken,
     method: "POST",
-    token,
   });
 }
 
-export function createDockerEndpoint(payload, token) {
-  return request("/api/v1/discovery/docker-endpoints", {
+export function createDockerEndpoint(payload, csrfToken) {
+  return request("/api/ui/v1/discovery/docker-endpoints", {
     body: JSON.stringify(payload),
+    csrfToken,
     method: "POST",
-    token,
   });
 }
 
-export function createScanTarget(payload, token) {
-  return request("/api/v1/discovery/scan-targets", {
+export function createScanTarget(payload, csrfToken) {
+  return request("/api/ui/v1/discovery/scan-targets", {
     body: JSON.stringify(payload),
+    csrfToken,
     method: "POST",
-    token,
   });
 }
 
-export function runDiscoveryJob(token) {
-  return request("/api/v1/discovery/run", {
+export function createAPIToken(payload, csrfToken) {
+  return request("/api/ui/v1/settings/api-tokens", {
+    body: JSON.stringify(payload),
+    csrfToken,
     method: "POST",
-    token,
   });
 }
 
-export function runMonitoringJob(token) {
-  return request("/api/v1/monitoring/run", {
+export function revokeAPIToken(id, csrfToken) {
+  return request(`/api/ui/v1/settings/api-tokens/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function runDiscoveryJob(csrfToken) {
+  return request("/api/ui/v1/discovery/run", {
+    csrfToken,
     method: "POST",
-    token,
+  });
+}
+
+export function runMonitoringJob(csrfToken) {
+  return request("/api/ui/v1/monitoring/run", {
+    csrfToken,
+    method: "POST",
   });
 }

@@ -1,9 +1,13 @@
 import { useState } from "react";
 
 import { defaultDockerEndpointForm } from "../../lib/forms";
+import Button from "../ui/Button";
 import Input from "../ui/Input";
 
-export default function DockerEndpointForm({ onSubmit }) {
+export default function DockerEndpointForm({
+  onSubmit,
+  submitLabel = "Save endpoint",
+}) {
   const [form, setForm] = useState(defaultDockerEndpointForm);
 
   async function handleSubmit(event) {
@@ -18,15 +22,10 @@ export default function DockerEndpointForm({ onSubmit }) {
   }
 
   return (
-    <form
-      className="grid gap-3 rounded-3xl border border-dashed border-accent/40 bg-white/5 p-4"
-      onSubmit={handleSubmit}
-    >
-      <h3 className="font-display text-lg font-semibold text-ink">
-        Add Docker endpoint
-      </h3>
+    <form className="grid gap-4" onSubmit={handleSubmit}>
       <Input
         label="Name"
+        autoComplete="off"
         onChange={(value) => setForm((current) => ({ ...current, name: value }))}
         value={form.name}
       />
@@ -49,12 +48,9 @@ export default function DockerEndpointForm({ onSubmit }) {
         }
         value={String(form.scanIntervalSeconds)}
       />
-      <button
-        className="rounded-full bg-accent px-4 py-3 text-sm font-semibold text-base"
-        type="submit"
-      >
-        Save endpoint
-      </button>
+      <div className="flex justify-end">
+        <Button type="submit">{submitLabel}</Button>
+      </div>
     </form>
   );
 }

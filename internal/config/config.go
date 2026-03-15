@@ -19,9 +19,7 @@ type Config struct {
 	SeedCIDRs        []string
 	DefaultScanPorts []int
 	SeedDockerSocket bool
-	AutoBootstrap    bool
-	AdminToken       string
-	AdminTokenFile   string
+	TrustedCIDRs     []string
 }
 
 type fileConfig struct {
@@ -40,10 +38,9 @@ type fileConfig struct {
 		DefaultScanPorts []int    `yaml:"defaultScanPorts"`
 		SeedDockerSocket *bool    `yaml:"seedDockerSocket"`
 	} `yaml:"discovery"`
-	Bootstrap struct {
-		AutoBootstrap  *bool  `yaml:"autoBootstrap"`
-		AdminTokenFile string `yaml:"adminTokenFile"`
-	} `yaml:"bootstrap"`
+	Security struct {
+		TrustedCIDRs []string `yaml:"trustedCidrs"`
+	} `yaml:"security"`
 }
 
 func Load() (Config, error) {
@@ -53,20 +50,30 @@ func Load() (Config, error) {
 		StaticDir:        "./web/dist",
 		SeedDockerSocket: true,
 		DefaultScanPorts: []int{22, 80, 443, 8080, 8443},
-		AutoBootstrap:    true,
+		TrustedCIDRs: []string{
+			"127.0.0.1/32",
+			"::1/128",
+			"10.0.0.0/8",
+			"172.16.0.0/12",
+			"192.168.0.0/16",
+			"169.254.0.0/16",
+			"fc00::/7",
+			"fe80::/10",
+		},
 	}
 	cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
-	cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	cfg.ConfigPath = envString("HOMELABWATCH_CONFIG", "")
 
 	if cfg.ConfigPath != "" {
-		if err := loadYAML(&cfg, cfg.ConfigPath); err != nil {
+		err := loadYAML(&cfg, cfg.ConfigPath)
+		if err != nil {
 			return Config{}, err
 		}
 	} else {
 		for _, candidate := range []string{"./config.yaml", "./config.yml"} {
 			if _, err := os.Stat(candidate); err == nil {
-				if err := loadYAML(&cfg, candidate); err != nil {
+				err := loadYAML(&cfg, candidate)
+				if err != nil {
 					return Config{}, err
 				}
 				cfg.ConfigPath = candidate
@@ -86,18 +93,15 @@ func Load() (Config, error) {
 		cfg.DefaultScanPorts = ports
 	}
 	cfg.SeedDockerSocket = envBool("HOMELABWATCH_SEED_DOCKER_SOCKET", cfg.SeedDockerSocket)
-	cfg.AutoBootstrap = envBool("HOMELABWATCH_AUTO_BOOTSTRAP", cfg.AutoBootstrap)
-	cfg.AdminToken = envString("HOMELABWATCH_ADMIN_TOKEN", cfg.AdminToken)
-	cfg.AdminTokenFile = envString("HOMELABWATCH_ADMIN_TOKEN_FILE", cfg.AdminTokenFile)
+	if cidrs := envCSV("HOMELABWATCH_TRUSTED_CIDRS"); len(cidrs) > 0 {
+		cfg.TrustedCIDRs = cidrs
+	}
 
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
 	}
 	if strings.TrimSpace(cfg.DataDir) == "" {
 		cfg.DataDir = filepath.Dir(cfg.DBPath)
-	}
-	if strings.TrimSpace(cfg.AdminTokenFile) == "" {
-		cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	}
 	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
 		return Config{}, err
@@ -138,17 +142,11 @@ func loadYAML(cfg *Config, path string) error {
 	if fileCfg.Discovery.SeedDockerSocket != nil {
 		cfg.SeedDockerSocket = *fileCfg.Discovery.SeedDockerSocket
 	}
-	if fileCfg.Bootstrap.AutoBootstrap != nil {
-		cfg.AutoBootstrap = *fileCfg.Bootstrap.AutoBootstrap
-	}
-	if fileCfg.Bootstrap.AdminTokenFile != "" {
-		cfg.AdminTokenFile = fileCfg.Bootstrap.AdminTokenFile
+	if len(fileCfg.Security.TrustedCIDRs) > 0 {
+		cfg.TrustedCIDRs = append([]string(nil), fileCfg.Security.TrustedCIDRs...)
 	}
 	if strings.TrimSpace(cfg.DBPath) == "" {
 		cfg.DBPath = filepath.Join(cfg.DataDir, "homelabwatch.db")
-	}
-	if strings.TrimSpace(cfg.AdminTokenFile) == "" {
-		cfg.AdminTokenFile = filepath.Join(cfg.DataDir, "admin-token")
 	}
 	return nil
 }

@@ -1,57 +1,90 @@
 import { formatDate } from "../../lib/format";
+import Badge from "../ui/Badge";
+import { Card, CardContent, CardHeader } from "../ui/Card";
 import EmptyState from "../ui/EmptyState";
-import Section from "../ui/Section";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/Table";
 
 export default function DevicesSection({ devices }) {
   return (
-    <Section
-      title="Devices"
-      subtitle="Tracked by MAC or fallback fingerprint to survive IP churn."
-    >
-      <div className="grid gap-3">
-        {devices.length === 0 ? (
-          <EmptyState
-            title="No devices yet"
-            body="LAN scans will populate this list."
-            compact
-          />
-        ) : (
-          devices.map((device) => (
-            <div
-              key={device.id}
-              className="rounded-3xl border border-white/10 bg-base/70 p-4"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h3 className="font-display text-lg font-semibold text-ink">
-                    {device.displayName || device.hostname || device.identityKey}
-                  </h3>
-                  <p className="mt-1 text-sm text-muted">
-                    {device.primaryMac || device.identityKey}
-                  </p>
-                </div>
-                <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.22em] text-muted">
-                  {device.identityConfidence}
-                </span>
-              </div>
-              <div className="mt-3 grid gap-2 text-sm text-muted">
-                <span>
-                  IPs:{" "}
-                  {device.addresses?.map((item) => item.ipAddress).join(", ") ||
-                    "n/a"}
-                </span>
-                <span>
-                  Ports:{" "}
-                  {device.ports
-                    ?.map((item) => `${item.port}/${item.protocol}`)
-                    .join(", ") || "n/a"}
-                </span>
-                <span>Last seen: {formatDate(device.lastSeenAt)}</span>
-              </div>
+    <section id="devices">
+      <Card>
+        <CardHeader
+          description="Tracked by MAC identity when available, with network metadata preserved across IP churn."
+          title="Devices"
+        />
+        <CardContent className="p-0">
+          {devices.length === 0 ? (
+            <div className="px-5 py-5 sm:px-6">
+              <EmptyState
+                body="Once discovery runs, responsive network devices will appear here with addresses, ports, and confidence."
+                title="No devices discovered yet"
+              />
             </div>
-          ))
-        )}
-      </div>
-    </Section>
+          ) : (
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableHeader>Device</TableHeader>
+                  <TableHeader>Addresses</TableHeader>
+                  <TableHeader>Ports</TableHeader>
+                  <TableHeader>Confidence</TableHeader>
+                  <TableHeader>Last seen</TableHeader>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {devices.map((device) => (
+                  <TableRow key={device.id}>
+                    <TableCell className="min-w-[220px]">
+                      <p className="font-medium text-slate-900">
+                        {device.displayName || device.hostname || device.identityKey}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        {device.primaryMac || device.identityKey}
+                      </p>
+                    </TableCell>
+                    <TableCell className="max-w-[260px]">
+                      <p
+                        className="truncate"
+                        title={
+                          device.addresses?.map((item) => item.ipAddress).join(", ") || "n/a"
+                        }
+                      >
+                        {device.addresses?.map((item) => item.ipAddress).join(", ") || "n/a"}
+                      </p>
+                    </TableCell>
+                    <TableCell className="max-w-[220px]">
+                      <p
+                        className="truncate"
+                        title={
+                          device.ports
+                            ?.map((item) => `${item.port}/${item.protocol}`)
+                            .join(", ") || "n/a"
+                        }
+                      >
+                        {device.ports?.map((item) => `${item.port}/${item.protocol}`).join(", ") ||
+                          "n/a"}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <Badge tone={device.identityConfidence === "high" ? "success" : "neutral"}>
+                        {device.identityConfidence}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(device.lastSeenAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   );
 }

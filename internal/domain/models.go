@@ -38,12 +38,19 @@ type BootstrapStatus struct {
 	Initialized bool `json:"initialized"`
 }
 
-type BootstrapInput struct {
-	AdminToken       string               `json:"adminToken"`
+type UIBootstrap struct {
+	Initialized    bool   `json:"initialized"`
+	TrustedNetwork bool   `json:"trustedNetwork"`
+	CSRFToken      string `json:"csrfToken"`
+}
+
+type SetupInput struct {
+	ApplianceName    string               `json:"applianceName"`
 	AutoScanEnabled  bool                 `json:"autoScanEnabled"`
 	DefaultScanPorts []int                `json:"defaultScanPorts"`
 	DockerEndpoints  []DockerEndpointSeed `json:"dockerEndpoints"`
 	ScanTargets      []ScanTargetSeed     `json:"scanTargets"`
+	RunDiscovery     bool                 `json:"runDiscovery"`
 }
 
 type DockerEndpointSeed struct {
@@ -67,14 +74,17 @@ type ScanTargetSeed struct {
 }
 
 type AppSettings struct {
-	Initialized      bool      `json:"initialized"`
-	AdminTokenHash   string    `json:"-"`
-	AdminTokenFile   string    `json:"adminTokenFile,omitempty"`
-	InitializedAt    time.Time `json:"initializedAt"`
-	LastBootstrapAt  time.Time `json:"lastBootstrapAt"`
-	AutoScanEnabled  bool      `json:"autoScanEnabled"`
-	DefaultScanPorts []int     `json:"defaultScanPorts"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	Initialized        bool      `json:"initialized"`
+	AdminTokenHash     string    `json:"-"`
+	ApplianceName      string    `json:"applianceName,omitempty"`
+	InitializedAt      time.Time `json:"initializedAt"`
+	LastBootstrapAt    time.Time `json:"lastBootstrapAt"`
+	AutoScanEnabled    bool      `json:"autoScanEnabled"`
+	DefaultScanPorts   []int     `json:"defaultScanPorts"`
+	UpdatedAt          time.Time `json:"updatedAt"`
+	TrustedCIDRs       []string  `json:"trustedCidrs,omitempty"`
+	TrustedNetwork     bool      `json:"trustedNetwork,omitempty"`
+	LegacyTokenEnabled bool      `json:"legacyTokenEnabled,omitempty"`
 }
 
 type SettingsView struct {
@@ -82,6 +92,7 @@ type SettingsView struct {
 	DockerEndpoints []DockerEndpoint `json:"dockerEndpoints"`
 	ScanTargets     []ScanTarget     `json:"scanTargets"`
 	JobState        []JobState       `json:"jobState"`
+	APIAccess       APIAccessView    `json:"apiAccess"`
 }
 
 type DashboardSummary struct {
@@ -91,14 +102,49 @@ type DashboardSummary struct {
 	UnhealthyServices int `json:"unhealthyServices"`
 	DevicesSeen       int `json:"devicesSeen"`
 	Bookmarks         int `json:"bookmarks"`
+	RunningContainers int `json:"runningContainers"`
 }
 
 type Dashboard struct {
 	Summary      DashboardSummary `json:"summary"`
 	Services     []Service        `json:"services"`
+	Containers   []Service        `json:"containers"`
 	Devices      []Device         `json:"devices"`
 	Bookmarks    []Bookmark       `json:"bookmarks"`
 	RecentEvents []ServiceEvent   `json:"recentEvents"`
+}
+
+type TokenScope string
+
+const (
+	TokenScopeRead  TokenScope = "read"
+	TokenScopeWrite TokenScope = "write"
+)
+
+type APIToken struct {
+	ID         string     `json:"id"`
+	Name       string     `json:"name"`
+	Scope      TokenScope `json:"scope"`
+	Prefix     string     `json:"prefix"`
+	LastUsedAt time.Time  `json:"lastUsedAt"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	UpdatedAt  time.Time  `json:"updatedAt"`
+	RevokedAt  time.Time  `json:"revokedAt"`
+}
+
+type APIAccessView struct {
+	Tokens                []APIToken `json:"tokens"`
+	LegacyAdminTokenAlive bool       `json:"legacyAdminTokenAlive"`
+}
+
+type CreateAPITokenInput struct {
+	Name  string     `json:"name"`
+	Scope TokenScope `json:"scope"`
+}
+
+type CreatedAPIToken struct {
+	Token  APIToken `json:"token"`
+	Secret string   `json:"secret"`
 }
 
 type Service struct {

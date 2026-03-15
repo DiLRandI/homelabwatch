@@ -2,13 +2,10 @@ package app
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -33,13 +30,6 @@ type App struct {
 	lan       *lan.Provider
 	monitor   *monitoring.Runner
 	scheduler *worker.Scheduler
-}
-
-type BootstrapResult struct {
-	Performed      bool
-	Generated      bool
-	AdminToken     string
-	AdminTokenFile string
 }
 
 func New(cfg config.Config, store *sqlite.Store, bus *events.Bus) *App {
@@ -76,47 +66,7 @@ func (a *App) BootstrapStatus(ctx context.Context) (domain.BootstrapStatus, erro
 	return a.store.BootstrapStatus(ctx)
 }
 
-func (a *App) EnsureBootstrap(ctx context.Context) (BootstrapResult, error) {
-	status, err := a.store.BootstrapStatus(ctx)
-	if err != nil {
-		return BootstrapResult{}, err
-	}
-	if status.Initialized || !a.config.AutoBootstrap {
-		return BootstrapResult{}, nil
-	}
-
-	token := strings.TrimSpace(a.config.AdminToken)
-	generated := false
-	if token == "" {
-		token, err = generateAdminToken()
-		if err != nil {
-			return BootstrapResult{}, err
-		}
-		generated = true
-	}
-
-	if err := a.Initialize(ctx, domain.BootstrapInput{
-		AdminToken:       token,
-		AutoScanEnabled:  true,
-		DefaultScanPorts: append([]int(nil), a.config.DefaultScanPorts...),
-	}); err != nil {
-		return BootstrapResult{}, err
-	}
-
-	result := BootstrapResult{
-		Performed:  true,
-		Generated:  generated,
-		AdminToken: token,
-	}
-	tokenFile, fileErr := a.writeAdminTokenFile(token)
-	result.AdminTokenFile = tokenFile
-	if fileErr != nil {
-		return result, fileErr
-	}
-	return result, nil
-}
-
-func (a *App) Initialize(ctx context.Context, input domain.BootstrapInput) error {
+func (a *App) Setup(ctx context.Context, input domain.SetupInput) error {
 	status, err := a.store.BootstrapStatus(ctx)
 	if err != nil {
 		return err
@@ -124,11 +74,15 @@ func (a *App) Initialize(ctx context.Context, input domain.BootstrapInput) error
 	if status.Initialized {
 		return errors.New("bootstrap already completed")
 	}
-	if strings.TrimSpace(input.AdminToken) == "" {
-		return errors.New("admin token is required")
-	}
 	if len(input.DefaultScanPorts) == 0 {
 		input.DefaultScanPorts = append([]int(nil), a.config.DefaultScanPorts...)
+	}
+	if strings.TrimSpace(input.ApplianceName) == "" {
+		if hostname, err := os.Hostname(); err == nil && strings.TrimSpace(hostname) != "" {
+			input.ApplianceName = hostname
+		} else {
+			input.ApplianceName = "HomelabWatch"
+		}
 	}
 	input.DockerEndpoints = a.seedDockerEndpoints(input.DockerEndpoints)
 	input.ScanTargets, err = a.seedScanTargets(input.ScanTargets, input.DefaultScanPorts)
@@ -139,14 +93,20 @@ func (a *App) Initialize(ctx context.Context, input domain.BootstrapInput) error
 		return err
 	}
 	a.publish("bootstrap", "app", "initialized", map[string]any{
+		"applianceName":    input.ApplianceName,
 		"autoScanEnabled":  input.AutoScanEnabled,
 		"defaultScanPorts": input.DefaultScanPorts,
 	})
+	if input.RunDiscovery {
+		go func() {
+			_ = a.TriggerDiscovery(context.Background())
+		}()
+	}
 	return nil
 }
 
-func (a *App) ValidateAdminToken(ctx context.Context, token string) (bool, error) {
-	return a.store.ValidateAdminToken(ctx, token)
+func (a *App) ValidateAPIToken(ctx context.Context, token string, requiredScope domain.TokenScope) (bool, error) {
+	return a.store.ValidateAPIToken(ctx, token, requiredScope)
 }
 
 func (a *App) Dashboard(ctx context.Context) (domain.Dashboard, error) {
@@ -154,12 +114,15 @@ func (a *App) Dashboard(ctx context.Context) (domain.Dashboard, error) {
 }
 
 func (a *App) Settings(ctx context.Context) (domain.SettingsView, error) {
-	item, err := a.store.GetSettingsView(ctx)
-	if err != nil {
-		return domain.SettingsView{}, err
-	}
-	item.AppSettings.AdminTokenFile = a.config.AdminTokenFile
-	return item, nil
+	return a.store.GetSettingsView(ctx)
+}
+
+func (a *App) CreateAPIToken(ctx context.Context, input domain.CreateAPITokenInput) (domain.CreatedAPIToken, error) {
+	return a.store.CreateAPIToken(ctx, input)
+}
+
+func (a *App) RevokeAPIToken(ctx context.Context, id string) error {
+	return a.store.RevokeAPIToken(ctx, id)
 }
 
 func (a *App) ListServices(ctx context.Context) ([]domain.Service, error) {
@@ -472,31 +435,6 @@ func hasDevice(device domain.DeviceObservation) bool {
 	return strings.TrimSpace(device.IdentityKey) != "" ||
 		strings.TrimSpace(device.IPAddress) != "" ||
 		strings.TrimSpace(device.PrimaryMAC) != ""
-}
-
-func generateAdminToken() (string, error) {
-	buffer := make([]byte, 24)
-	if _, err := rand.Read(buffer); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(buffer), nil
-}
-
-func (a *App) writeAdminTokenFile(token string) (string, error) {
-	path := strings.TrimSpace(a.config.AdminTokenFile)
-	if path == "" {
-		return "", nil
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(path, []byte(token+"\n"), 0o600); err != nil {
-		return "", err
-	}
-	if err := os.Chmod(path, 0o600); err != nil {
-		return "", err
-	}
-	return path, nil
 }
 
 func normalizeService(service domain.Service) domain.Service {

@@ -1,10 +1,11 @@
 import { useState } from "react";
 
 import { defaultBookmarkForm } from "../../lib/forms";
+import Button from "../ui/Button";
 import Input from "../ui/Input";
 import TextArea from "../ui/TextArea";
 
-export default function BookmarkForm({ onSubmit }) {
+export default function BookmarkForm({ onSubmit, submitLabel = "Save bookmark" }) {
   const [form, setForm] = useState(defaultBookmarkForm);
 
   async function handleSubmit(event) {
@@ -16,20 +17,16 @@ export default function BookmarkForm({ onSubmit }) {
   }
 
   return (
-    <form
-      className="mt-5 grid gap-3 rounded-3xl border border-dashed border-accent/40 bg-white/5 p-4"
-      onSubmit={handleSubmit}
-    >
-      <h3 className="font-display text-lg font-semibold text-ink">
-        Add bookmark
-      </h3>
+    <form className="grid gap-4" onSubmit={handleSubmit}>
       <Input
         label="Name"
+        autoComplete="off"
         onChange={(value) => setForm((current) => ({ ...current, name: value }))}
         value={form.name}
       />
       <Input
         label="URL"
+        autoComplete="url"
         onChange={(value) => setForm((current) => ({ ...current, url: value }))}
         value={form.url}
       />
@@ -40,12 +37,9 @@ export default function BookmarkForm({ onSubmit }) {
         }
         value={form.description}
       />
-      <button
-        className="rounded-full bg-accent px-4 py-3 text-sm font-semibold text-base"
-        type="submit"
-      >
-        Save bookmark
-      </button>
+      <div className="flex justify-end">
+        <Button type="submit">{submitLabel}</Button>
+      </div>
     </form>
   );
 }
