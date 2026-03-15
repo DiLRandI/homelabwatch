@@ -3,16 +3,30 @@ import { useEffect, useState } from "react";
 import {
   createAPIToken,
   createBookmark,
+  createBookmarkFromService,
+  createFolder,
   createDockerEndpoint,
   createScanTarget,
   createService,
+  deleteBookmark,
+  deleteFolder,
+  exportBookmarks,
   fetchDashboard,
+  fetchBookmarks,
+  fetchFolders,
   fetchSettings,
+  fetchTags,
   fetchUIBootstrap,
+  importBookmarks,
   initializeSetup,
+  reorderBookmarks,
+  reorderFolders,
   revokeAPIToken,
   runDiscoveryJob,
   runMonitoringJob,
+  updateBookmark,
+  updateFolder,
+  uploadBookmarkAsset,
 } from "../lib/api";
 import { useServerEvents } from "./useServerEvents";
 
@@ -24,6 +38,9 @@ export function useHomelabwatchApp() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [dashboard, setDashboard] = useState(null);
+  const [bookmarks, setBookmarks] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [tags, setTags] = useState([]);
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
@@ -67,6 +84,23 @@ export function useHomelabwatchApp() {
     }
   }
 
+  async function loadBookmarksWorkspace() {
+    try {
+      const [bookmarkItems, folderItems, tagItems] = await Promise.all([
+        fetchBookmarks(),
+        fetchFolders(),
+        fetchTags(),
+      ]);
+      setBookmarks(Array.isArray(bookmarkItems) ? bookmarkItems : []);
+      setFolders(Array.isArray(folderItems) ? folderItems : []);
+      setTags(Array.isArray(tagItems) ? tagItems : []);
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    }
+  }
+
   async function loadSettings() {
     try {
       const payload = await fetchSettings();
@@ -80,7 +114,7 @@ export function useHomelabwatchApp() {
   }
 
   async function refreshAll() {
-    await Promise.all([loadDashboard(), loadSettings()]);
+    await Promise.all([loadDashboard(), loadSettings(), loadBookmarksWorkspace()]);
   }
 
   async function submitSetup(payload) {
@@ -100,9 +134,87 @@ export function useHomelabwatchApp() {
 
   async function saveBookmark(payload) {
     return performAction(async () => {
-      await createBookmark(payload, csrfToken);
-      await loadDashboard();
+      if (payload.id) {
+        await updateBookmark(payload.id, payload, csrfToken);
+      } else {
+        await createBookmark(payload, csrfToken);
+      }
+      await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
     }, "Bookmark saved.");
+  }
+
+  async function removeBookmark(id) {
+    return performAction(async () => {
+      await deleteBookmark(id, csrfToken);
+      await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
+    }, "Bookmark deleted.");
+  }
+
+  async function saveFolder(payload) {
+    return performAction(async () => {
+      if (payload.id) {
+        await updateFolder(payload.id, payload, csrfToken);
+      } else {
+        await createFolder(payload, csrfToken);
+      }
+      await loadBookmarksWorkspace();
+    }, "Folder saved.");
+  }
+
+  async function removeFolder(id) {
+    return performAction(async () => {
+      await deleteFolder(id, csrfToken);
+      await loadBookmarksWorkspace();
+    }, "Folder deleted.");
+  }
+
+  async function saveBookmarkFromService(payload) {
+    return performAction(async () => {
+      await createBookmarkFromService(payload, csrfToken);
+      await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
+    }, "Bookmark created from service.");
+  }
+
+  async function saveBookmarkOrder(items) {
+    return performAction(async () => {
+      await reorderBookmarks(items, csrfToken);
+      await loadBookmarksWorkspace();
+    }, "Bookmark order updated.");
+  }
+
+  async function saveFolderOrder(items) {
+    return performAction(async () => {
+      await reorderFolders(items, csrfToken);
+      await loadBookmarksWorkspace();
+    }, "Folder order updated.");
+  }
+
+  async function uploadBookmarkIcon(file) {
+    try {
+      setError("");
+      const asset = await uploadBookmarkAsset(file, csrfToken);
+      return asset;
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function exportBookmarksData() {
+    try {
+      setError("");
+      return await exportBookmarks();
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function importBookmarksData(payload) {
+    return performAction(async () => {
+      await importBookmarks(payload, csrfToken);
+      await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
+    }, "Bookmarks imported.");
   }
 
   async function saveDockerEndpoint(payload) {
@@ -171,19 +283,31 @@ export function useHomelabwatchApp() {
     createExternalToken,
     dashboard,
     error,
+    bookmarks,
+    folders,
     initialized,
+    importBookmarksData,
     loading,
     notice,
+    removeBookmark,
+    removeFolder,
     refreshAll,
     revokeExternalToken,
     runDiscovery,
     runMonitoring,
     saveBookmark,
+    saveBookmarkFromService,
+    saveBookmarkOrder,
     saveDockerEndpoint,
+    saveFolder,
+    saveFolderOrder,
     saveManualService,
     saveScanTarget,
     settings,
     submitSetup,
+    tags,
     trustedNetwork,
+    uploadBookmarkIcon,
+    exportBookmarksData,
   };
 }

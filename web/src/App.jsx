@@ -16,20 +16,32 @@ export default function App() {
         />
       ) : app.initialized ? (
         <DashboardScreen
+          bookmarks={app.bookmarks}
           canManageUI={app.trustedNetwork}
           dashboard={app.dashboard}
           error={app.error}
+          folders={app.folders}
           notice={app.notice}
           onCreateAPIToken={app.createExternalToken}
+          onDeleteBookmark={app.removeBookmark}
+          onDeleteFolder={app.removeFolder}
+          onExportBookmarks={app.exportBookmarksData}
+          onImportBookmarks={app.importBookmarksData}
           onRefresh={app.refreshAll}
+          onReorderBookmarks={app.saveBookmarkOrder}
+          onReorderFolders={app.saveFolderOrder}
           onRevokeAPIToken={app.revokeExternalToken}
           onRunDiscovery={app.runDiscovery}
           onRunMonitoring={app.runMonitoring}
           onSaveBookmark={app.saveBookmark}
+          onSaveBookmarkFromService={app.saveBookmarkFromService}
           onSaveDockerEndpoint={app.saveDockerEndpoint}
+          onSaveFolder={app.saveFolder}
           onSaveManualService={app.saveManualService}
           onSaveScanTarget={app.saveScanTarget}
           settings={app.settings}
+          tags={app.tags}
+          onUploadBookmarkIcon={app.uploadBookmarkIcon}
         />
       ) : (
         <BootstrapScreen

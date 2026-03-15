@@ -179,3 +179,88 @@ export function TokenIcon({ className }) {
     </Icon>
   );
 }
+
+export function FolderIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H10l1.5 2H18.5A1.5 1.5 0 0 1 20 10.5v7A1.5 1.5 0 0 1 18.5 19h-13A1.5 1.5 0 0 1 4 17.5v-9Z" />
+    </Icon>
+  );
+}
+
+export function SearchIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4 4" />
+    </Icon>
+  );
+}
+
+export function PinIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M12 4v6" />
+      <path d="m8 8 4-4 4 4" />
+      <path d="M9 14h6" />
+      <path d="m12 14-2 6" />
+    </Icon>
+  );
+}
+
+export function EditIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M4 20h4l10-10-4-4L4 16v4Z" />
+      <path d="m12.5 7.5 4 4" />
+    </Icon>
+  );
+}
+
+export function TrashIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M5 7h14" />
+      <path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7" />
+      <path d="M7 7v11a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V7" />
+      <path d="M10 11v5" />
+      <path d="M14 11v5" />
+    </Icon>
+  );
+}
+
+export function DownloadIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M12 4v10" />
+      <path d="m8 10 4 4 4-4" />
+      <path d="M5 19h14" />
+    </Icon>
+  );
+}
+
+export function UploadIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M12 20V10" />
+      <path d="m8 14 4-4 4 4" />
+      <path d="M5 5h14" />
+    </Icon>
+  );
+}
+
+export function ArrowUpIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="m7 13 5-5 5 5" />
+    </Icon>
+  );
+}
+
+export function ArrowDownIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="m7 11 5 5 5-5" />
+    </Icon>
+  );
+}

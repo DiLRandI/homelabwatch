@@ -189,27 +189,6 @@ func (a *App) UpdateDevice(ctx context.Context, id string, displayName *string, 
 	return item, nil
 }
 
-func (a *App) ListBookmarks(ctx context.Context) ([]domain.Bookmark, error) {
-	return a.store.ListBookmarks(ctx)
-}
-
-func (a *App) SaveBookmark(ctx context.Context, bookmark domain.Bookmark) (domain.Bookmark, error) {
-	item, err := a.store.SaveBookmark(ctx, bookmark)
-	if err != nil {
-		return domain.Bookmark{}, err
-	}
-	a.publish("bookmark", item.ID, "upserted", item)
-	return item, nil
-}
-
-func (a *App) DeleteBookmark(ctx context.Context, id string) error {
-	if err := a.store.DeleteBookmark(ctx, id); err != nil {
-		return err
-	}
-	a.publish("bookmark", id, "deleted", nil)
-	return nil
-}
-
 func (a *App) ListDockerEndpoints(ctx context.Context) ([]domain.DockerEndpoint, error) {
 	return a.store.ListDockerEndpoints(ctx)
 }

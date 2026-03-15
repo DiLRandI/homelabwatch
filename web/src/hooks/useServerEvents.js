@@ -5,6 +5,7 @@ const EVENT_TYPES = [
   "device",
   "check",
   "bookmark",
+  "folder",
   "docker-endpoint",
   "scan-target",
 ];

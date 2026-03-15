@@ -20,12 +20,11 @@ import {
   TokenIcon,
 } from "../ui/Icons";
 import APITokenForm from "../forms/APITokenForm";
-import BookmarkForm from "../forms/BookmarkForm";
 import DockerEndpointForm from "../forms/DockerEndpointForm";
 import ManualServiceForm from "../forms/ManualServiceForm";
 import ScanTargetForm from "../forms/ScanTargetForm";
 import ApiAccessSection from "./ApiAccessSection";
-import BookmarksSection from "./BookmarksSection";
+import BookmarksHome from "../bookmarks/BookmarksHome";
 import ContainersSection from "./ContainersSection";
 import DashboardHeader from "./DashboardHeader";
 import DevicesSection from "./DevicesSection";
@@ -81,23 +80,36 @@ function modalConfig(activeModal) {
 }
 
 export default function DashboardScreen({
+  bookmarks,
   canManageUI,
   dashboard,
   error,
+  folders,
   notice,
   onCreateAPIToken,
+  onDeleteBookmark,
+  onDeleteFolder,
+  onExportBookmarks,
+  onImportBookmarks,
   onRefresh,
+  onReorderBookmarks,
+  onReorderFolders,
   onRevokeAPIToken,
   onRunDiscovery,
   onRunMonitoring,
   onSaveBookmark,
+  onSaveBookmarkFromService,
   onSaveDockerEndpoint,
+  onSaveFolder,
   onSaveManualService,
   onSaveScanTarget,
   settings,
+  tags,
+  onUploadBookmarkIcon,
 }) {
   const [activeModal, setActiveModal] = useState("");
   const [createdToken, setCreatedToken] = useState(null);
+  const [bookmarkComposerToken, setBookmarkComposerToken] = useState(0);
   const summary = dashboard?.summary ?? DEFAULT_SUMMARY;
   const issuesCount = summary.degradedServices + summary.unhealthyServices;
   const metrics = [
@@ -134,6 +146,12 @@ export default function DashboardScreen({
   const navItems = [
     { count: null, href: "#overview", icon: OverviewIcon, label: "Overview" },
     {
+      count: bookmarks?.length ?? 0,
+      href: "#bookmarks-home",
+      icon: BookmarkIcon,
+      label: "Bookmarks",
+    },
+    {
       count: summary.totalServices,
       href: "#services",
       icon: ServicesIcon,
@@ -156,12 +174,6 @@ export default function DashboardScreen({
       href: "#devices",
       icon: DevicesIcon,
       label: "Devices",
-    },
-    {
-      count: summary.bookmarks,
-      href: "#bookmarks",
-      icon: BookmarkIcon,
-      label: "Bookmarks",
     },
     {
       count: dashboard?.recentEvents?.length ?? 0,
@@ -233,7 +245,7 @@ export default function DashboardScreen({
           description: "Save a dashboard or docs link.",
           icon: BookmarkIcon,
           label: "Add bookmark",
-          onSelect: () => setActiveModal("bookmark"),
+          onSelect: () => setBookmarkComposerToken((current) => current + 1),
         },
         {
           description: "Connect another Docker engine.",
@@ -270,8 +282,8 @@ export default function DashboardScreen({
           trustedNetwork: canManageUI,
         }}
         statusItems={statusItems}
-        subtitle="A professional operator view for discovery, containers, health, and automation."
-        title="Operations"
+        subtitle="Bookmarks lead the workspace, while discovery, health, and automation stay one scroll away."
+        title="Navigation"
         toolbar={
           <div className="grid gap-3 xl:grid-cols-[repeat(3,auto)_auto]">
             <Button
@@ -299,15 +311,46 @@ export default function DashboardScreen({
           </div>
         }
       >
+        <BookmarksHome
+          bookmarks={bookmarks}
+          canManage={canManageUI}
+          devices={dashboard?.devices ?? []}
+          folders={folders}
+          onDeleteBookmark={onDeleteBookmark}
+          onDeleteFolder={onDeleteFolder}
+          onExportBookmarks={onExportBookmarks}
+          onImportBookmarks={onImportBookmarks}
+          onReorderBookmarks={onReorderBookmarks}
+          onReorderFolders={onReorderFolders}
+          onSaveBookmark={onSaveBookmark}
+          onSaveFolder={onSaveFolder}
+          onUploadBookmarkIcon={onUploadBookmarkIcon}
+          openBookmarkComposerToken={bookmarkComposerToken}
+          services={dashboard?.services ?? []}
+          tags={tags}
+        />
         <DashboardHeader
           canManageUI={canManageUI}
           metrics={metrics}
-          onOpenModal={setActiveModal}
+          onOpenModal={(modal) => {
+            if (modal === "bookmark") {
+              setBookmarkComposerToken((current) => current + 1);
+              return;
+            }
+            setActiveModal(modal);
+          }}
           settings={settings}
         />
         <ServicesSection
+          bookmarkedServiceIds={new Set((bookmarks ?? []).map((bookmark) => bookmark.serviceId).filter(Boolean))}
           canManage={canManageUI}
           onAdd={() => setActiveModal("service")}
+          onAddBookmark={(service) =>
+            void onSaveBookmarkFromService({
+              isFavorite: false,
+              serviceId: service.id,
+            })
+          }
           services={dashboard?.services ?? []}
         />
         <ContainersSection containers={dashboard?.containers ?? []} />
@@ -319,11 +362,6 @@ export default function DashboardScreen({
           scanTargets={settings?.scanTargets ?? []}
         />
         <DevicesSection devices={dashboard?.devices ?? []} />
-        <BookmarksSection
-          bookmarks={dashboard?.bookmarks ?? []}
-          canManage={canManageUI}
-          onAdd={() => setActiveModal("bookmark")}
-        />
         <WorkersSection
           jobState={settings?.jobState ?? []}
           recentEvents={dashboard?.recentEvents ?? []}
@@ -348,11 +386,6 @@ export default function DashboardScreen({
         {activeModal === "service" ? (
           <ManualServiceForm
             onSubmit={(payload) => submitAndClose(onSaveManualService, payload)}
-          />
-        ) : null}
-        {activeModal === "bookmark" ? (
-          <BookmarkForm
-            onSubmit={(payload) => submitAndClose(onSaveBookmark, payload)}
           />
         ) : null}
         {activeModal === "endpoint" ? (

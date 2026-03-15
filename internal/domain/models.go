@@ -283,16 +283,38 @@ type Observation struct {
 }
 
 type Bookmark struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	URL         string    `json:"url"`
-	Description string    `json:"description,omitempty"`
-	Icon        string    `json:"icon,omitempty"`
-	Tags        []string  `json:"tags,omitempty"`
-	SortOrder   int       `json:"sortOrder"`
-	ServiceID   string    `json:"serviceId,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID                      string        `json:"id"`
+	Name                    string        `json:"name"`
+	URL                     string        `json:"url"`
+	Description             string        `json:"description,omitempty"`
+	Icon                    string        `json:"icon,omitempty"`
+	Tags                    []string      `json:"tags,omitempty"`
+	FolderID                string        `json:"folderId,omitempty"`
+	FolderName              string        `json:"folderName,omitempty"`
+	ServiceID               string        `json:"serviceId,omitempty"`
+	ServiceName             string        `json:"serviceName,omitempty"`
+	ServiceSource           ServiceSource `json:"serviceSource,omitempty"`
+	ServiceSourceRef        string        `json:"serviceSourceRef,omitempty"`
+	ServiceHidden           bool          `json:"serviceHidden"`
+	DeviceID                string        `json:"deviceId,omitempty"`
+	DeviceName              string        `json:"deviceName,omitempty"`
+	HealthStatus            HealthStatus  `json:"healthStatus"`
+	IsFavorite              bool          `json:"isFavorite"`
+	FavoritePosition        int           `json:"favoritePosition,omitempty"`
+	Position                int           `json:"position"`
+	ClickCount              int           `json:"clickCount"`
+	LastOpenedAt            time.Time     `json:"lastOpenedAt"`
+	ManualName              string        `json:"manualName,omitempty"`
+	ManualURL               string        `json:"manualUrl,omitempty"`
+	IconMode                string        `json:"iconMode,omitempty"`
+	IconValue               string        `json:"iconValue,omitempty"`
+	UseDevicePrimaryAddress bool          `json:"useDevicePrimaryAddress"`
+	Scheme                  string        `json:"scheme,omitempty"`
+	Host                    string        `json:"host,omitempty"`
+	Port                    int           `json:"port,omitempty"`
+	Path                    string        `json:"path,omitempty"`
+	CreatedAt               time.Time     `json:"createdAt"`
+	UpdatedAt               time.Time     `json:"updatedAt"`
 }
 
 type DockerEndpoint struct {

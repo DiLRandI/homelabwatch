@@ -182,6 +182,245 @@ func TestCheckResultsUpdateServiceStatus(t *testing.T) {
 	}
 }
 
+func TestBookmarkLinkedServiceTracksServiceURL(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx := context.Background()
+
+	service, err := store.SaveManualService(ctx, domain.Service{
+		Name:   "Grafana",
+		Source: domain.ServiceSourceManual,
+		Scheme: "http",
+		Host:   "192.168.1.10",
+		Port:   3000,
+		URL:    "http://192.168.1.10:3000",
+	})
+	if err != nil {
+		t.Fatalf("save service: %v", err)
+	}
+
+	bookmark, err := store.SaveBookmark(ctx, domain.BookmarkInput{
+		Name:      "Operations Grafana",
+		ServiceID: service.ID,
+	})
+	if err != nil {
+		t.Fatalf("save bookmark: %v", err)
+	}
+	if bookmark.URL != "http://192.168.1.10:3000" {
+		t.Fatalf("unexpected initial bookmark url %q", bookmark.URL)
+	}
+
+	service.Host = "192.168.1.45"
+	service.URL = "http://192.168.1.45:3000"
+	if _, err := store.SaveManualService(ctx, service); err != nil {
+		t.Fatalf("update service: %v", err)
+	}
+
+	updated, err := store.GetBookmark(ctx, bookmark.ID)
+	if err != nil {
+		t.Fatalf("get bookmark: %v", err)
+	}
+	if updated.URL != "http://192.168.1.45:3000" {
+		t.Fatalf("expected bookmark url to follow linked service, got %q", updated.URL)
+	}
+}
+
+func TestDeleteFolderPromotesBookmarksToParent(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx := context.Background()
+
+	parent, err := store.SaveFolder(ctx, domain.FolderInput{Name: "Infrastructure"})
+	if err != nil {
+		t.Fatalf("save parent folder: %v", err)
+	}
+	child, err := store.SaveFolder(ctx, domain.FolderInput{
+		Name:     "Monitoring",
+		ParentID: parent.ID,
+	})
+	if err != nil {
+		t.Fatalf("save child folder: %v", err)
+	}
+	bookmark, err := store.SaveBookmark(ctx, domain.BookmarkInput{
+		FolderID: child.ID,
+		Name:     "Grafana",
+		Tags:     []string{"monitoring"},
+		URL:      "http://192.168.1.20:3000",
+	})
+	if err != nil {
+		t.Fatalf("save bookmark: %v", err)
+	}
+
+	if err := store.DeleteFolder(ctx, child.ID); err != nil {
+		t.Fatalf("delete child folder: %v", err)
+	}
+
+	updated, err := store.GetBookmark(ctx, bookmark.ID)
+	if err != nil {
+		t.Fatalf("get bookmark: %v", err)
+	}
+	if updated.FolderID != parent.ID {
+		t.Fatalf("expected bookmark folder to be promoted to parent, got %q", updated.FolderID)
+	}
+}
+
+func TestOpenBookmarkUpdatesUsage(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx := context.Background()
+
+	bookmark, err := store.SaveBookmark(ctx, domain.BookmarkInput{
+		Name: "Home Assistant",
+		URL:  "http://192.168.1.20:8123",
+	})
+	if err != nil {
+		t.Fatalf("save bookmark: %v", err)
+	}
+
+	opened, err := store.OpenBookmark(ctx, bookmark.ID)
+	if err != nil {
+		t.Fatalf("open bookmark: %v", err)
+	}
+	if opened.ClickCount != 1 {
+		t.Fatalf("expected click count 1, got %d", opened.ClickCount)
+	}
+	if opened.LastOpenedAt.IsZero() {
+		t.Fatalf("expected last opened at to be set")
+	}
+}
+
+func TestBookmarkLinkedToDiscoveredServiceTracksURLChanges(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx := context.Background()
+
+	device, err := store.UpsertDeviceObservation(ctx, domain.DeviceObservation{
+		IdentityKey: "mac:aa:bb:cc:dd:ee:11",
+		PrimaryMAC:  "aa:bb:cc:dd:ee:11",
+		Hostname:    "raspberrypi",
+		IPAddress:   "192.168.1.20",
+		Confidence:  domain.IdentityConfidenceHigh,
+		LastSeenAt:  time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("save device: %v", err)
+	}
+
+	service, err := store.UpsertDiscoveredService(ctx, domain.ServiceObservation{
+		Name:       "Home Assistant",
+		Source:     domain.ServiceSourceLAN,
+		SourceRef:  "raspberrypi:8123/tcp",
+		DeviceKey:  device.IdentityKey,
+		Scheme:     "http",
+		Host:       "192.168.1.20",
+		Port:       8123,
+		URL:        "http://192.168.1.20:8123",
+		LastSeenAt: time.Now().UTC(),
+	}, device.ID)
+	if err != nil {
+		t.Fatalf("save discovered service: %v", err)
+	}
+
+	bookmark, err := store.SaveBookmark(ctx, domain.BookmarkInput{
+		ServiceID: service.ID,
+		Tags:      []string{"automation"},
+	})
+	if err != nil {
+		t.Fatalf("save bookmark: %v", err)
+	}
+	if bookmark.URL != "http://192.168.1.20:8123" {
+		t.Fatalf("expected initial service url, got %q", bookmark.URL)
+	}
+
+	_, err = store.UpsertDiscoveredService(ctx, domain.ServiceObservation{
+		Name:       "Home Assistant",
+		Source:     domain.ServiceSourceLAN,
+		SourceRef:  "raspberrypi:8123/tcp",
+		DeviceKey:  device.IdentityKey,
+		Scheme:     "http",
+		Host:       "192.168.1.45",
+		Port:       8123,
+		URL:        "http://192.168.1.45:8123",
+		LastSeenAt: time.Now().UTC().Add(time.Minute),
+	}, device.ID)
+	if err != nil {
+		t.Fatalf("update discovered service: %v", err)
+	}
+
+	updated, err := store.GetBookmark(ctx, bookmark.ID)
+	if err != nil {
+		t.Fatalf("get updated bookmark: %v", err)
+	}
+	if updated.URL != "http://192.168.1.45:8123" {
+		t.Fatalf("expected updated service url, got %q", updated.URL)
+	}
+}
+
+func TestBookmarkOpenTracksUsage(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx := context.Background()
+
+	bookmark, err := store.SaveBookmark(ctx, domain.BookmarkInput{
+		Name: "Router",
+		URL:  "http://192.168.1.1",
+	})
+	if err != nil {
+		t.Fatalf("save bookmark: %v", err)
+	}
+
+	opened, err := store.OpenBookmark(ctx, bookmark.ID)
+	if err != nil {
+		t.Fatalf("open bookmark: %v", err)
+	}
+	if opened.ClickCount != 1 {
+		t.Fatalf("expected click count 1, got %d", opened.ClickCount)
+	}
+	if opened.LastOpenedAt.IsZero() {
+		t.Fatalf("expected last opened time to be set")
+	}
+}
+
+func TestBookmarksSupportFoldersAndTags(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx := context.Background()
+
+	folder, err := store.SaveFolder(ctx, domain.FolderInput{
+		Name:     "Monitoring",
+		Position: 1,
+	})
+	if err != nil {
+		t.Fatalf("save folder: %v", err)
+	}
+
+	bookmark, err := store.SaveBookmark(ctx, domain.BookmarkInput{
+		FolderID: folder.ID,
+		Name:     "Grafana",
+		URL:      "http://192.168.1.10:3000",
+		Tags:     []string{"monitoring", "dashboards"},
+	})
+	if err != nil {
+		t.Fatalf("save bookmark: %v", err)
+	}
+	if bookmark.FolderID != folder.ID {
+		t.Fatalf("expected bookmark folder id %q, got %q", folder.ID, bookmark.FolderID)
+	}
+	if len(bookmark.Tags) != 2 {
+		t.Fatalf("expected two tags, got %d", len(bookmark.Tags))
+	}
+
+	folders, err := store.ListFolders(ctx)
+	if err != nil {
+		t.Fatalf("list folders: %v", err)
+	}
+	if len(folders) != 1 || folders[0].BookmarkCount != 1 {
+		t.Fatalf("expected one folder with one bookmark, got %#v", folders)
+	}
+
+	tags, err := store.ListTags(ctx)
+	if err != nil {
+		t.Fatalf("list tags: %v", err)
+	}
+	if len(tags) != 2 {
+		t.Fatalf("expected 2 tags, got %d", len(tags))
+	}
+}
+
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	store, err := New(filepath.Join(t.TempDir(), "homelabwatch.db"))
