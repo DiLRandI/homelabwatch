@@ -1,0 +1,76 @@
+version: 2
+
+project_name: homelabwatch
+
+builds:
+  - id: homelabwatch
+    main: ./cmd/homelabwatch
+    binary: homelabwatch
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+    targets:
+      - linux_amd64_v1
+      - linux_arm64
+      - linux_arm_6
+      - linux_arm_7
+
+archives:
+  - id: binaries
+    ids:
+      - homelabwatch
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ if eq .Arch \"arm\" }}armv{{ .Arm }}{{ else }}{{ .Arch }}{{ end }}"
+    wrap_in_directory: true
+    files:
+      - README.md
+      - LICENSE
+      - config.example.yaml
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+source:
+  enabled: false
+
+release:
+  prerelease: auto
+  mode: keep-existing
+  replace_existing_artifacts: true
+
+dockers_v2:
+  - id: dockerhub
+    ids:
+      - homelabwatch
+    dockerfile: Dockerfile.release
+    images:
+      - "{{ if index .Env \"DOCKERHUB_USERNAME\" }}{{ index .Env \"DOCKERHUB_USERNAME\" }}/homelabwatch{{ else }}homelabwatch{{ end }}"
+    tags:
+      - "v{{ .Version }}"
+      - "{{ if .Prerelease }}{{ else }}{{ .Major }}.{{ .Minor }}{{ end }}"
+      - "{{ if .Prerelease }}{{ else }}{{ .Major }}{{ end }}"
+      - "{{ if .Prerelease }}{{ else }}latest{{ end }}"
+    extra_files:
+      - migrations
+      - web/dist
+      - config.example.yaml
+    labels:
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: "Lightweight self-hosted homelab dashboard"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.source: "{{ .GitURL }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/arm/v6
+      - linux/arm/v7
+    sbom: false

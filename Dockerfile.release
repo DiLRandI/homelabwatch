@@ -1,0 +1,18 @@
+FROM alpine:3.22
+WORKDIR /app
+
+ARG TARGETPLATFORM
+
+COPY $TARGETPLATFORM/homelabwatch /app/homelabwatch
+COPY migrations /app/migrations
+COPY web/dist /app/web/dist
+COPY config.example.yaml /app/config.example.yaml
+
+ENV HOMELABWATCH_LISTEN_ADDR=:8080 \
+    HOMELABWATCH_DATA_DIR=/data \
+    HOMELABWATCH_DB_PATH=/data/homelabwatch.db \
+    HOMELABWATCH_STATIC_DIR=/app/web/dist
+
+VOLUME ["/data"]
+EXPOSE 8080
+ENTRYPOINT ["/app/homelabwatch"]

@@ -22,12 +22,25 @@ runs health checks, and serves the UI and API from one container.
 
 ## Quick Start
 
+### Common Make targets
+
+```bash
+make help
+make test
+make web-build
+make build
+make run
+make docker-build
+make release-check
+make release-snapshot
+```
+
 ### Run with Docker
 
 Build the image:
 
 ```bash
-docker build -t homelabwatch:local .
+make docker-build
 ```
 
 Run it:
@@ -59,15 +72,14 @@ docker run --rm \
 Build the frontend:
 
 ```bash
-cd web
-npm install
-npm run build
+make web-install
+make web-build
 ```
 
 Start the backend from the repo root:
 
 ```bash
-go run ./cmd/homelabwatch
+make run
 ```
 
 Then open `http://localhost:8080`.
@@ -149,10 +161,91 @@ Key directories:
 Useful checks:
 
 ```bash
-go test ./...
-cd web && npm run build
-docker build -t homelabwatch:local .
+make test
+make web-build
+make docker-build
 ```
+
+For release config validation:
+
+```bash
+make release-check
+make release-snapshot
+```
+
+`make release-snapshot` expects Docker, Buildx, and GoReleaser to be installed
+locally because it also validates the multi-platform release packaging.
+
+## Release Automation
+
+GitHub releases are automated with GitHub Actions and GoReleaser.
+
+- Workflow trigger: publishing a GitHub release
+- Binary assets: Linux `amd64`, `arm64`, `armv6`, and `armv7`
+- Docker images: `linux/amd64`, `linux/arm64`, `linux/arm/v6`, and `linux/arm/v7`
+- Docker registry: Docker Hub
+
+When a release is published, the workflow:
+
+1. builds the React frontend
+2. runs `go test ./...`
+3. builds release archives for each Linux target
+4. uploads the archives and `checksums.txt` to the GitHub release
+5. builds and pushes multi-platform Docker images to Docker Hub
+
+Stable releases publish Docker tags:
+
+- `vX.Y.Z`
+- `X.Y`
+- `X`
+- `latest`
+
+Prereleases only publish the exact version tag, for example
+`v0.2.0-rc1`.
+
+### Required GitHub configuration
+
+Set these on the GitHub repository before publishing releases:
+
+- repository variable: `DOCKERHUB_USERNAME`
+- repository secret: `DOCKERHUB_TOKEN`
+
+The workflow file is [`release.yml`](.github/workflows/release.yml) and the
+release definition is [`.goreleaser.yaml`](.goreleaser.yaml).
+
+### Release assets
+
+Each release uploads:
+
+- `homelabwatch_<version>_linux_amd64.tar.gz`
+- `homelabwatch_<version>_linux_arm64.tar.gz`
+- `homelabwatch_<version>_linux_armv6.tar.gz`
+- `homelabwatch_<version>_linux_armv7.tar.gz`
+- `checksums.txt`
+
+Each archive contains the `homelabwatch` binary plus `README.md`, `LICENSE`,
+and `config.example.yaml`.
+
+### Tag and release format
+
+Use semantic version tags with a leading `v`, for example:
+
+```text
+v0.1.0
+v0.1.1
+v0.2.0-rc1
+```
+
+The workflow runs on the GitHub `release.published` event, so the usual
+release flow is:
+
+1. create a Git tag like `v0.1.0`
+2. create or publish the matching GitHub release
+3. let the workflow build the binaries and Docker images
+
+The release image uses [`Dockerfile.release`](Dockerfile.release), while the
+existing [`Dockerfile`](Dockerfile) remains the local and development
+container build.
 
 ## License
 
