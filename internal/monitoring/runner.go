@@ -3,6 +3,7 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -75,10 +76,22 @@ func runCheck(ctx context.Context, item domain.MonitorCheck) domain.CheckResult 
 	return result
 }
 
+func RunAdhocCheck(ctx context.Context, check domain.ServiceCheck) domain.CheckResult {
+	return runCheck(ctx, domain.MonitorCheck{Check: check})
+}
+
 func runHTTPCheck(ctx context.Context, item domain.MonitorCheck, result *domain.CheckResult) {
 	check := item.Check
 	timeout := durationFromTimeout(check.TimeoutSeconds)
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, check.Target, nil)
+	target := check.Target
+	if target == "" {
+		target = buildCheckTarget(item)
+	}
+	method := strings.ToUpper(strings.TrimSpace(check.Method))
+	if method == "" {
+		method = http.MethodGet
+	}
+	request, err := http.NewRequestWithContext(ctx, method, target, nil)
 	if err != nil {
 		result.Message = err.Error()
 		return
@@ -93,6 +106,10 @@ func runHTTPCheck(ctx context.Context, item domain.MonitorCheck, result *domain.
 	}
 	defer response.Body.Close()
 	result.LatencyMS = time.Since(start).Milliseconds()
+	result.HTTPStatusCode = response.StatusCode
+	result.ResolvedTarget = request.URL.String()
+	limited, _ := io.Copy(io.Discard, io.LimitReader(response.Body, 1<<20))
+	result.ResponseSizeBytes = limited
 	if response.StatusCode < check.ExpectedStatusMin || response.StatusCode > check.ExpectedStatusMax {
 		result.Message = response.Status
 		return
@@ -104,7 +121,11 @@ func runHTTPCheck(ctx context.Context, item domain.MonitorCheck, result *domain.
 func runTCPCheck(ctx context.Context, check domain.ServiceCheck, result *domain.CheckResult) {
 	timeout := durationFromTimeout(check.TimeoutSeconds)
 	start := time.Now()
-	conn, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", check.Target)
+	target := check.Target
+	if target == "" {
+		target = fmt.Sprintf("%s:%d", firstNonEmpty(check.Host, check.HostValue), check.Port)
+	}
+	conn, err := (&net.Dialer{Timeout: timeout}).DialContext(ctx, "tcp", target)
 	if err != nil {
 		result.LatencyMS = time.Since(start).Milliseconds()
 		result.Message = err.Error()
@@ -113,11 +134,16 @@ func runTCPCheck(ctx context.Context, check domain.ServiceCheck, result *domain.
 	_ = conn.Close()
 	result.Status = domain.HealthStatusHealthy
 	result.LatencyMS = time.Since(start).Milliseconds()
+	result.ResolvedTarget = target
 	result.Message = "tcp ok"
 }
 
 func runPingCheck(check domain.ServiceCheck, result *domain.CheckResult) {
-	host := trimSchemeHost(check.Target)
+	target := check.Target
+	if target == "" {
+		target = firstNonEmpty(check.Host, check.HostValue)
+	}
+	host := trimSchemeHost(target)
 	pinger, err := probing.NewPinger(host)
 	if err != nil {
 		result.Message = err.Error()
@@ -137,6 +163,7 @@ func runPingCheck(check domain.ServiceCheck, result *domain.CheckResult) {
 	}
 	result.Status = domain.HealthStatusHealthy
 	result.LatencyMS = stats.AvgRtt.Milliseconds()
+	result.ResolvedTarget = host
 	result.Message = fmt.Sprintf("%d/%d packets", stats.PacketsRecv, stats.PacketsSent)
 }
 
@@ -159,4 +186,50 @@ func trimSchemeHost(value string) string {
 		return host
 	}
 	return value
+}
+
+func buildCheckTarget(item domain.MonitorCheck) string {
+	check := item.Check
+	switch check.Type {
+	case domain.CheckTypeTCP:
+		if firstNonEmpty(check.Host, check.HostValue) == "" || check.Port == 0 {
+			return ""
+		}
+		return fmt.Sprintf("%s:%d", firstNonEmpty(check.Host, check.HostValue), check.Port)
+	case domain.CheckTypePing:
+		return firstNonEmpty(check.Host, check.HostValue)
+	default:
+		scheme := strings.TrimSpace(check.Protocol)
+		if scheme == "" {
+			scheme = firstNonEmpty(item.Service.Scheme, "http")
+		}
+		host := firstNonEmpty(check.Host, check.HostValue, item.Service.Host, item.Service.HostValue)
+		path := strings.TrimSpace(check.Path)
+		if path == "" {
+			path = item.Service.Path
+		}
+		if host == "" {
+			return ""
+		}
+		base := fmt.Sprintf("%s://%s", scheme, host)
+		if check.Port > 0 && check.Port != 80 && check.Port != 443 {
+			base = fmt.Sprintf("%s:%d", base, check.Port)
+		}
+		if path == "" {
+			return base
+		}
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
+		}
+		return base + path
+	}
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

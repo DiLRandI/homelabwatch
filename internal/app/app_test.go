@@ -4,6 +4,7 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/deleema/homelabwatch/internal/config"
 	"github.com/deleema/homelabwatch/internal/domain"
@@ -101,6 +102,104 @@ func TestCreateAPITokenSupportsScopedValidation(t *testing.T) {
 	}
 	if ok {
 		t.Fatalf("expected read token to fail write scope validation")
+	}
+}
+
+func TestCreateBookmarkFromDiscoveredServicePromotesSuggestionAndTracksDeviceIP(t *testing.T) {
+	application, store, _ := newTestApp(t, config.Config{
+		DefaultScanPorts: []int{22, 80},
+	})
+	ctx := context.Background()
+
+	if err := application.Setup(ctx, domain.SetupInput{
+		ApplianceName:    "Rack Alpha",
+		DefaultScanPorts: []int{22, 80},
+	}); err != nil {
+		t.Fatalf("setup workspace: %v", err)
+	}
+
+	device, err := store.UpsertDeviceObservation(ctx, domain.DeviceObservation{
+		IdentityKey: "mac:aa:bb:cc:dd:ee:22",
+		PrimaryMAC:  "aa:bb:cc:dd:ee:22",
+		Hostname:    "raspberrypi.local",
+		IPAddress:   "192.168.1.20",
+		Confidence:  domain.IdentityConfidenceHigh,
+		LastSeenAt:  time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("save device: %v", err)
+	}
+
+	if _, err := store.UpsertDiscoveredServiceObservation(ctx, domain.ServiceObservation{
+		Name:            "Home Assistant",
+		Source:          domain.ServiceSourceLAN,
+		SourceRef:       "mac:aa:bb:cc:dd:ee:22:8123/tcp",
+		ServiceTypeHint: "home-assistant",
+		AddressSource:   domain.ServiceAddressDevicePrimary,
+		HostValue:       "192.168.1.20",
+		Host:            "192.168.1.20",
+		Scheme:          "http",
+		Port:            8123,
+		URL:             "http://192.168.1.20:8123",
+		LastSeenAt:      time.Now().UTC(),
+	}, device.ID); err != nil {
+		t.Fatalf("save lan discovery: %v", err)
+	}
+
+	if _, err := store.UpsertDiscoveredServiceObservation(ctx, domain.ServiceObservation{
+		Name:            "Home Assistant",
+		Source:          domain.ServiceSourceMDNS,
+		SourceRef:       "raspberrypi.local:8123/mdns",
+		ServiceTypeHint: "home-assistant",
+		AddressSource:   domain.ServiceAddressMDNSHostname,
+		HostValue:       "raspberrypi.local",
+		Host:            "raspberrypi.local",
+		Scheme:          "http",
+		Port:            8123,
+		URL:             "http://raspberrypi.local:8123",
+		LastSeenAt:      time.Now().UTC(),
+	}, device.ID); err != nil {
+		t.Fatalf("save mdns discovery: %v", err)
+	}
+
+	discovered, err := application.ListDiscoveredServices(ctx)
+	if err != nil {
+		t.Fatalf("list discovered services: %v", err)
+	}
+	if len(discovered) != 1 {
+		t.Fatalf("expected one merged discovery suggestion, got %d", len(discovered))
+	}
+	if len(discovered[0].SourceTypes) != 2 {
+		t.Fatalf("expected merged source evidence, got %#v", discovered[0].SourceTypes)
+	}
+
+	bookmark, err := application.CreateBookmarkFromDiscoveredService(ctx, domain.CreateBookmarkFromDiscoveredServiceInput{
+		DiscoveredServiceID: discovered[0].ID,
+	})
+	if err != nil {
+		t.Fatalf("create bookmark from discovery: %v", err)
+	}
+	if bookmark.URL != "http://192.168.1.20:8123" {
+		t.Fatalf("unexpected bookmark url %q", bookmark.URL)
+	}
+
+	if _, err := store.UpsertDeviceObservation(ctx, domain.DeviceObservation{
+		IdentityKey: "mac:aa:bb:cc:dd:ee:22",
+		PrimaryMAC:  "aa:bb:cc:dd:ee:22",
+		Hostname:    "raspberrypi.local",
+		IPAddress:   "192.168.1.45",
+		Confidence:  domain.IdentityConfidenceHigh,
+		LastSeenAt:  time.Now().UTC().Add(time.Minute),
+	}); err != nil {
+		t.Fatalf("update device ip: %v", err)
+	}
+
+	updated, err := application.GetBookmark(ctx, bookmark.ID)
+	if err != nil {
+		t.Fatalf("reload bookmark: %v", err)
+	}
+	if updated.URL != "http://192.168.1.45:8123" {
+		t.Fatalf("expected bookmark url to follow device ip, got %q", updated.URL)
 	}
 }
 

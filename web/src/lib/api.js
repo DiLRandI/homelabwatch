@@ -78,6 +78,76 @@ export function createService(payload, csrfToken) {
   });
 }
 
+export function fetchServiceChecks(id) {
+  return request(`/api/ui/v1/services/${id}/checks`);
+}
+
+export function createServiceCheck(serviceId, payload, csrfToken) {
+  return request(`/api/ui/v1/services/${serviceId}/checks`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function updateServiceCheck(id, payload, csrfToken) {
+  return request(`/api/ui/v1/checks/${id}`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
+  });
+}
+
+export function deleteServiceCheck(id, csrfToken) {
+  return request(`/api/ui/v1/checks/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function testServiceCheck(serviceId, payload, csrfToken) {
+  return request(`/api/ui/v1/services/${serviceId}/checks/test`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function fetchServiceDefinitions() {
+  return request("/api/ui/v1/service-definitions");
+}
+
+export function createServiceDefinition(payload, csrfToken) {
+  return request("/api/ui/v1/service-definitions", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function updateServiceDefinition(id, payload, csrfToken) {
+  return request(`/api/ui/v1/service-definitions/${id}`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
+  });
+}
+
+export function deleteServiceDefinition(id, csrfToken) {
+  return request(`/api/ui/v1/service-definitions/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function reapplyServiceDefinition(id, csrfToken) {
+  return request(`/api/ui/v1/service-definitions/${id}/reapply`, {
+    body: JSON.stringify({}),
+    csrfToken,
+    method: "POST",
+  });
+}
+
 export function createBookmark(payload, csrfToken) {
   return request("/api/ui/v1/bookmarks", {
     body: JSON.stringify(payload),
@@ -104,6 +174,30 @@ export function deleteBookmark(id, csrfToken) {
 export function createBookmarkFromService(payload, csrfToken) {
   return request("/api/ui/v1/bookmarks/from-service", {
     body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function createBookmarkFromDiscoveredService(id, payload, csrfToken) {
+  return request(`/api/ui/v1/discovered-services/${id}/bookmark`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function ignoreDiscoveredService(id, csrfToken) {
+  return request(`/api/ui/v1/discovered-services/${id}/ignore`, {
+    body: JSON.stringify({}),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function restoreDiscoveredService(id, csrfToken) {
+  return request(`/api/ui/v1/discovered-services/${id}/restore`, {
+    body: JSON.stringify({}),
     csrfToken,
     method: "POST",
   });
@@ -189,6 +283,14 @@ export function createScanTarget(payload, csrfToken) {
     body: JSON.stringify(payload),
     csrfToken,
     method: "POST",
+  });
+}
+
+export function updateDiscoverySettings(payload, csrfToken) {
+  return request("/api/ui/v1/discovery/settings", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
   });
 }
 

@@ -9,6 +9,7 @@ import {
   ActivityIcon,
   BookmarkIcon,
   ClockIcon,
+  DatabaseIcon,
   DevicesIcon,
   DiscoveryIcon,
   OverviewIcon,
@@ -29,6 +30,9 @@ import ContainersSection from "./ContainersSection";
 import DashboardHeader from "./DashboardHeader";
 import DevicesSection from "./DevicesSection";
 import DiscoverySection from "./DiscoverySection";
+import DiscoveredServicesPanel from "../discovery/DiscoveredServicesPanel";
+import BookmarkSuggestionDialog from "../discovery/BookmarkSuggestionDialog";
+import ServiceDefinitionsSection from "./ServiceDefinitionsSection";
 import ServicesSection from "./ServicesSection";
 import WorkersSection from "./WorkersSection";
 
@@ -40,6 +44,7 @@ const DEFAULT_SUMMARY = {
   runningContainers: 0,
   totalServices: 0,
   unhealthyServices: 0,
+  discoveredServices: 0,
 };
 
 function modalConfig(activeModal) {
@@ -89,20 +94,31 @@ export default function DashboardScreen({
   onCreateAPIToken,
   onDeleteBookmark,
   onDeleteFolder,
+  onDeleteServiceDefinition,
+  onDeleteServiceHealthCheck,
   onExportBookmarks,
+  onFetchServiceHealthChecks,
+  onIgnoreDiscoveredService,
   onImportBookmarks,
   onRefresh,
+  onReapplyServiceDefinition,
   onReorderBookmarks,
   onReorderFolders,
   onRevokeAPIToken,
   onRunDiscovery,
   onRunMonitoring,
   onSaveBookmark,
+  onSaveBookmarkFromDiscoveredService,
   onSaveBookmarkFromService,
+  onSaveDiscoveryPolicy,
   onSaveDockerEndpoint,
   onSaveFolder,
   onSaveManualService,
+  onSaveServiceDefinition,
+  onSaveServiceHealthCheck,
   onSaveScanTarget,
+  onRestoreDiscoveredService,
+  onTestServiceCheck,
   settings,
   tags,
   onUploadBookmarkIcon,
@@ -110,8 +126,30 @@ export default function DashboardScreen({
   const [activeModal, setActiveModal] = useState("");
   const [createdToken, setCreatedToken] = useState(null);
   const [bookmarkComposerToken, setBookmarkComposerToken] = useState(0);
+  const [selectedDiscoveredService, setSelectedDiscoveredService] = useState(null);
   const summary = dashboard?.summary ?? DEFAULT_SUMMARY;
+  const pendingDiscoveredServices = (dashboard?.discoveredServices ?? []).filter(
+    (item) => item.state === "pending" || item.state === "ignored",
+  );
   const issuesCount = summary.degradedServices + summary.unhealthyServices;
+  const serviceCounts = (dashboard?.services ?? []).reduce((items, service) => {
+    if (!service.deviceId) {
+      return items;
+    }
+    return {
+      ...items,
+      [service.deviceId]: (items[service.deviceId] || 0) + 1,
+    };
+  }, {});
+  const discoveryCounts = (dashboard?.discoveredServices ?? []).reduce((items, service) => {
+    if (!service.deviceId) {
+      return items;
+    }
+    return {
+      ...items,
+      [service.deviceId]: (items[service.deviceId] || 0) + 1,
+    };
+  }, {});
   const metrics = [
     {
       description: "Tracked endpoints across all discovery sources.",
@@ -140,6 +178,13 @@ export default function DashboardScreen({
       iconTone: "bg-slate-100 text-slate-700",
       label: "Devices",
       value: summary.devicesSeen,
+    },
+    {
+      description: "Pending discovery suggestions waiting for review.",
+      icon: SparklesIcon,
+      iconTone: "bg-amber-100 text-amber-700",
+      label: "Discovered",
+      value: summary.discoveredServices,
     },
   ];
 
@@ -170,10 +215,22 @@ export default function DashboardScreen({
       label: "Discovery",
     },
     {
+      count: summary.discoveredServices,
+      href: "#discovered-services",
+      icon: SparklesIcon,
+      label: "Suggestions",
+    },
+    {
       count: summary.devicesSeen,
       href: "#devices",
       icon: DevicesIcon,
       label: "Devices",
+    },
+    {
+      count: settings?.serviceDefinitions?.length ?? 0,
+      href: "#service-definitions",
+      icon: DatabaseIcon,
+      label: "Definitions",
     },
     {
       count: dashboard?.recentEvents?.length ?? 0,
@@ -231,6 +288,10 @@ export default function DashboardScreen({
     setCreatedToken(created);
     setActiveModal("");
     return true;
+  }
+
+  async function submitDiscoveredBookmark(item, payload) {
+    return onSaveBookmarkFromDiscoveredService(item.id, payload);
   }
 
   const quickActions = canManageUI
@@ -341,6 +402,13 @@ export default function DashboardScreen({
           }}
           settings={settings}
         />
+        <DiscoveredServicesPanel
+          canManage={canManageUI}
+          items={pendingDiscoveredServices}
+          onCreateBookmark={(item) => setSelectedDiscoveredService(item)}
+          onIgnore={(item) => void onIgnoreDiscoveredService(item.id)}
+          onRestore={(item) => void onRestoreDiscoveredService(item.id)}
+        />
         <ServicesSection
           bookmarkedServiceIds={new Set((bookmarks ?? []).map((bookmark) => bookmark.serviceId).filter(Boolean))}
           canManage={canManageUI}
@@ -351,17 +419,34 @@ export default function DashboardScreen({
               serviceId: service.id,
             })
           }
+          onDeleteHealthCheck={onDeleteServiceHealthCheck}
+          onFetchHealthChecks={onFetchServiceHealthChecks}
+          onSaveHealthCheck={onSaveServiceHealthCheck}
+          onTestHealthCheck={onTestServiceCheck}
           services={dashboard?.services ?? []}
         />
         <ContainersSection containers={dashboard?.containers ?? []} />
         <DiscoverySection
           canManage={canManageUI}
+          discoverySettings={settings?.discovery}
           dockerEndpoints={settings?.dockerEndpoints ?? []}
           onAddDockerEndpoint={() => setActiveModal("endpoint")}
           onAddScanTarget={() => setActiveModal("target")}
+          onSaveSettings={onSaveDiscoveryPolicy}
           scanTargets={settings?.scanTargets ?? []}
         />
-        <DevicesSection devices={dashboard?.devices ?? []} />
+        <DevicesSection
+          devices={dashboard?.devices ?? []}
+          discoveryCounts={discoveryCounts}
+          serviceCounts={serviceCounts}
+        />
+        <ServiceDefinitionsSection
+          canManage={canManageUI}
+          definitions={settings?.serviceDefinitions ?? []}
+          onDeleteDefinition={onDeleteServiceDefinition}
+          onReapplyDefinition={onReapplyServiceDefinition}
+          onSaveDefinition={onSaveServiceDefinition}
+        />
         <WorkersSection
           jobState={settings?.jobState ?? []}
           recentEvents={dashboard?.recentEvents ?? []}
@@ -402,6 +487,14 @@ export default function DashboardScreen({
           <APITokenForm onSubmit={createTokenAndClose} />
         ) : null}
       </Modal>
+
+      <BookmarkSuggestionDialog
+        folders={folders}
+        item={selectedDiscoveredService}
+        onClose={() => setSelectedDiscoveredService(null)}
+        onSubmit={submitDiscoveredBookmark}
+        open={Boolean(selectedDiscoveredService)}
+      />
     </>
   );
 }

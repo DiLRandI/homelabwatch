@@ -3,27 +3,40 @@ import { useEffect, useState } from "react";
 import {
   createAPIToken,
   createBookmark,
+  createBookmarkFromDiscoveredService,
   createBookmarkFromService,
+  createServiceCheck,
+  createServiceDefinition,
   createFolder,
   createDockerEndpoint,
   createScanTarget,
   createService,
+  deleteServiceCheck,
+  deleteServiceDefinition,
   deleteBookmark,
   deleteFolder,
   exportBookmarks,
   fetchDashboard,
   fetchBookmarks,
   fetchFolders,
+  fetchServiceChecks,
   fetchSettings,
   fetchTags,
   fetchUIBootstrap,
+  ignoreDiscoveredService,
   importBookmarks,
   initializeSetup,
+  reapplyServiceDefinition,
   reorderBookmarks,
   reorderFolders,
+  restoreDiscoveredService,
   revokeAPIToken,
   runDiscoveryJob,
   runMonitoringJob,
+  testServiceCheck,
+  updateServiceCheck,
+  updateServiceDefinition,
+  updateDiscoverySettings,
   updateBookmark,
   updateFolder,
   uploadBookmarkAsset,
@@ -132,6 +145,100 @@ export function useHomelabwatchApp() {
     }, "Manual service saved.");
   }
 
+  async function loadServiceHealthChecks(serviceId) {
+    try {
+      setError("");
+      return await fetchServiceChecks(serviceId);
+    } catch (requestError) {
+      setError(requestError.message);
+      return [];
+    }
+  }
+
+  async function saveServiceHealthCheck(serviceId, payload) {
+    try {
+      setError("");
+      setNotice("");
+      const saved = payload.id
+        ? await updateServiceCheck(payload.id, payload, csrfToken)
+        : await createServiceCheck(serviceId, payload, csrfToken);
+      await loadDashboard();
+      setNotice(payload.id ? "Health check saved." : "Health check created.");
+      return saved;
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function removeServiceHealthCheck(id) {
+    try {
+      setError("");
+      setNotice("");
+      await deleteServiceCheck(id, csrfToken);
+      await loadDashboard();
+      setNotice("Health check deleted.");
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    }
+  }
+
+  async function runServiceCheckTest(serviceId, payload) {
+    try {
+      setError("");
+      return await testServiceCheck(serviceId, payload, csrfToken);
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function saveServiceDefinitionRecord(payload) {
+    try {
+      setError("");
+      setNotice("");
+      const saved = payload.id
+        ? await updateServiceDefinition(payload.id, payload, csrfToken)
+        : await createServiceDefinition(payload, csrfToken);
+      await Promise.all([loadDashboard(), loadSettings()]);
+      setNotice(payload.id ? "Service definition saved." : "Service definition created.");
+      return saved;
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function removeServiceDefinitionRecord(id) {
+    try {
+      setError("");
+      setNotice("");
+      await deleteServiceDefinition(id, csrfToken);
+      await Promise.all([loadDashboard(), loadSettings()]);
+      setNotice("Service definition deleted.");
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    }
+  }
+
+  async function rerunServiceDefinition(id) {
+    try {
+      setError("");
+      setNotice("");
+      await reapplyServiceDefinition(id, csrfToken);
+      await Promise.all([loadDashboard(), loadSettings()]);
+      setNotice("Service definition reapplied.");
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    }
+  }
+
   async function saveBookmark(payload) {
     return performAction(async () => {
       if (payload.id) {
@@ -173,6 +280,13 @@ export function useHomelabwatchApp() {
       await createBookmarkFromService(payload, csrfToken);
       await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
     }, "Bookmark created from service.");
+  }
+
+  async function saveBookmarkFromDiscoveredService(id, payload) {
+    return performAction(async () => {
+      await createBookmarkFromDiscoveredService(id, payload, csrfToken);
+      await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
+    }, "Bookmark created from discovery.");
   }
 
   async function saveBookmarkOrder(items) {
@@ -231,6 +345,27 @@ export function useHomelabwatchApp() {
     }, "Scan target saved.");
   }
 
+  async function saveDiscoveryPolicy(payload) {
+    return performAction(async () => {
+      await updateDiscoverySettings(payload, csrfToken);
+      await loadSettings();
+    }, "Discovery settings saved.");
+  }
+
+  async function ignoreSuggestion(id) {
+    return performAction(async () => {
+      await ignoreDiscoveredService(id, csrfToken);
+      await loadDashboard();
+    }, "Suggestion ignored.");
+  }
+
+  async function restoreSuggestion(id) {
+    return performAction(async () => {
+      await restoreDiscoveredService(id, csrfToken);
+      await loadDashboard();
+    }, "Suggestion restored.");
+  }
+
   async function createExternalToken(payload) {
     try {
       setError("");
@@ -287,26 +422,37 @@ export function useHomelabwatchApp() {
     folders,
     initialized,
     importBookmarksData,
+    loadServiceHealthChecks,
     loading,
     notice,
     removeBookmark,
     removeFolder,
+    removeServiceDefinitionRecord,
+    removeServiceHealthCheck,
     refreshAll,
     revokeExternalToken,
     runDiscovery,
     runMonitoring,
+    runServiceCheckTest,
+    rerunServiceDefinition,
     saveBookmark,
+    saveBookmarkFromDiscoveredService,
     saveBookmarkFromService,
     saveBookmarkOrder,
+    saveDiscoveryPolicy,
     saveDockerEndpoint,
     saveFolder,
     saveFolderOrder,
+    saveServiceDefinitionRecord,
+    saveServiceHealthCheck,
     saveManualService,
     saveScanTarget,
     settings,
     submitSetup,
     tags,
     trustedNetwork,
+    ignoreSuggestion,
+    restoreSuggestion,
     uploadBookmarkIcon,
     exportBookmarksData,
   };

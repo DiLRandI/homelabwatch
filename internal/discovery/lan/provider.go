@@ -142,23 +142,51 @@ func (p *Provider) probeHost(ctx context.Context, target domain.ScanTarget, addr
 	services := make([]domain.ServiceObservation, 0, len(openPorts))
 	for _, port := range openPorts {
 		hint := portHint(port)
+		serviceType := serviceTypeForPort(port)
 		device.Ports = append(device.Ports, domain.PortObservation{Port: port, Protocol: "tcp", ServiceHint: hint})
 		services = append(services, domain.ServiceObservation{
-			Name:       fmt.Sprintf("%s %s", firstNonEmpty(hostname, ip), strings.ToUpper(firstNonEmpty(hint, "service"))),
-			Source:     domain.ServiceSourceLAN,
-			SourceRef:  fmt.Sprintf("%s:%d/tcp", identityKey, port),
-			DeviceKey:  identityKey,
-			Scheme:     serviceScheme(port),
-			Host:       ip,
-			Port:       port,
-			URL:        buildURL(serviceScheme(port), ip, port, ""),
-			LastSeenAt: now,
+			Name:            serviceName(hostname, ip, port, hint),
+			Source:          domain.ServiceSourceLAN,
+			SourceRef:       fmt.Sprintf("%s:%d/tcp", identityKey, port),
+			DeviceKey:       identityKey,
+			ServiceTypeHint: serviceType,
+			AddressSource:   domain.ServiceAddressDevicePrimary,
+			HostValue:       ip,
+			Icon:            serviceType,
+			Scheme:          serviceScheme(port),
+			Host:            ip,
+			Port:            port,
+			URL:             buildURL(serviceScheme(port), ip, port, ""),
+			LastSeenAt:      now,
 			Details: map[string]any{
 				"hostname": hostname,
 				"mac":      mac,
 				"hint":     hint,
 			},
 		})
+		if strings.HasSuffix(strings.ToLower(hostname), ".local") {
+			services = append(services, domain.ServiceObservation{
+				Name:            serviceName(hostname, hostname, port, hint),
+				Source:          domain.ServiceSourceMDNS,
+				SourceRef:       fmt.Sprintf("%s:%d/mdns", hostname, port),
+				DeviceKey:       identityKey,
+				ServiceTypeHint: serviceType,
+				AddressSource:   domain.ServiceAddressMDNSHostname,
+				HostValue:       hostname,
+				Icon:            serviceType,
+				Scheme:          serviceScheme(port),
+				Host:            hostname,
+				Port:            port,
+				URL:             buildURL(serviceScheme(port), hostname, port, ""),
+				LastSeenAt:      now,
+				Details: map[string]any{
+					"hostname":    hostname,
+					"mac":         mac,
+					"hint":        hint,
+					"mdnsService": mdnsServiceForPort(port),
+				},
+			})
+		}
 	}
 	return domain.Observation{Device: device, Services: services}, true
 }
@@ -326,6 +354,60 @@ func portHint(port int) string {
 		return "web"
 	default:
 		return ""
+	}
+}
+
+func serviceTypeForPort(port int) string {
+	switch port {
+	case 3000:
+		return "grafana"
+	case 8123:
+		return "home-assistant"
+	case 9090:
+		return "prometheus"
+	case 32400:
+		return "plex"
+	case 9000, 9443:
+		return "portainer"
+	default:
+		return ""
+	}
+}
+
+func serviceName(hostname, ip string, port int, hint string) string {
+	if displayName := displayNameForPort(port); displayName != "" {
+		return displayName
+	}
+	return fmt.Sprintf("%s %s", firstNonEmpty(hostname, ip), strings.ToUpper(firstNonEmpty(hint, "service")))
+}
+
+func displayNameForPort(port int) string {
+	switch port {
+	case 3000:
+		return "Grafana"
+	case 8123:
+		return "Home Assistant"
+	case 9090:
+		return "Prometheus"
+	case 32400:
+		return "Plex"
+	case 9000, 9443:
+		return "Portainer"
+	default:
+		return ""
+	}
+}
+
+func mdnsServiceForPort(port int) string {
+	switch port {
+	case 8123:
+		return "_home-assistant._tcp"
+	case 32400:
+		return "_plexmediasvr._tcp"
+	case 443, 8443, 9443:
+		return "_https._tcp"
+	default:
+		return "_http._tcp"
 	}
 }
 
