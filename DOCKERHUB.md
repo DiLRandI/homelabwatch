@@ -1,20 +1,21 @@
 # HomelabWatch
 
-HomelabWatch is a self-hosted homelab operations dashboard for service
-discovery, Docker workload visibility, device tracking, bookmarks, and health
-monitoring. It runs as a single container with SQLite persistence.
+HomelabWatch is a self-hosted homelab discovery and monitoring control plane.
+It runs as a single container with SQLite persistence and gives you a focused
+dashboard plus dedicated screens for bookmarks, services, health, discovery,
+devices, service definitions, and settings.
 
 ## Highlights
 
-- Discovers services from Docker and LAN scan targets
-- Tracks devices with MAC-aware identity where available
-- Monitors services with HTTP, TCP, and ping checks
-- Supports custom HTTP health endpoints instead of assuming `/`
-- Includes built-in service definitions for common apps such as Grafana,
-  Prometheus, Pi-hole, Home Assistant, and Plex
-- Lets you test endpoints from the UI before saving them
-- Streams live updates into the dashboard
-- Provides scoped bearer tokens for external automation
+- calm dashboard for favorites, status, and recent activity
+- Docker and LAN discovery with promotion into managed services and bookmarks
+- device tracking with MAC-aware identity where available
+- HTTP, TCP, and ping health checks with editable HTTP paths
+- endpoint testing before saving a check
+- built-in and custom service definitions for fingerprinting and managed checks
+- scoped bearer tokens for external automation
+- setup wizard on a fresh data volume
+- live UI updates over SSE
 
 ## Quick Start
 
@@ -26,14 +27,13 @@ docker run --rm \
   deleema1/homelabwatch:latest
 ```
 
-Then open:
-
-```text
-http://localhost:8080
-```
+Open `http://localhost:8080`.
 
 On an empty `/data` volume, HomelabWatch starts with a setup wizard. No admin
 token paste step is required in the browser UI.
+
+The repository also includes a `docker-compose.example.yml` file for a simple
+compose-based install.
 
 ## Recommended Linux Run
 
@@ -48,33 +48,40 @@ docker run --rm \
   deleema1/homelabwatch:latest
 ```
 
+## Runtime Expectations
+
+- Persist `/data` if you want state to survive restarts.
+- Mount `/var/run/docker.sock` if you want local Docker discovery.
+- Without persistent `/data`, a fresh container starts the setup wizard again.
+- Database migrations run automatically at startup.
+
+## Security Model
+
+- The built-in web UI is open by design for trusted local or LAN use.
+- Browser writes require trusted-network access, same-origin requests, and a
+  server-issued CSRF token.
+- External scripts and integrations should use bearer tokens created from
+  `Settings > API access`.
+- If you expose the app outside your local network, put it behind a reverse
+  proxy or VPN and tighten the trusted CIDR list.
+- Mounting `/var/run/docker.sock` grants privileged host visibility and should
+  be treated accordingly.
+
 ## Health Checks
 
-Health checks are configurable per service from the dashboard.
+Health checks are configurable per service.
 
-HTTP checks can define:
-
-- protocol
-- host
-- port
-- path
-- method
-- expected status range
-- timeout
-- interval
-
-You can also run an on-demand endpoint test to see:
-
-- HTTP status
-- latency
-- response size
-- resolved URL
-- matched service definition
+- HTTP checks support protocol, host, port, path, method, timeout, interval,
+  and expected status range.
+- TCP and ping checks are supported for non-HTTP services or conservative
+  fallbacks.
+- The UI includes an endpoint tester that returns status, latency, response
+  size, resolved URL, and matched service definition when available.
 
 ## Service Definitions
 
-HomelabWatch ships with a built-in service-definition registry and supports
-custom definitions stored in SQLite through the UI and API.
+HomelabWatch ships with built-in service definitions and supports custom
+definitions stored in SQLite through the UI and API.
 
 Definitions drive:
 
@@ -82,28 +89,10 @@ Definitions drive:
 - default health endpoints
 - ports
 - icons
-- health-check templates
+- managed health-check templates
 
-Services that users customize manually are not overwritten by later automatic
-reapply runs.
-
-## Volumes And Runtime Expectations
-
-- Persist `/data` if you want state to survive restarts.
-- Mount `/var/run/docker.sock` if you want local Docker discovery.
-- Without a persistent `/data` volume, a fresh container starts the setup
-  wizard again.
-- Database migrations run automatically at startup.
-
-## Security Model
-
-- The built-in web UI is open by design for trusted local or LAN use.
-- Browser writes are limited to trusted networks, same-origin requests, and a
-  server-issued CSRF token.
-- External scripts and integrations should use bearer tokens created from
-  `Settings > API access`.
-- If you expose the app outside your local network, put it behind a reverse
-  proxy or VPN and tighten the trusted CIDR list.
+Services that operators customize manually are not overwritten by later
+automatic reapply runs.
 
 ## Important Environment Variables
 
@@ -143,4 +132,5 @@ curl -H "Authorization: Bearer <token>" \
 ## Source
 
 - Repository: `https://github.com/deleema/homelabwatch`
-- Full project documentation lives in the repository `README.md`
+- Full documentation: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
+  `ROADMAP.md`, and `docs/*` in the repository

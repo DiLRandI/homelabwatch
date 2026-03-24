@@ -1,0 +1,16 @@
+services:
+  homelabwatch:
+    image: deleema1/homelabwatch:latest
+    container_name: homelabwatch
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      HOMELABWATCH_TRUSTED_CIDRS: "127.0.0.1/32,192.168.0.0/16"
+    volumes:
+      - ./data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    # For Linux LAN discovery and ping checks, you may prefer:
+    # network_mode: host
+    # cap_add:
+    #   - NET_RAW

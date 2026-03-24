@@ -1,0 +1,34 @@
+name: Support question
+description: Ask for help with installation, deployment, or usage.
+title: "[Support]: "
+labels:
+  - support
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Describe what you are trying to do and where you are blocked.
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Current setup
+      description: Include install method, network mode, trusted CIDRs, and Docker socket usage if relevant.
+      placeholder: Docker image on Ubuntu with host networking and /var/run/docker.sock mounted.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What you already tried
+      description: Include logs, API calls, or config changes already tested.
+  - type: markdown
+    attributes:
+      value: |
+        Before opening a support issue, check:
+
+        - `README.md`
+        - `docs/operations.md`
+        - `SECURITY.md`

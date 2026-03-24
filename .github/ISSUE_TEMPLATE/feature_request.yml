@@ -1,0 +1,48 @@
+name: Feature request
+description: Propose an improvement to HomelabWatch.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: What operator problem or workflow gap does this address?
+      placeholder: The dashboard still requires too many clicks to see failing checks.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you want to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: List any workarounds or alternative ideas.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Primary area
+      options:
+        - Dashboard
+        - Bookmarks
+        - Services
+        - Health
+        - Discovery
+        - Devices
+        - Service definitions
+        - Settings
+        - API
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, mockups, API examples, or migration concerns.
