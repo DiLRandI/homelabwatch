@@ -37,15 +37,21 @@ const sourceMeta = {
 };
 
 export default function ServicesSection({
+  addLabel = "Add service",
   bookmarkedServiceIds = new Set(),
   canManage = true,
+  description = "Tracked endpoints from Docker, manual entry, and network discovery.",
+  emptyBody = "Run discovery or create a manual service to start monitoring the control plane.",
+  emptyTitle = "No services connected yet",
   onAdd,
   onAddBookmark,
   onDeleteHealthCheck,
   onFetchHealthChecks,
   onSaveHealthCheck,
   onTestHealthCheck,
+  sectionId = "services",
   services,
+  title = "Services",
 }) {
   const [selectedServiceId, setSelectedServiceId] = useState("");
   const selectedService = useMemo(
@@ -55,24 +61,24 @@ export default function ServicesSection({
 
   return (
     <>
-      <section id="services">
+      <section id={sectionId}>
         <Card>
           <CardHeader
             action={
               <Button disabled={!canManage} leadingIcon={PlusIcon} onClick={onAdd}>
-                Add service
+                {addLabel}
               </Button>
             }
-            description="Tracked endpoints from Docker, manual entry, and network discovery."
-            title="Services"
+            description={description}
+            title={title}
           />
           <CardContent>
             {services.length === 0 ? (
               <EmptyState
                 action={canManage ? onAdd : undefined}
-                actionLabel="Add your first service"
-                body="Run discovery or create a manual service to start monitoring the control plane."
-                title="No services connected yet"
+                actionLabel={addLabel}
+                body={emptyBody}
+                title={emptyTitle}
               />
             ) : (
               <div className="grid gap-4 xl:grid-cols-2">

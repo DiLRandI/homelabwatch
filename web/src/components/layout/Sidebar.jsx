@@ -3,9 +3,11 @@ import Badge from "../ui/Badge";
 import { ActivityIcon, CloseIcon, ShieldIcon } from "../ui/Icons";
 
 export default function Sidebar({
+  activeHref,
   metrics,
   navItems,
   onClose,
+  onNavigate,
   open = false,
   sidebarMeta,
 }) {
@@ -27,7 +29,7 @@ export default function Sidebar({
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-strong">
-              Homelabwatch
+              HomelabWatch
             </p>
             <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
               {sidebarMeta?.applianceName || "Control plane"}
@@ -76,13 +78,30 @@ export default function Sidebar({
         <nav aria-label="Dashboard sections" className="mt-8 flex-1 space-y-1">
           {navItems.map((item) => (
             <a
-              className="group flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+              aria-current={item.href === activeHref ? "page" : undefined}
+              className={cn(
+                "group flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium transition",
+                item.href === activeHref
+                  ? "bg-slate-100 text-slate-950"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+              )}
               href={item.href}
               key={item.href}
-              onClick={onClose}
+              onClick={(event) => {
+                event.preventDefault();
+                onNavigate?.(item.href);
+                onClose();
+              }}
             >
               <span className="flex items-center gap-3">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-white group-hover:text-accent-strong">
+                <span
+                  className={cn(
+                    "inline-flex h-9 w-9 items-center justify-center rounded-xl transition",
+                    item.href === activeHref
+                      ? "bg-white text-accent-strong"
+                      : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-accent-strong",
+                  )}
+                >
                   <item.icon className="h-4 w-4" />
                 </span>
                 {item.label}
