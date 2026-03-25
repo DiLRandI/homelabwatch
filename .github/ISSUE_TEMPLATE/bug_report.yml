@@ -1,0 +1,67 @@
+name: Bug report
+description: Report a reproducible problem in HomelabWatch.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the bug in one or two sentences.
+      placeholder: Discovery items disappear after promoting a service.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release version, Docker tag, or commit SHA.
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation type
+      options:
+        - Docker image
+        - Local binary
+        - Development checkout
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include exact steps, requests, or UI actions.
+      placeholder: |
+        1. Open Discovery
+        2. Promote a discovered service to a bookmark
+        3. Refresh the page
+        4. Observe...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or screenshots
+      description: Paste logs, API responses, or screenshots if available.
+      render: text
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment details
+      description: Include OS, browser, reverse proxy, trusted CIDRs, and any special networking setup.

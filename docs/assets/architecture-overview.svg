@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="720" viewBox="0 0 1160 720" fill="none">
+  <rect width="1160" height="720" fill="#F8FAFC"/>
+  <rect x="40" y="40" width="1080" height="640" rx="28" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="72" y="92" fill="#0F172A" font-family="Arial, sans-serif" font-size="30" font-weight="700">HomelabWatch Architecture</text>
+  <text x="72" y="122" fill="#475569" font-family="Arial, sans-serif" font-size="16">Single-process control plane with REST, SSE, workers, and SQLite persistence.</text>
+
+  <rect x="72" y="170" width="240" height="130" rx="20" fill="#E0F2FE" stroke="#38BDF8" stroke-width="2"/>
+  <text x="96" y="214" fill="#0C4A6E" font-family="Arial, sans-serif" font-size="24" font-weight="700">Browser UI</text>
+  <text x="96" y="244" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">React + Vite + Tailwind</text>
+  <text x="96" y="268" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Dashboard, Bookmarks, Services</text>
+  <text x="96" y="292" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Health, Discovery, Devices</text>
+
+  <rect x="364" y="170" width="260" height="130" rx="20" fill="#DCFCE7" stroke="#22C55E" stroke-width="2"/>
+  <text x="388" y="214" fill="#14532D" font-family="Arial, sans-serif" font-size="24" font-weight="700">HTTP API</text>
+  <text x="388" y="244" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">`/api/ui/v1/*` for the browser</text>
+  <text x="388" y="268" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">`/api/external/v1/*` for tokens</text>
+  <text x="388" y="292" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Trusted-LAN writes + CSRF protection</text>
+
+  <rect x="680" y="170" width="260" height="130" rx="20" fill="#FEF3C7" stroke="#F59E0B" stroke-width="2"/>
+  <text x="704" y="214" fill="#78350F" font-family="Arial, sans-serif" font-size="24" font-weight="700">App Layer</text>
+  <text x="704" y="244" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Orchestration and product behavior</text>
+  <text x="704" y="268" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Discovery, monitoring, settings</text>
+  <text x="704" y="292" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Event publication</text>
+
+  <rect x="364" y="390" width="260" height="140" rx="20" fill="#FCE7F3" stroke="#EC4899" stroke-width="2"/>
+  <text x="388" y="434" fill="#831843" font-family="Arial, sans-serif" font-size="24" font-weight="700">Workers</text>
+  <text x="388" y="464" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Docker sync</text>
+  <text x="388" y="488" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">LAN scan</text>
+  <text x="388" y="512" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Fingerprinting, health checks, cleanup</text>
+
+  <rect x="680" y="390" width="260" height="140" rx="20" fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="704" y="434" fill="#4C1D95" font-family="Arial, sans-serif" font-size="24" font-weight="700">Store</text>
+  <text x="704" y="464" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">SQLite repositories and read models</text>
+  <text x="704" y="488" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Services, devices, bookmarks, checks</text>
+  <text x="704" y="512" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Settings, tokens, service definitions</text>
+
+  <rect x="972" y="170" width="116" height="360" rx="20" fill="#F1F5F9" stroke="#94A3B8" stroke-width="2"/>
+  <text x="995" y="216" fill="#0F172A" font-family="Arial, sans-serif" font-size="24" font-weight="700">State</text>
+  <text x="995" y="252" fill="#334155" font-family="Arial, sans-serif" font-size="16">SQLite</text>
+  <text x="995" y="276" fill="#334155" font-family="Arial, sans-serif" font-size="16">/data</text>
+  <text x="995" y="316" fill="#334155" font-family="Arial, sans-serif" font-size="16">bookmark assets</text>
+  <text x="995" y="356" fill="#334155" font-family="Arial, sans-serif" font-size="16">migrations</text>
+  <text x="995" y="396" fill="#334155" font-family="Arial, sans-serif" font-size="16">health history</text>
+
+  <rect x="72" y="390" width="240" height="140" rx="20" fill="#FEE2E2" stroke="#F87171" stroke-width="2"/>
+  <text x="96" y="434" fill="#7F1D1D" font-family="Arial, sans-serif" font-size="24" font-weight="700">Discovery Sources</text>
+  <text x="96" y="464" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Docker endpoints</text>
+  <text x="96" y="488" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">LAN scan targets</text>
+  <text x="96" y="512" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">mDNS and endpoint fingerprinting</text>
+
+  <path d="M312 235H364" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M624 235H680" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M812 300V390" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M494 300V390" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M312 460H364" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M940 460H972" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M940 235H972" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+
+  <text x="298" y="224" fill="#334155" font-family="Arial, sans-serif" font-size="14">REST + SSE</text>
+  <text x="638" y="224" fill="#334155" font-family="Arial, sans-serif" font-size="14">commands + queries</text>
+  <text x="828" y="352" fill="#334155" font-family="Arial, sans-serif" font-size="14">persistence</text>
+  <text x="504" y="352" fill="#334155" font-family="Arial, sans-serif" font-size="14">scheduled work</text>
+  <text x="322" y="448" fill="#334155" font-family="Arial, sans-serif" font-size="14">observations</text>
+</svg>

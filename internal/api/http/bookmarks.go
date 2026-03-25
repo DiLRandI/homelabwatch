@@ -32,6 +32,70 @@ func (r *Router) handleBookmarkAssets(w http.ResponseWriter, req *http.Request) 
 	})
 }
 
+func (r *Router) handleBookmarks(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodGet:
+		options := domain.BookmarkListOptions{
+			Query:     strings.TrimSpace(req.URL.Query().Get("q")),
+			FolderID:  strings.TrimSpace(req.URL.Query().Get("folderId")),
+			Tag:       strings.TrimSpace(req.URL.Query().Get("tag")),
+			DeviceID:  strings.TrimSpace(req.URL.Query().Get("deviceId")),
+			ServiceID: strings.TrimSpace(req.URL.Query().Get("serviceId")),
+		}
+		if rawFavorites := strings.TrimSpace(req.URL.Query().Get("favorites")); rawFavorites != "" {
+			value := rawFavorites == "true"
+			options.Favorites = &value
+		}
+		items, err := r.app.QueryBookmarks(req.Context(), options)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, items)
+	case http.MethodPost:
+		var item domain.BookmarkInput
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		saved, err := r.app.SaveBookmark(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, saved)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func (r *Router) handleBookmarkByID(w http.ResponseWriter, req *http.Request) {
+	id := req.PathValue("id")
+	switch req.Method {
+	case http.MethodPut, http.MethodPatch:
+		var item domain.BookmarkInput
+		if err := decodeJSON(req.Body, &item); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		item.ID = id
+		saved, err := r.app.SaveBookmark(req.Context(), item)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, saved)
+	case http.MethodDelete:
+		if err := r.app.DeleteBookmark(req.Context(), id); err != nil {
+			writeLookupError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
 func (r *Router) handleBookmarkAssetByName(w http.ResponseWriter, req *http.Request) {
 	data, contentType, err := r.app.LoadBookmarkAsset(req.PathValue("name"))
 	if err != nil {

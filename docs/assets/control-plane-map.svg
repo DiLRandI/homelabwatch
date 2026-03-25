@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1160" height="620" viewBox="0 0 1160 620" fill="none">
+  <rect width="1160" height="620" fill="#F8FAFC"/>
+  <rect x="40" y="40" width="1080" height="540" rx="28" fill="#FFFFFF" stroke="#CBD5E1" stroke-width="2"/>
+  <text x="72" y="92" fill="#0F172A" font-family="Arial, sans-serif" font-size="30" font-weight="700">HomelabWatch Control Plane</text>
+  <text x="72" y="122" fill="#475569" font-family="Arial, sans-serif" font-size="16">A calm dashboard at the center with dedicated management screens around it.</text>
+
+  <rect x="406" y="210" width="348" height="170" rx="24" fill="#E0F2FE" stroke="#38BDF8" stroke-width="2"/>
+  <text x="448" y="264" fill="#0C4A6E" font-family="Arial, sans-serif" font-size="28" font-weight="700">Dashboard</text>
+  <text x="448" y="302" fill="#0F172A" font-family="Arial, sans-serif" font-size="18">Favorites</text>
+  <text x="448" y="330" fill="#0F172A" font-family="Arial, sans-serif" font-size="18">Health summary</text>
+  <text x="448" y="358" fill="#0F172A" font-family="Arial, sans-serif" font-size="18">Recent activity and quick actions</text>
+
+  <g fill="#FFFFFF" stroke-width="2">
+    <rect x="98" y="138" width="220" height="110" rx="18" stroke="#22C55E" fill="#DCFCE7"/>
+    <rect x="98" y="392" width="220" height="110" rx="18" stroke="#F59E0B" fill="#FEF3C7"/>
+    <rect x="842" y="138" width="220" height="110" rx="18" stroke="#EC4899" fill="#FCE7F3"/>
+    <rect x="842" y="392" width="220" height="110" rx="18" stroke="#8B5CF6" fill="#EDE9FE"/>
+    <rect x="390" y="434" width="170" height="96" rx="18" stroke="#94A3B8" fill="#F1F5F9"/>
+    <rect x="600" y="434" width="170" height="96" rx="18" stroke="#334155" fill="#E2E8F0"/>
+    <rect x="390" y="98" width="170" height="96" rx="18" stroke="#06B6D4" fill="#CFFAFE"/>
+    <rect x="600" y="98" width="170" height="96" rx="18" stroke="#EF4444" fill="#FEE2E2"/>
+  </g>
+
+  <text x="126" y="184" fill="#14532D" font-family="Arial, sans-serif" font-size="24" font-weight="700">Bookmarks</text>
+  <text x="126" y="214" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Folders, tags, favorites</text>
+
+  <text x="126" y="438" fill="#78350F" font-family="Arial, sans-serif" font-size="24" font-weight="700">Discovery</text>
+  <text x="126" y="468" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Endpoints, scan targets, review</text>
+
+  <text x="870" y="184" fill="#831843" font-family="Arial, sans-serif" font-size="24" font-weight="700">Services</text>
+  <text x="870" y="214" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Managed endpoints and promotion</text>
+
+  <text x="870" y="438" fill="#4C1D95" font-family="Arial, sans-serif" font-size="24" font-weight="700">Settings</text>
+  <text x="870" y="468" fill="#0F172A" font-family="Arial, sans-serif" font-size="16">Tokens, workers, appliance admin</text>
+
+  <text x="424" y="134" fill="#0E7490" font-family="Arial, sans-serif" font-size="22" font-weight="700">Devices</text>
+  <text x="424" y="160" fill="#0F172A" font-family="Arial, sans-serif" font-size="14">Inventory</text>
+
+  <text x="632" y="134" fill="#991B1B" font-family="Arial, sans-serif" font-size="22" font-weight="700">Health</text>
+  <text x="632" y="160" fill="#0F172A" font-family="Arial, sans-serif" font-size="14">Checks and testing</text>
+
+  <text x="420" y="472" fill="#334155" font-family="Arial, sans-serif" font-size="22" font-weight="700">Definitions</text>
+  <text x="420" y="498" fill="#0F172A" font-family="Arial, sans-serif" font-size="14">Fingerprint rules</text>
+
+  <text x="628" y="472" fill="#0F172A" font-family="Arial, sans-serif" font-size="22" font-weight="700">Activity</text>
+  <text x="628" y="498" fill="#0F172A" font-family="Arial, sans-serif" font-size="14">Recent fleet changes</text>
+
+  <path d="M318 193H406" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M318 447H406" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M754 193H842" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M754 447H842" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M500 194V210" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M686 194V210" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M474 380V434" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+  <path d="M684 380V434" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+</svg>

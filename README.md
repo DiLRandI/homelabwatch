@@ -1,35 +1,53 @@
 # HomelabWatch
 
-HomelabWatch is a self-hosted homelab discovery and monitoring platform that
-runs as a single Go service with a React frontend and SQLite persistence. It
-discovers devices and services, tracks bookmarks, fingerprints common apps, and
-monitors health from one container.
+HomelabWatch is a self-hosted homelab discovery and monitoring control plane.
+It runs as a single Go service, stores state in SQLite, serves a React frontend,
+and combines discovery, health monitoring, bookmarks, device inventory, and
+service fingerprinting in one deployable container.
 
-## Features
+![HomelabWatch architecture](docs/assets/architecture-overview.svg)
 
-- Dashboard for services, containers, devices, bookmarks, worker state, and recent events
-- Service discovery from Docker endpoints and seeded LAN scan targets
-- Device tracking keyed by MAC address when available, with fallback identity
-- Health monitoring with HTTP, TCP, and ping checks
-- Custom HTTP health endpoints with editable path, method, status range, timeout, and interval
-- Endpoint test workflow that returns status, latency, response size, and matched service definition
-- Built-in service-definition registry for common apps such as Pi-hole, Grafana, Prometheus, Home Assistant, and Plex
-- Automatic service fingerprinting from ports, container image hints, mDNS metadata, HTTP headers, page titles, and body signatures
-- Bookmark management for manual links and external services
-- First-run setup wizard instead of manual bootstrap secrets in the browser
-- Managed external API tokens with revocation from the settings surface
-- SSE updates from the backend to the frontend
-- Single-container deployment with SQLite persistence
+## What It Does
+
+- calm dashboard focused on favorites, fleet status, and recent activity
+- dedicated management screens for bookmarks, services, health, discovery,
+  devices, service definitions, and settings
+- Docker and LAN discovery with promotion from discovered services into managed
+  services and bookmarks
+- device inventory keyed by stable identity when possible, with MAC-aware reuse
+- health monitoring for HTTP, TCP, and ping checks
+- endpoint testing before saving health-check changes
+- built-in service definitions for common homelab apps, plus custom
+  SQLite-backed definitions managed from the UI and API
+- first-run setup wizard instead of admin-token copy/paste in the browser
+- scoped external API tokens for automation
+- live UI updates over SSE
+- single-container deployment with automatic SQLite migrations
+
+## Product Surfaces
+
+![Control plane map](docs/assets/control-plane-map.svg)
+
+- `Dashboard`: favorites, health summary, recent activity, and quick actions
+- `Bookmarks`: curated links, folders, tags, favorites, import/export
+- `Services`: accepted endpoints, Docker workloads, bookmark promotion
+- `Health`: check editing, endpoint testing, fleet health status
+- `Discovery`: Docker endpoints, scan targets, policy, and discovered-service
+  review
+- `Devices`: device inventory, IPs, MACs, visibility, attached services
+- `Definitions`: fingerprinting rules and managed health-check templates
+- `Settings`: appliance state, API tokens, and worker status
 
 ## Stack
 
-- Backend: Go, REST API, SQLite, in-process background workers
+- Backend: Go, REST, SSE, in-process background workers
+- Persistence: SQLite
 - Frontend: React, Vite, Tailwind CSS
-- Packaging: multi-stage Docker build
+- Packaging: multi-stage Docker build, Go serves the built frontend
 
 ## Quick Start
 
-### Common Make targets
+### Make Targets
 
 ```bash
 make help
@@ -43,9 +61,9 @@ make release-check
 make release-snapshot
 ```
 
-### Run with Docker
+### Run With Docker
 
-Build the image:
+Build the local image:
 
 ```bash
 make docker-build
@@ -61,9 +79,24 @@ docker run --rm \
   homelabwatch:local
 ```
 
+Then open `http://localhost:8080`.
+
 On a fresh `/data` volume, HomelabWatch starts with a setup wizard in the
-browser. The local UI stays open for trusted LAN clients, and external
-automation tokens are created later from `Settings > API access`.
+browser. The UI stays open for trusted LAN clients. External automation tokens
+are created later from `Settings > API access`.
+
+### Run With Docker Compose
+
+The repository includes [`docker-compose.example.yml`](docker-compose.example.yml).
+
+Typical flow:
+
+```bash
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d
+```
+
+### Linux Discovery Notes
 
 For LAN discovery and ping checks on Linux, host networking and raw socket
 access are usually required:
@@ -77,106 +110,24 @@ docker run --rm \
   homelabwatch:local
 ```
 
-### Run locally
+### Run Locally
 
-Install frontend dependencies and build assets:
+Install dependencies and build the frontend:
 
 ```bash
 make web-install
 make web-build
 ```
 
-Start the backend:
+Run the backend:
 
 ```bash
 make run
 ```
 
-Then open `http://localhost:8080`.
-
-`npm run dev` is available for frontend-only work, but the app expects
-same-origin API requests, so a dev proxy is needed if you want to point Vite at
+The browser UI expects same-origin API requests. `npm run dev` is available for
+frontend-only work, but you will need a dev proxy if you want Vite to point at
 the Go API.
-
-## Health Monitoring
-
-HomelabWatch no longer assumes that every HTTP service is healthy at `/`.
-Health checks are now modeled explicitly and can be edited per service.
-
-Each HTTP check can define:
-
-- `protocol`
-- `host`
-- `port`
-- `path`
-- `method`
-- `expectedStatusMin` and `expectedStatusMax`
-- `timeoutSeconds`
-- `intervalSeconds`
-
-The dashboard exposes this through `Edit health` on each service card. Users
-can:
-
-- create multiple checks per service
-- choose HTTP, TCP, or ping checks
-- test a candidate endpoint before saving
-- switch a service from auto-managed checks to custom checks by editing it
-
-The endpoint tester returns:
-
-- resolved URL
-- status
-- HTTP status code
-- latency
-- response size
-- matched service definition, when one is recognized
-
-## Service Definitions And Fingerprinting
-
-HomelabWatch ships with a built-in registry of known services and default
-health-check templates. The current built-in set includes:
-
-- Pi-hole
-- Grafana
-- Prometheus
-- Home Assistant
-- Plex
-
-Definitions are used for:
-
-- default ports
-- default health paths
-- icon selection
-- automatic health-check provisioning
-- fingerprint scoring
-
-Fingerprinting uses a mix of:
-
-- exposed port hints
-- container image names and labels
-- mDNS metadata
-- HTTP response headers
-- page titles
-- body substrings
-
-Unknown services do not get aggressive background path probing. Instead:
-
-- known matches receive definition-driven HTTP checks
-- unmatched services fall back to TCP or ping checks
-- smart path discovery happens when the user runs `Test endpoint` with a blank HTTP path
-
-Custom service definitions are supported today through the dashboard and API and
-are stored in SQLite. YAML-backed custom definition loading is not part of the
-current runtime yet.
-
-## Discovery And Promotion Behavior
-
-- Discovered services are fingerprinted in the background.
-- Accepted discovered services preserve their managed health checks and recent
-  health history when promoted into first-class services and bookmarks.
-- Service-definition reapply only updates services still in `auto` mode.
-- User-edited services stay in `custom` mode and are not overwritten by later
-  definition refreshes.
 
 ## Configuration
 
@@ -197,20 +148,114 @@ Important environment variables:
 - `HOMELABWATCH_SEED_DOCKER_SOCKET`
 - `HOMELABWATCH_TRUSTED_CIDRS`
 
-Example trust boundary override:
+Example trust-boundary override:
 
 ```bash
 HOMELABWATCH_TRUSTED_CIDRS=127.0.0.1/32,192.168.1.0/24
 ```
 
+## Security Model
+
+HomelabWatch is designed for trusted local and LAN environments.
+
+- The browser UI has no sign-in screen by product design.
+- UI reads are open.
+- UI writes require all of:
+  - a client IP inside `HOMELABWATCH_TRUSTED_CIDRS`
+  - same-origin browser requests
+  - the server-issued console CSRF token
+- External clients should use managed bearer tokens against
+  `/api/external/v1/*`.
+- Legacy `/api/v1/*` token-auth endpoints remain for compatibility.
+
+If you expose the app outside your local network, put it behind a reverse proxy
+or VPN and tighten `HOMELABWATCH_TRUSTED_CIDRS`.
+
+Additional guidance lives in [`SECURITY.md`](SECURITY.md).
+
+## Health Monitoring
+
+HomelabWatch does not assume every HTTP service is healthy at `/`.
+
+Each HTTP check can define:
+
+- `protocol`
+- `host`
+- `port`
+- `path`
+- `method`
+- `expectedStatusMin` and `expectedStatusMax`
+- `timeoutSeconds`
+- `intervalSeconds`
+
+Operators can:
+
+- create multiple checks per service
+- choose HTTP, TCP, or ping checks
+- test a candidate endpoint before saving
+- switch a service from auto-managed checks to custom checks by editing it
+
+The endpoint tester returns:
+
+- resolved URL
+- HTTP status
+- latency
+- response size
+- matched service definition, when one is recognized
+
+## Service Definitions And Fingerprinting
+
+Built-in definitions currently include:
+
+- Pi-hole
+- Grafana
+- Prometheus
+- Home Assistant
+- Plex
+
+Definitions drive:
+
+- default ports
+- default health paths
+- icon selection
+- automatic health-check provisioning
+- fingerprint scoring
+
+Fingerprinting uses a mix of:
+
+- exposed port hints
+- container image names and labels
+- mDNS metadata
+- HTTP response headers
+- page titles
+- body substrings
+
+Unknown services do not get aggressive background path probing. Known matches
+receive definition-driven HTTP checks. Unmatched services fall back to TCP or
+ping. Smart path discovery happens when the operator runs `Test endpoint` with
+a blank HTTP path.
+
+Custom service definitions are supported through the UI and API and are stored
+in SQLite. YAML-backed runtime custom definitions are not part of the current
+runtime.
+
+## Discovery And Promotion Behavior
+
+- Discovered services are fingerprinted in the background.
+- Accepted discovered services preserve managed health checks and recent health
+  history when promoted into first-class services and bookmarks.
+- Service-definition reapply only updates services still in `auto` mode.
+- User-edited services stay in `custom` mode and are not overwritten by later
+  definition refreshes.
+
 ## API Notes
 
-- The built-in browser UI uses `/api/ui/v1/*`
-- External automation uses bearer tokens against `/api/external/v1/*`
-- Legacy `/api/v1/*` token-auth endpoints remain for compatibility
-- Live updates for the browser UI are streamed from `GET /api/ui/v1/events`
+- Browser UI API: `/api/ui/v1/*`
+- External automation API: `/api/external/v1/*`
+- Legacy compatibility API: `/api/v1/*`
+- UI event stream: `GET /api/ui/v1/events`
 
-Health-related endpoints:
+Health endpoints:
 
 - `GET /api/ui/v1/services/{id}/checks`
 - `POST /api/ui/v1/services/{id}/checks`
@@ -228,87 +273,82 @@ Service-definition endpoints:
 
 Common external API flow:
 
-1. open the UI and finish setup
-2. go to `Settings > API access`
-3. create a read or write token
-4. call `/api/external/v1/*` with `Authorization: Bearer <token>`
+1. Open the UI and finish setup.
+2. Go to `Settings > API access`.
+3. Create a read or write token.
+4. Call `/api/external/v1/*` with `Authorization: Bearer <token>`.
 
-## Frontend Structure
+## Project Structure
+
+### Frontend
 
 ```text
 web/src/
   App.jsx
+  app/
+    AppShell.jsx
+    routes.js
+    screens/
   components/
+    bookmarks/
     bootstrap/
     dashboard/
     discovery/
     forms/
     health/
+    layout/
     ui/
   hooks/
+    useBookmarksData.js
+    useDashboardData.js
+    useHomelabwatchApp.js
+    useServerEvents.js
+    useSettingsData.js
+    useUIBootstrap.js
   lib/
   main.jsx
 ```
 
-Current responsibilities:
+### Backend
 
-- `App.jsx`: root composition only
-- `components/bootstrap`: first-run setup wizard
-- `components/dashboard`: dashboard sections and layout
-- `components/discovery`: discovery review flows
-- `components/forms`: form-specific state and submit handling
-- `components/health`: health modal, tester, and badges
-- `components/ui`: shared presentation primitives
-- `hooks/useHomelabwatchApp.js`: app state, actions, and data loading
-- `hooks/useServerEvents.js`: SSE subscription lifecycle
-- `lib/api.js`: API requests
-- `lib/forms.js`: form defaults and request-shaping helpers
-- `lib/format.js`: display helpers
+```text
+cmd/homelabwatch
+internal/api/http
+internal/api/sse
+internal/app
+internal/discovery
+internal/domain
+internal/events
+internal/monitoring
+internal/servicedefs
+internal/store/sqlite
+internal/worker
+migrations
+```
 
-## Backend Layout
+More detail:
 
-Key directories:
+- [`docs/architecture.md`](docs/architecture.md)
+- [`docs/domain-model.md`](docs/domain-model.md)
+- [`docs/launch-readiness.md`](docs/launch-readiness.md)
+- [`docs/operations.md`](docs/operations.md)
 
-- `cmd/homelabwatch`: application entrypoint
-- `internal/api`: HTTP and SSE handlers
-- `internal/app`: orchestration layer and high-level behavior
-- `internal/discovery`: Docker and LAN discovery providers
-- `internal/domain`: shared domain models and request/response types
-- `internal/monitoring`: health-check execution
-- `internal/servicedefs`: built-in service-definition registry and helpers
-- `internal/store/sqlite`: persistence and migrations
-- `migrations`: schema bootstrap and upgrades
+## Docs And Community
 
-## Security Model
-
-- The browser UI has no sign-in screen by product design.
-- The built-in UI is intended for trusted local or LAN use.
-- UI reads are open, but UI writes require all of:
-  - a client IP inside `HOMELABWATCH_TRUSTED_CIDRS`
-  - same-origin browser requests
-  - the console CSRF token issued by the server
-- External clients should use managed bearer tokens against the external API.
-- Legacy `admin_token_hash` installs remain compatible on the external API
-  during migration, but the browser no longer asks for that token.
-
-## Deployment Notes
-
-- Mount `/data` if you want persistent SQLite state across container restarts.
-- Mount `/var/run/docker.sock` if you want automatic local Docker discovery.
-- Use `--network host --cap-add NET_RAW` on Linux if you want the best LAN
-  discovery and ping behavior.
-- If you expose the UI beyond your local network, put it behind a reverse
-  proxy or VPN and tighten `HOMELABWATCH_TRUSTED_CIDRS`.
-- Database migrations run automatically on startup.
-- A Docker Hub specific README is available in [`DOCKERHUB.md`](DOCKERHUB.md).
+- [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- [`SECURITY.md`](SECURITY.md)
+- [`ROADMAP.md`](ROADMAP.md)
+- [`CHANGELOG.md`](CHANGELOG.md)
+- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- [`DOCKERHUB.md`](DOCKERHUB.md)
 
 ## Verification
 
 Useful checks:
 
 ```bash
-make test
-make web-build
+go test ./...
+cd web && npm run build
 make docker-build
 ```
 
@@ -326,24 +366,8 @@ locally because it validates the multi-platform release packaging too.
 
 GitHub releases are automated with GitHub Actions and GoReleaser.
 
-- Workflow trigger: publishing a GitHub release
-- Binary assets: Linux `amd64`, `arm64`, `armv6`, and `armv7`
-- Docker images: `linux/amd64`, `linux/arm64`, `linux/arm/v6`, and `linux/arm/v7`
-- Docker registry: Docker Hub
-
-When a release is published, the workflow:
-
-1. builds the React frontend
-2. runs `go test ./...`
-3. builds release archives for each Linux target
-4. uploads the archives and `checksums.txt` to the GitHub release
-5. builds and pushes multi-platform Docker images to Docker Hub
-
-Stable releases publish Docker tags:
-
-- `vX.Y.Z`
-- `X.Y`
-- `X`
-- `latest`
-
-Prereleases only publish the exact version tag, for example `v0.2.0-rc1`.
+- CI runs frontend build and Go tests on pushes and pull requests.
+- Publishing a GitHub release builds Linux binaries and multi-platform Docker
+  images.
+- Stable releases publish Docker tags `vX.Y.Z`, `X.Y`, `X`, and `latest`.
+- Prereleases publish only the exact version tag.
