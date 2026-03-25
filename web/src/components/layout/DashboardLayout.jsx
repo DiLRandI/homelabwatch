@@ -4,10 +4,12 @@ import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 
 export default function DashboardLayout({
+  activeHref,
   alerts,
   children,
   metrics,
   navItems,
+  onNavigate,
   sidebarMeta,
   statusItems,
   subtitle,
@@ -19,9 +21,11 @@ export default function DashboardLayout({
   return (
     <div className="grid min-h-screen gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
       <Sidebar
+        activeHref={activeHref}
         metrics={metrics}
         navItems={navItems}
         onClose={() => setSidebarOpen(false)}
+        onNavigate={onNavigate}
         open={sidebarOpen}
         sidebarMeta={sidebarMeta}
       />

@@ -16,13 +16,7 @@ import {
   deleteBookmark,
   deleteFolder,
   exportBookmarks,
-  fetchDashboard,
-  fetchBookmarks,
-  fetchFolders,
   fetchServiceChecks,
-  fetchSettings,
-  fetchTags,
-  fetchUIBootstrap,
   ignoreDiscoveredService,
   importBookmarks,
   initializeSetup,
@@ -41,89 +35,107 @@ import {
   updateFolder,
   uploadBookmarkAsset,
 } from "../lib/api";
+import { useBookmarksData } from "./useBookmarksData";
+import { useDashboardData } from "./useDashboardData";
+import { useSettingsData } from "./useSettingsData";
 import { useServerEvents } from "./useServerEvents";
+import { useUIBootstrap } from "./useUIBootstrap";
 
 export function useHomelabwatchApp() {
-  const [initialized, setInitialized] = useState(false);
-  const [trustedNetwork, setTrustedNetwork] = useState(false);
-  const [csrfToken, setCsrfToken] = useState("");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [dashboard, setDashboard] = useState(null);
-  const [bookmarks, setBookmarks] = useState([]);
-  const [folders, setFolders] = useState([]);
-  const [tags, setTags] = useState([]);
-  const [settings, setSettings] = useState(null);
-
-  useEffect(() => {
-    void loadBootstrapState();
-  }, []);
-
-  useEffect(() => {
-    if (!initialized) {
-      return;
-    }
-    void refreshAll();
-  }, [initialized]);
-
-  useServerEvents(initialized, () => {
-    void refreshAll();
+  const [hydrated, setHydrated] = useState(false);
+  const bootstrap = useUIBootstrap({ onError: setError });
+  const dashboardState = useDashboardData({ onError: setError });
+  const bookmarksState = useBookmarksData({ onError: setError });
+  const settingsState = useSettingsData({
+    onError: setError,
+    onTrustedNetworkChange: bootstrap.setTrustedNetwork,
   });
 
-  async function loadBootstrapState() {
-    try {
-      setLoading(true);
-      setError("");
-      const payload = await fetchUIBootstrap();
-      setInitialized(Boolean(payload.initialized));
-      setTrustedNetwork(Boolean(payload.trustedNetwork));
-      setCsrfToken(payload.csrfToken || "");
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (!bootstrap.initialized) {
+      setHydrated(false);
+      return;
     }
-  }
+
+    let active = true;
+
+    async function hydrateApp() {
+      await refreshAll();
+      if (active) {
+        setHydrated(true);
+      }
+    }
+
+    void hydrateApp();
+    return () => {
+      active = false;
+    };
+  }, [bootstrap.initialized]);
+
+  useServerEvents(bootstrap.initialized, {
+    bootstrap: async () => {
+      const payload = await bootstrap.loadBootstrapState();
+      if (payload?.initialized) {
+        await refreshAll();
+        setHydrated(true);
+      }
+    },
+    bookmark: async () => {
+      await Promise.all([
+        dashboardState.loadDashboard(),
+        bookmarksState.loadBookmarksWorkspace(),
+      ]);
+    },
+    check: async () => {
+      await Promise.all([
+        dashboardState.loadDashboard(),
+        bookmarksState.loadBookmarksWorkspace(),
+      ]);
+    },
+    device: async () => {
+      await Promise.all([
+        dashboardState.loadDashboard(),
+        bookmarksState.loadBookmarksWorkspace(),
+      ]);
+    },
+    "discovered-service": async () => {
+      await dashboardState.loadDashboard();
+    },
+    "docker-endpoint": async () => {
+      await settingsState.loadSettings();
+    },
+    folder: async () => {
+      await bookmarksState.loadBookmarksWorkspace();
+    },
+    "scan-target": async () => {
+      await settingsState.loadSettings();
+    },
+    service: async () => {
+      await Promise.all([
+        dashboardState.loadDashboard(),
+        bookmarksState.loadBookmarksWorkspace(),
+      ]);
+    },
+    "service-definition": async () => {
+      await Promise.all([
+        dashboardState.loadDashboard(),
+        settingsState.loadSettings(),
+      ]);
+    },
+  });
 
   async function loadDashboard() {
-    try {
-      const payload = await fetchDashboard();
-      setDashboard(payload);
-      return true;
-    } catch (requestError) {
-      setError(requestError.message);
-      return false;
-    }
+    return Boolean(await dashboardState.loadDashboard());
   }
 
   async function loadBookmarksWorkspace() {
-    try {
-      const [bookmarkItems, folderItems, tagItems] = await Promise.all([
-        fetchBookmarks(),
-        fetchFolders(),
-        fetchTags(),
-      ]);
-      setBookmarks(Array.isArray(bookmarkItems) ? bookmarkItems : []);
-      setFolders(Array.isArray(folderItems) ? folderItems : []);
-      setTags(Array.isArray(tagItems) ? tagItems : []);
-      return true;
-    } catch (requestError) {
-      setError(requestError.message);
-      return false;
-    }
+    return bookmarksState.loadBookmarksWorkspace();
   }
 
   async function loadSettings() {
-    try {
-      const payload = await fetchSettings();
-      setSettings(payload);
-      setTrustedNetwork(Boolean(payload?.appSettings?.trustedNetwork));
-      return true;
-    } catch (requestError) {
-      setError(requestError.message);
-      return false;
-    }
+    return Boolean(await settingsState.loadSettings());
   }
 
   async function refreshAll() {
@@ -132,15 +144,15 @@ export function useHomelabwatchApp() {
 
   async function submitSetup(payload) {
     return performAction(async () => {
-      await initializeSetup(payload, csrfToken);
-      setInitialized(true);
-      await refreshAll();
+      await initializeSetup(payload, bootstrap.csrfToken);
+      bootstrap.markInitialized();
+      setHydrated(false);
     }, "Workspace initialized.");
   }
 
   async function saveManualService(payload) {
     return performAction(async () => {
-      await createService(payload, csrfToken);
+      await createService(payload, bootstrap.csrfToken);
       await loadDashboard();
     }, "Manual service saved.");
   }
@@ -160,8 +172,8 @@ export function useHomelabwatchApp() {
       setError("");
       setNotice("");
       const saved = payload.id
-        ? await updateServiceCheck(payload.id, payload, csrfToken)
-        : await createServiceCheck(serviceId, payload, csrfToken);
+        ? await updateServiceCheck(payload.id, payload, bootstrap.csrfToken)
+        : await createServiceCheck(serviceId, payload, bootstrap.csrfToken);
       await loadDashboard();
       setNotice(payload.id ? "Health check saved." : "Health check created.");
       return saved;
@@ -175,7 +187,7 @@ export function useHomelabwatchApp() {
     try {
       setError("");
       setNotice("");
-      await deleteServiceCheck(id, csrfToken);
+      await deleteServiceCheck(id, bootstrap.csrfToken);
       await loadDashboard();
       setNotice("Health check deleted.");
       return true;
@@ -188,7 +200,7 @@ export function useHomelabwatchApp() {
   async function runServiceCheckTest(serviceId, payload) {
     try {
       setError("");
-      return await testServiceCheck(serviceId, payload, csrfToken);
+      return await testServiceCheck(serviceId, payload, bootstrap.csrfToken);
     } catch (requestError) {
       setError(requestError.message);
       return null;
@@ -200,8 +212,8 @@ export function useHomelabwatchApp() {
       setError("");
       setNotice("");
       const saved = payload.id
-        ? await updateServiceDefinition(payload.id, payload, csrfToken)
-        : await createServiceDefinition(payload, csrfToken);
+        ? await updateServiceDefinition(payload.id, payload, bootstrap.csrfToken)
+        : await createServiceDefinition(payload, bootstrap.csrfToken);
       await Promise.all([loadDashboard(), loadSettings()]);
       setNotice(payload.id ? "Service definition saved." : "Service definition created.");
       return saved;
@@ -215,7 +227,7 @@ export function useHomelabwatchApp() {
     try {
       setError("");
       setNotice("");
-      await deleteServiceDefinition(id, csrfToken);
+      await deleteServiceDefinition(id, bootstrap.csrfToken);
       await Promise.all([loadDashboard(), loadSettings()]);
       setNotice("Service definition deleted.");
       return true;
@@ -229,7 +241,7 @@ export function useHomelabwatchApp() {
     try {
       setError("");
       setNotice("");
-      await reapplyServiceDefinition(id, csrfToken);
+      await reapplyServiceDefinition(id, bootstrap.csrfToken);
       await Promise.all([loadDashboard(), loadSettings()]);
       setNotice("Service definition reapplied.");
       return true;
@@ -242,9 +254,9 @@ export function useHomelabwatchApp() {
   async function saveBookmark(payload) {
     return performAction(async () => {
       if (payload.id) {
-        await updateBookmark(payload.id, payload, csrfToken);
+        await updateBookmark(payload.id, payload, bootstrap.csrfToken);
       } else {
-        await createBookmark(payload, csrfToken);
+        await createBookmark(payload, bootstrap.csrfToken);
       }
       await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
     }, "Bookmark saved.");
@@ -252,7 +264,7 @@ export function useHomelabwatchApp() {
 
   async function removeBookmark(id) {
     return performAction(async () => {
-      await deleteBookmark(id, csrfToken);
+      await deleteBookmark(id, bootstrap.csrfToken);
       await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
     }, "Bookmark deleted.");
   }
@@ -260,9 +272,9 @@ export function useHomelabwatchApp() {
   async function saveFolder(payload) {
     return performAction(async () => {
       if (payload.id) {
-        await updateFolder(payload.id, payload, csrfToken);
+        await updateFolder(payload.id, payload, bootstrap.csrfToken);
       } else {
-        await createFolder(payload, csrfToken);
+        await createFolder(payload, bootstrap.csrfToken);
       }
       await loadBookmarksWorkspace();
     }, "Folder saved.");
@@ -270,35 +282,35 @@ export function useHomelabwatchApp() {
 
   async function removeFolder(id) {
     return performAction(async () => {
-      await deleteFolder(id, csrfToken);
+      await deleteFolder(id, bootstrap.csrfToken);
       await loadBookmarksWorkspace();
     }, "Folder deleted.");
   }
 
   async function saveBookmarkFromService(payload) {
     return performAction(async () => {
-      await createBookmarkFromService(payload, csrfToken);
+      await createBookmarkFromService(payload, bootstrap.csrfToken);
       await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
     }, "Bookmark created from service.");
   }
 
   async function saveBookmarkFromDiscoveredService(id, payload) {
     return performAction(async () => {
-      await createBookmarkFromDiscoveredService(id, payload, csrfToken);
+      await createBookmarkFromDiscoveredService(id, payload, bootstrap.csrfToken);
       await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
     }, "Bookmark created from discovery.");
   }
 
   async function saveBookmarkOrder(items) {
     return performAction(async () => {
-      await reorderBookmarks(items, csrfToken);
+      await reorderBookmarks(items, bootstrap.csrfToken);
       await loadBookmarksWorkspace();
     }, "Bookmark order updated.");
   }
 
   async function saveFolderOrder(items) {
     return performAction(async () => {
-      await reorderFolders(items, csrfToken);
+      await reorderFolders(items, bootstrap.csrfToken);
       await loadBookmarksWorkspace();
     }, "Folder order updated.");
   }
@@ -306,7 +318,7 @@ export function useHomelabwatchApp() {
   async function uploadBookmarkIcon(file) {
     try {
       setError("");
-      const asset = await uploadBookmarkAsset(file, csrfToken);
+      const asset = await uploadBookmarkAsset(file, bootstrap.csrfToken);
       return asset;
     } catch (requestError) {
       setError(requestError.message);
@@ -326,42 +338,42 @@ export function useHomelabwatchApp() {
 
   async function importBookmarksData(payload) {
     return performAction(async () => {
-      await importBookmarks(payload, csrfToken);
+      await importBookmarks(payload, bootstrap.csrfToken);
       await Promise.all([loadDashboard(), loadBookmarksWorkspace()]);
     }, "Bookmarks imported.");
   }
 
   async function saveDockerEndpoint(payload) {
     return performAction(async () => {
-      await createDockerEndpoint(payload, csrfToken);
+      await createDockerEndpoint(payload, bootstrap.csrfToken);
       await loadSettings();
     }, "Docker endpoint saved.");
   }
 
   async function saveScanTarget(payload) {
     return performAction(async () => {
-      await createScanTarget(payload, csrfToken);
+      await createScanTarget(payload, bootstrap.csrfToken);
       await loadSettings();
     }, "Scan target saved.");
   }
 
   async function saveDiscoveryPolicy(payload) {
     return performAction(async () => {
-      await updateDiscoverySettings(payload, csrfToken);
+      await updateDiscoverySettings(payload, bootstrap.csrfToken);
       await loadSettings();
     }, "Discovery settings saved.");
   }
 
   async function ignoreSuggestion(id) {
     return performAction(async () => {
-      await ignoreDiscoveredService(id, csrfToken);
+      await ignoreDiscoveredService(id, bootstrap.csrfToken);
       await loadDashboard();
     }, "Suggestion ignored.");
   }
 
   async function restoreSuggestion(id) {
     return performAction(async () => {
-      await restoreDiscoveredService(id, csrfToken);
+      await restoreDiscoveredService(id, bootstrap.csrfToken);
       await loadDashboard();
     }, "Suggestion restored.");
   }
@@ -370,7 +382,7 @@ export function useHomelabwatchApp() {
     try {
       setError("");
       setNotice("");
-      const created = await createAPIToken(payload, csrfToken);
+      const created = await createAPIToken(payload, bootstrap.csrfToken);
       await loadSettings();
       setNotice("External API token created.");
       return created;
@@ -382,21 +394,21 @@ export function useHomelabwatchApp() {
 
   async function revokeExternalToken(id) {
     return performAction(async () => {
-      await revokeAPIToken(id, csrfToken);
+      await revokeAPIToken(id, bootstrap.csrfToken);
       await loadSettings();
     }, "External API token revoked.");
   }
 
   async function runDiscovery() {
     return performAction(async () => {
-      await runDiscoveryJob(csrfToken);
+      await runDiscoveryJob(bootstrap.csrfToken);
       await refreshAll();
     }, "Discovery run started.");
   }
 
   async function runMonitoring() {
     return performAction(async () => {
-      await runMonitoringJob(csrfToken);
+      await runMonitoringJob(bootstrap.csrfToken);
       await refreshAll();
     }, "Health checks started.");
   }
@@ -415,45 +427,53 @@ export function useHomelabwatchApp() {
   }
 
   return {
-    createExternalToken,
-    dashboard,
-    error,
-    bookmarks,
-    folders,
-    initialized,
-    importBookmarksData,
-    loadServiceHealthChecks,
-    loading,
-    notice,
-    removeBookmark,
-    removeFolder,
-    removeServiceDefinitionRecord,
-    removeServiceHealthCheck,
-    refreshAll,
-    revokeExternalToken,
-    runDiscovery,
-    runMonitoring,
-    runServiceCheckTest,
-    rerunServiceDefinition,
-    saveBookmark,
-    saveBookmarkFromDiscoveredService,
-    saveBookmarkFromService,
-    saveBookmarkOrder,
-    saveDiscoveryPolicy,
-    saveDockerEndpoint,
-    saveFolder,
-    saveFolderOrder,
-    saveServiceDefinitionRecord,
-    saveServiceHealthCheck,
-    saveManualService,
-    saveScanTarget,
-    settings,
-    submitSetup,
-    tags,
-    trustedNetwork,
-    ignoreSuggestion,
-    restoreSuggestion,
-    uploadBookmarkIcon,
-    exportBookmarksData,
+    actions: {
+      createExternalToken,
+      exportBookmarksData,
+      ignoreSuggestion,
+      importBookmarksData,
+      loadServiceHealthChecks,
+      refreshAll,
+      removeBookmark,
+      removeFolder,
+      removeServiceDefinitionRecord,
+      removeServiceHealthCheck,
+      restoreSuggestion,
+      revokeExternalToken,
+      runDiscovery,
+      runMonitoring,
+      runServiceCheckTest,
+      saveBookmark,
+      saveBookmarkFromDiscoveredService,
+      saveBookmarkFromService,
+      saveBookmarkOrder,
+      saveDiscoveryPolicy,
+      saveDockerEndpoint,
+      saveFolder,
+      saveFolderOrder,
+      saveManualService,
+      saveScanTarget,
+      saveServiceDefinitionRecord,
+      saveServiceHealthCheck,
+      submitSetup,
+      uploadBookmarkIcon,
+      rerunServiceDefinition,
+    },
+    alerts: {
+      error,
+      notice,
+    },
+    bootstrap: {
+      initialized: bootstrap.initialized,
+      loading: bootstrap.loading || (bootstrap.initialized && !hydrated),
+      trustedNetwork: bootstrap.trustedNetwork,
+    },
+    data: {
+      bookmarks: bookmarksState.bookmarks,
+      dashboard: dashboardState.dashboard,
+      folders: bookmarksState.folders,
+      settings: settingsState.settings,
+      tags: bookmarksState.tags,
+    },
   };
 }
