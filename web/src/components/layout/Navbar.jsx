@@ -9,24 +9,24 @@ export default function Navbar({
   toolbar,
 }) {
   return (
-    <header className="sticky top-0 z-20 border-b border-slate-200/80 bg-page/90 backdrop-blur-xl">
-      <div className="px-4 py-4 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-20 border-b border-line bg-page/90 backdrop-blur-xl">
+      <div className="px-4 py-4 pr-20 sm:px-6 sm:pr-24 lg:px-8">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <button
                 aria-label="Open navigation"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 lg:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-panel-strong text-muted shadow-sm transition hover:bg-base hover:text-ink lg:hidden"
                 onClick={onOpenSidebar}
                 type="button"
               >
                 <MenuIcon className="h-4 w-4" />
               </button>
               <div className="min-w-0">
-                <h2 className="truncate text-2xl font-semibold tracking-tight text-slate-950">
+                <h2 className="truncate text-2xl font-semibold tracking-tight text-ink">
                   {title}
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-500">{subtitle}</p>
+                <p className="mt-1 text-sm leading-6 text-muted">{subtitle}</p>
               </div>
             </div>
             {statusItems.length > 0 ? (

@@ -15,12 +15,12 @@ export function TableHead({ children }) {
 }
 
 export function TableBody({ children }) {
-  return <tbody className="divide-y divide-slate-200">{children}</tbody>;
+  return <tbody className="divide-y divide-line">{children}</tbody>;
 }
 
 export function TableRow({ children, className }) {
   return (
-    <tr className={cn("transition hover:bg-slate-50/80", className)}>
+    <tr className={cn("transition hover:bg-base/80", className)}>
       {children}
     </tr>
   );
@@ -30,7 +30,7 @@ export function TableHeader({ children, className }) {
   return (
     <th
       className={cn(
-        "border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-slate-500",
+        "border-b border-line px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.16em] text-muted",
         className,
       )}
       scope="col"
@@ -42,7 +42,7 @@ export function TableHeader({ children, className }) {
 
 export function TableCell({ children, className }) {
   return (
-    <td className={cn("px-4 py-4 align-top text-sm text-slate-600", className)}>
+    <td className={cn("px-4 py-4 align-top text-sm text-muted", className)}>
       {children}
     </td>
   );

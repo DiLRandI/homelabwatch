@@ -4,7 +4,7 @@ export function Card({ children, className }) {
   return (
     <section
       className={cn(
-        "rounded-3xl border border-slate-200 bg-white shadow-card",
+        "rounded-3xl border border-line bg-panel-strong shadow-card",
         className,
       )}
     >
@@ -23,18 +23,18 @@ export function CardHeader({
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 border-b border-slate-200 px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6",
+        "flex flex-col gap-4 border-b border-line px-5 py-5 sm:flex-row sm:items-start sm:justify-between sm:px-6",
         className,
       )}
     >
       <div className="min-w-0">
         {children || (
           <>
-            <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+            <h2 className="text-lg font-semibold tracking-tight text-ink">
               {title}
             </h2>
             {description ? (
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
                 {description}
               </p>
             ) : null}
@@ -54,7 +54,7 @@ export function CardFooter({ children, className }) {
   return (
     <div
       className={cn(
-        "border-t border-slate-200 px-5 py-4 sm:px-6",
+        "border-t border-line px-5 py-4 sm:px-6",
         className,
       )}
     >

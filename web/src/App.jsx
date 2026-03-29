@@ -19,6 +19,7 @@ import {
 import EmptyState from "./components/ui/EmptyState";
 import Shell from "./components/ui/Shell";
 import { useHomelabwatchApp } from "./hooks/useHomelabwatchApp";
+import { useThemePreference } from "./hooks/useThemePreference";
 
 const DEFAULT_SUMMARY = {
   bookmarks: 0,
@@ -50,21 +51,21 @@ function buildMetrics(summary) {
     {
       description: "Running workloads discovered from attached Docker engines.",
       icon: DiscoveryIcon,
-      iconTone: "bg-sky-50 text-sky-700",
+      iconTone: "bg-sky-500/12 text-sky-300",
       label: "Containers",
       value: summary.runningContainers,
     },
     {
       description: "Devices known to the control plane inventory.",
       icon: DevicesIcon,
-      iconTone: "bg-slate-100 text-slate-700",
+      iconTone: "bg-base text-ink-soft",
       label: "Devices",
       value: summary.devicesSeen,
     },
     {
       description: "Pending discovery suggestions waiting for review.",
       icon: SparklesIcon,
-      iconTone: "bg-amber-100 text-amber-700",
+      iconTone: "bg-amber-500/12 text-amber-300",
       label: "Discovered",
       value: summary.discoveredServices,
     },
@@ -86,6 +87,7 @@ function countByDevice(items = []) {
 
 export default function App() {
   const app = useHomelabwatchApp();
+  const { theme, toggleTheme } = useThemePreference();
   const { navigate, route } = useAppRoute();
   const dashboard = app.data.dashboard;
   const settings = app.data.settings;
@@ -217,7 +219,7 @@ export default function App() {
   }
 
   return (
-    <Shell>
+    <Shell onToggleTheme={toggleTheme} theme={theme}>
       {app.bootstrap.loading ? (
         <EmptyState
           body="Bootstrapping the dashboard state."

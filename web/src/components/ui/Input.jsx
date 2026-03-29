@@ -19,8 +19,8 @@ export default function Input({
     >
       <span
         className={cn(
-          "block text-sm font-medium text-slate-700",
-          compact ? "text-xs uppercase tracking-[0.18em] text-slate-500" : "",
+          "block text-sm font-medium text-ink-soft",
+          compact ? "text-xs uppercase tracking-[0.18em] text-muted" : "",
           labelClassName,
         )}
       >
@@ -29,7 +29,7 @@ export default function Input({
       <input
         autoComplete={autoComplete}
         className={cn(
-          "w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-950 shadow-sm outline-hidden transition placeholder:text-slate-400 focus:border-accent focus-visible:ring-4 focus-visible:ring-accent/15",
+          "w-full rounded-2xl border border-line bg-panel-strong px-4 text-sm text-ink shadow-sm outline-hidden transition placeholder:text-copy-subtle focus:border-accent focus-visible:ring-4 focus-visible:ring-accent/15",
           compact ? "py-2.5" : "py-3",
           inputClassName,
         )}

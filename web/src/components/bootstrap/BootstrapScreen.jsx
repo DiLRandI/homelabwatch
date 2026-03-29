@@ -53,23 +53,23 @@ const setupHighlights = [
 
 function StepPill({ active, complete, index, step }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+    <div className="flex items-center gap-3 rounded-2xl border border-line bg-panel-strong px-4 py-3 shadow-sm">
       <span
         className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold ${
           active
             ? "bg-accent text-white"
             : complete
               ? "bg-ok/10 text-ok-strong"
-              : "bg-slate-100 text-slate-500"
+              : "bg-base text-muted"
         }`}
       >
         {index + 1}
       </span>
       <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
           Step {index + 1}
         </p>
-        <p className="mt-1 text-sm font-medium text-slate-900">{step.title}</p>
+        <p className="mt-1 text-sm font-medium text-ink">{step.title}</p>
       </div>
     </div>
   );
@@ -112,7 +112,7 @@ export default function BootstrapScreen({
   const currentStep = steps[stepIndex];
 
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8">
+    <div className="px-4 py-6 pr-20 sm:px-6 sm:pr-24 lg:px-8">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(420px,0.88fr)]">
         <Card className="overflow-hidden border-transparent bg-[linear-gradient(145deg,#0f172a_0%,#13233f_38%,#1d4ed8_100%)] text-white shadow-card-lg">
           <CardContent className="p-7 sm:p-9">

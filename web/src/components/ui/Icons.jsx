@@ -115,6 +115,30 @@ export function RefreshIcon({ className }) {
   );
 }
 
+export function SunIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2.5" />
+      <path d="M12 19v2.5" />
+      <path d="m5.4 5.4 1.8 1.8" />
+      <path d="m16.8 16.8 1.8 1.8" />
+      <path d="M2.5 12H5" />
+      <path d="M19 12h2.5" />
+      <path d="m5.4 18.6 1.8-1.8" />
+      <path d="m16.8 7.2 1.8-1.8" />
+    </Icon>
+  );
+}
+
+export function HalfMoonIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M18 14.5a7 7 0 1 1-8.5-8.5 7.5 7.5 0 0 0 8.5 8.5Z" />
+    </Icon>
+  );
+}
+
 export function ArrowUpRightIcon({ className }) {
   return (
     <Icon className={className}>

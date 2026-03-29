@@ -51,7 +51,7 @@ export default function AppShell({
 
   const statusItems = [
     {
-      className: "border-slate-200 bg-white text-slate-600",
+      className: "border-line bg-panel-strong text-muted",
       icon: DiscoveryIcon,
       label: "Realtime updates",
     },
@@ -69,7 +69,7 @@ export default function AppShell({
     {
       className: canManageUI
         ? "border-accent/15 bg-accent/10 text-accent-strong"
-        : "border-slate-200 bg-white text-slate-600",
+        : "border-line bg-panel-strong text-muted",
       icon: ShieldIcon,
       label: canManageUI ? "Trusted LAN writes enabled" : "Read-only network",
     },

@@ -15,14 +15,14 @@ export default function Sidebar({
     <>
       <div
         className={cn(
-          "fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-sm transition lg:hidden",
+          "fixed inset-0 z-30 bg-overlay backdrop-blur-sm transition lg:hidden",
           open ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={onClose}
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-[280px] max-w-[85vw] flex-col border-r border-slate-200 bg-white p-5 shadow-card-lg transition lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-40 flex w-[280px] max-w-[85vw] flex-col border-r border-line bg-panel-strong p-5 shadow-card-lg transition lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -31,16 +31,16 @@ export default function Sidebar({
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-strong">
               HomelabWatch
             </p>
-            <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+            <h1 className="mt-2 text-xl font-semibold tracking-tight text-ink">
               {sidebarMeta?.applianceName || "Control plane"}
             </h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
+            <p className="mt-2 text-sm leading-6 text-muted">
               One workspace for services, infrastructure, and runtime health.
             </p>
           </div>
           <button
             aria-label="Close navigation"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-line text-muted transition hover:bg-base hover:text-ink lg:hidden"
             onClick={onClose}
             type="button"
           >
@@ -48,26 +48,26 @@ export default function Sidebar({
           </button>
         </div>
 
-        <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <div className="mt-8 rounded-3xl border border-line bg-base p-4">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent-strong">
               <ShieldIcon className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-sm font-medium text-slate-900">Workspace status</p>
-              <p className="text-sm text-slate-500">Live service and network inventory</p>
+              <p className="text-sm font-medium text-ink">Workspace status</p>
+              <p className="text-sm text-muted">Live service and network inventory</p>
             </div>
           </div>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
             {metrics.slice(0, 4).map((metric) => (
               <div
-                className="rounded-2xl border border-white bg-white px-3 py-3"
+                className="rounded-2xl border border-line bg-panel-strong px-3 py-3"
                 key={metric.label}
               >
-                <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   {metric.label}
                 </dt>
-                <dd className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
+                <dd className="mt-2 text-2xl font-semibold tracking-tight text-ink">
                   {metric.value}
                 </dd>
               </div>
@@ -82,8 +82,8 @@ export default function Sidebar({
               className={cn(
                 "group flex items-center justify-between rounded-2xl px-3 py-3 text-sm font-medium transition",
                 item.href === activeHref
-                  ? "bg-slate-100 text-slate-950"
-                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
+                  ? "bg-base text-ink"
+                  : "text-muted hover:bg-base hover:text-ink",
               )}
               href={item.href}
               key={item.href}
@@ -98,8 +98,8 @@ export default function Sidebar({
                   className={cn(
                     "inline-flex h-9 w-9 items-center justify-center rounded-xl transition",
                     item.href === activeHref
-                      ? "bg-white text-accent-strong"
-                      : "bg-slate-100 text-slate-500 group-hover:bg-white group-hover:text-accent-strong",
+                      ? "bg-panel-strong text-accent-strong"
+                      : "bg-base text-muted group-hover:bg-panel-strong group-hover:text-accent-strong",
                   )}
                 >
                   <item.icon className="h-4 w-4" />
@@ -111,25 +111,25 @@ export default function Sidebar({
           ))}
         </nav>
 
-        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-3xl border border-line bg-base p-4">
           <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-panel-strong text-muted shadow-sm">
               <ActivityIcon className="h-4 w-4" />
             </span>
             <div>
-              <p className="text-sm font-medium text-slate-900">API access</p>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm font-medium text-ink">API access</p>
+              <p className="text-sm text-muted">
                 Trusted local UI plus external bearer tokens
               </p>
             </div>
           </div>
           <div className="mt-3 grid gap-2">
-            <p className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500">
+            <p className="rounded-2xl border border-line bg-panel-strong px-3 py-2 text-xs font-medium text-muted">
               {sidebarMeta?.trustedNetwork
                 ? "This browser can perform local write actions"
                 : "This browser is outside the trusted write boundary"}
             </p>
-            <p className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-500">
+            <p className="rounded-2xl border border-line bg-panel-strong px-3 py-2 text-xs font-medium text-muted">
               {sidebarMeta?.apiTokenCount ?? 0} external API token
               {(sidebarMeta?.apiTokenCount ?? 0) === 1 ? "" : "s"} configured
             </p>
