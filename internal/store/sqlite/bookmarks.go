@@ -361,7 +361,7 @@ func (s *Store) ReorderBookmarks(ctx context.Context, items []domain.BookmarkReo
 }
 
 func (s *Store) ListFolders(ctx context.Context) ([]domain.Folder, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT
 			f.id,
 			COALESCE(f.parent_id, ''),
@@ -497,7 +497,7 @@ func (s *Store) ReorderFolders(ctx context.Context, items []domain.FolderReorder
 }
 
 func (s *Store) ListTags(ctx context.Context) ([]domain.Tag, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT t.id, t.name, t.slug, COUNT(bt.bookmark_id), t.created_at, t.updated_at
 		FROM tags t
 		LEFT JOIN bookmark_tags bt ON bt.tag_id = t.id
@@ -620,12 +620,12 @@ func (s *Store) getServiceTx(ctx context.Context, tx *sql.Tx, id string) (domain
 }
 
 func (s *Store) FindServiceBySource(ctx context.Context, source domain.ServiceSource, sourceRef string) (domain.Service, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.source_type = ? AND s.source_ref = ?`, source, sourceRef)
+	row := s.reader().QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.source_type = ? AND s.source_ref = ?`, source, sourceRef)
 	return scanService(row)
 }
 
 func (s *Store) loadBookmarkRecords(ctx context.Context) ([]bookmarkRecord, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT
 			b.id,
 			COALESCE(b.folder_id, ''),
@@ -735,7 +735,7 @@ func (s *Store) loadBookmarkRecords(ctx context.Context) ([]bookmarkRecord, erro
 }
 
 func (s *Store) loadBookmarkTags(ctx context.Context) (map[string][]string, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT bt.bookmark_id, t.name
 		FROM bookmark_tags bt
 		JOIN tags t ON t.id = bt.tag_id
@@ -757,7 +757,7 @@ func (s *Store) loadBookmarkTags(ctx context.Context) (map[string][]string, erro
 }
 
 func (s *Store) loadPrimaryDeviceAddresses(ctx context.Context) (map[string]string, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT device_id, ip_address
 		FROM (
 			SELECT

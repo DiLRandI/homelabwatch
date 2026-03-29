@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   createAPIToken,
@@ -41,10 +41,19 @@ import { useSettingsData } from "./useSettingsData";
 import { useServerEvents } from "./useServerEvents";
 import { useUIBootstrap } from "./useUIBootstrap";
 
+const REFRESH_DEBOUNCE_MS = 1500;
+const REFRESH_MAX_WAIT_MS = 5000;
+
 export function useHomelabwatchApp() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const hydratedRef = useRef(false);
+  const refreshStateRef = useRef({
+    bookmarks: { dirty: false, maxTimerID: null, timerID: null },
+    dashboard: { dirty: false, maxTimerID: null, timerID: null },
+    settings: { dirty: false, maxTimerID: null, timerID: null },
+  });
   const bootstrap = useUIBootstrap({ onError: setError });
   const dashboardState = useDashboardData({ onError: setError });
   const bookmarksState = useBookmarksData({ onError: setError });
@@ -53,78 +62,17 @@ export function useHomelabwatchApp() {
     onTrustedNetworkChange: bootstrap.setTrustedNetwork,
   });
 
-  useEffect(() => {
-    if (!bootstrap.initialized) {
-      setHydrated(false);
-      return;
+  function clearRefreshTimers(kind) {
+    const state = refreshStateRef.current[kind];
+    if (state.timerID != null) {
+      window.clearTimeout(state.timerID);
+      state.timerID = null;
     }
-
-    let active = true;
-
-    async function hydrateApp() {
-      await refreshAll();
-      if (active) {
-        setHydrated(true);
-      }
+    if (state.maxTimerID != null) {
+      window.clearTimeout(state.maxTimerID);
+      state.maxTimerID = null;
     }
-
-    void hydrateApp();
-    return () => {
-      active = false;
-    };
-  }, [bootstrap.initialized]);
-
-  useServerEvents(bootstrap.initialized, {
-    bootstrap: async () => {
-      const payload = await bootstrap.loadBootstrapState();
-      if (payload?.initialized) {
-        await refreshAll();
-        setHydrated(true);
-      }
-    },
-    bookmark: async () => {
-      await Promise.all([
-        dashboardState.loadDashboard(),
-        bookmarksState.loadBookmarksWorkspace(),
-      ]);
-    },
-    check: async () => {
-      await Promise.all([
-        dashboardState.loadDashboard(),
-        bookmarksState.loadBookmarksWorkspace(),
-      ]);
-    },
-    device: async () => {
-      await Promise.all([
-        dashboardState.loadDashboard(),
-        bookmarksState.loadBookmarksWorkspace(),
-      ]);
-    },
-    "discovered-service": async () => {
-      await dashboardState.loadDashboard();
-    },
-    "docker-endpoint": async () => {
-      await settingsState.loadSettings();
-    },
-    folder: async () => {
-      await bookmarksState.loadBookmarksWorkspace();
-    },
-    "scan-target": async () => {
-      await settingsState.loadSettings();
-    },
-    service: async () => {
-      await Promise.all([
-        dashboardState.loadDashboard(),
-        bookmarksState.loadBookmarksWorkspace(),
-      ]);
-    },
-    "service-definition": async () => {
-      await Promise.all([
-        dashboardState.loadDashboard(),
-        settingsState.loadSettings(),
-      ]);
-    },
-  });
+  }
 
   async function loadDashboard() {
     return Boolean(await dashboardState.loadDashboard());
@@ -138,9 +86,120 @@ export function useHomelabwatchApp() {
     return Boolean(await settingsState.loadSettings());
   }
 
+  async function flushRefresh(kind) {
+    const state = refreshStateRef.current[kind];
+    clearRefreshTimers(kind);
+    if (!state.dirty) {
+      return null;
+    }
+    state.dirty = false;
+    switch (kind) {
+      case "bookmarks":
+        return loadBookmarksWorkspace();
+      case "settings":
+        return loadSettings();
+      default:
+        return loadDashboard();
+    }
+  }
+
+  function scheduleRefresh(kind) {
+    const state = refreshStateRef.current[kind];
+    state.dirty = true;
+    if (!bootstrap.initialized || !hydratedRef.current) {
+      return;
+    }
+    if (state.timerID == null) {
+      state.timerID = window.setTimeout(() => {
+        void flushRefresh(kind);
+      }, REFRESH_DEBOUNCE_MS);
+    }
+    if (state.maxTimerID == null) {
+      state.maxTimerID = window.setTimeout(() => {
+        void flushRefresh(kind);
+      }, REFRESH_MAX_WAIT_MS);
+    }
+  }
+
+  function queueRefreshes(...kinds) {
+    for (const kind of kinds) {
+      scheduleRefresh(kind);
+    }
+  }
+
+  async function flushPendingRefreshes() {
+    if (!hydratedRef.current) {
+      return;
+    }
+    const pendingKinds = Object.entries(refreshStateRef.current)
+      .filter(([, state]) => state.dirty)
+      .map(([kind]) => kind);
+    if (pendingKinds.length == 0) {
+      return;
+    }
+    await Promise.all(pendingKinds.map((kind) => flushRefresh(kind)));
+  }
+
   async function refreshAll() {
     await Promise.all([loadDashboard(), loadSettings(), loadBookmarksWorkspace()]);
   }
+
+  useEffect(() => {
+    if (!bootstrap.initialized) {
+      hydratedRef.current = false;
+      setHydrated(false);
+      return;
+    }
+
+    let active = true;
+    hydratedRef.current = false;
+    setHydrated(false);
+
+    async function hydrateApp() {
+      await refreshAll();
+      if (active) {
+        hydratedRef.current = true;
+        setHydrated(true);
+        await flushPendingRefreshes();
+      }
+    }
+
+    void hydrateApp();
+    return () => {
+      active = false;
+    };
+  }, [bootstrap.initialized]);
+
+  useEffect(() => {
+    return () => {
+      for (const kind of Object.keys(refreshStateRef.current)) {
+        clearRefreshTimers(kind);
+      }
+    };
+  }, []);
+
+  useServerEvents(bootstrap.initialized, {
+    bootstrap: async () => {
+      const payload = await bootstrap.loadBootstrapState();
+      if (payload?.initialized) {
+        hydratedRef.current = false;
+        setHydrated(false);
+        await refreshAll();
+        hydratedRef.current = true;
+        setHydrated(true);
+        await flushPendingRefreshes();
+      }
+    },
+    bookmark: () => queueRefreshes("dashboard", "bookmarks"),
+    check: () => queueRefreshes("dashboard", "bookmarks"),
+    device: () => queueRefreshes("dashboard", "bookmarks"),
+    "discovered-service": () => queueRefreshes("dashboard"),
+    "docker-endpoint": () => queueRefreshes("settings"),
+    folder: () => queueRefreshes("bookmarks"),
+    "scan-target": () => queueRefreshes("settings"),
+    service: () => queueRefreshes("dashboard", "bookmarks"),
+    "service-definition": () => queueRefreshes("dashboard", "settings"),
+  });
 
   async function submitSetup(payload) {
     return performAction(async () => {

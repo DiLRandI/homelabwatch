@@ -2,12 +2,165 @@ package sqlite
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/deleema/homelabwatch/internal/domain"
 )
+
+func TestSQLiteConnectionsUseWALAndBusyTimeout(t *testing.T) {
+	store := newTestStore(t)
+
+	for name, handle := range map[string]*sql.DB{
+		"reader": store.readDB,
+		"writer": store.db,
+	} {
+		if handle == nil {
+			t.Fatalf("%s handle is nil", name)
+		}
+
+		var journalMode string
+		if err := handle.QueryRow(`PRAGMA journal_mode`).Scan(&journalMode); err != nil {
+			t.Fatalf("%s journal mode: %v", name, err)
+		}
+		if !strings.EqualFold(journalMode, "wal") {
+			t.Fatalf("%s journal mode = %q, want WAL", name, journalMode)
+		}
+
+		var synchronous int
+		if err := handle.QueryRow(`PRAGMA synchronous`).Scan(&synchronous); err != nil {
+			t.Fatalf("%s synchronous pragma: %v", name, err)
+		}
+		if synchronous != 1 {
+			t.Fatalf("%s synchronous = %d, want 1 (NORMAL)", name, synchronous)
+		}
+
+		var foreignKeys int
+		if err := handle.QueryRow(`PRAGMA foreign_keys`).Scan(&foreignKeys); err != nil {
+			t.Fatalf("%s foreign_keys pragma: %v", name, err)
+		}
+		if foreignKeys != 1 {
+			t.Fatalf("%s foreign_keys = %d, want 1", name, foreignKeys)
+		}
+
+		var busyTimeout int
+		if err := handle.QueryRow(`PRAGMA busy_timeout`).Scan(&busyTimeout); err != nil {
+			t.Fatalf("%s busy_timeout pragma: %v", name, err)
+		}
+		if busyTimeout < 5000 {
+			t.Fatalf("%s busy_timeout = %d, want at least 5000", name, busyTimeout)
+		}
+	}
+}
+
+func TestConcurrentDashboardAndSettingsReadsDuringWriteBursts(t *testing.T) {
+	store := newBootstrappedStore(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	reportErr := make(chan error, 1)
+	fail := func(err error) {
+		if err == nil {
+			return
+		}
+		select {
+		case reportErr <- err:
+			cancel()
+		default:
+		}
+	}
+
+	var wg sync.WaitGroup
+	for writerID := range 3 {
+		wg.Add(1)
+		go func(writerID int) {
+			defer wg.Done()
+			for iteration := range 25 {
+				if ctx.Err() != nil {
+					return
+				}
+				seenAt := time.Now().UTC().Add(time.Duration(iteration) * time.Second)
+				device, err := store.UpsertDeviceObservation(ctx, domain.DeviceObservation{
+					IdentityKey: fmt.Sprintf("writer-%d-device", writerID),
+					PrimaryMAC:  fmt.Sprintf("aa:bb:cc:dd:ee:%02x", writerID),
+					Hostname:    fmt.Sprintf("node-%d", writerID),
+					IPAddress:   fmt.Sprintf("192.168.%d.%d", writerID+1, iteration+10),
+					Confidence:  domain.IdentityConfidenceHigh,
+					LastSeenAt:  seenAt,
+				})
+				if err != nil {
+					fail(fmt.Errorf("writer %d upsert device: %w", writerID, err))
+					return
+				}
+				_, err = store.UpsertDiscoveredServiceObservation(ctx, domain.ServiceObservation{
+					Name:            fmt.Sprintf("Service %d-%d", writerID, iteration),
+					Source:          domain.ServiceSourceLAN,
+					SourceRef:       fmt.Sprintf("writer-%d-service-%d/tcp", writerID, iteration),
+					DeviceKey:       device.IdentityKey,
+					AddressSource:   domain.ServiceAddressDevicePrimary,
+					ServiceTypeHint: "http",
+					HostValue:       fmt.Sprintf("192.168.%d.%d", writerID+1, iteration+10),
+					Scheme:          "http",
+					Host:            fmt.Sprintf("192.168.%d.%d", writerID+1, iteration+10),
+					Port:            8000 + writerID,
+					URL:             fmt.Sprintf("http://192.168.%d.%d:%d", writerID+1, iteration+10, 8000+writerID),
+					LastSeenAt:      seenAt,
+				}, device.ID)
+				if err != nil {
+					fail(fmt.Errorf("writer %d upsert discovered service: %w", writerID, err))
+					return
+				}
+				if err := store.RecordJobRun(ctx, fmt.Sprintf("writer-%d", writerID), nil); err != nil {
+					fail(fmt.Errorf("writer %d record job run: %w", writerID, err))
+					return
+				}
+			}
+		}(writerID)
+	}
+
+	for readerID := range 4 {
+		wg.Add(1)
+		go func(readerID int) {
+			defer wg.Done()
+			for range 40 {
+				if ctx.Err() != nil {
+					return
+				}
+				readCtx, readCancel := context.WithTimeout(ctx, 2*time.Second)
+				if _, err := store.GetDashboard(readCtx); err != nil {
+					readCancel()
+					fail(fmt.Errorf("reader %d dashboard read: %w", readerID, err))
+					return
+				}
+				readCancel()
+
+				readCtx, readCancel = context.WithTimeout(ctx, 2*time.Second)
+				if _, err := store.GetSettingsView(readCtx); err != nil {
+					readCancel()
+					fail(fmt.Errorf("reader %d settings read: %w", readerID, err))
+					return
+				}
+				readCancel()
+			}
+		}(readerID)
+	}
+
+	wg.Wait()
+
+	select {
+	case err := <-reportErr:
+		t.Fatal(err)
+	default:
+	}
+	if ctx.Err() == context.DeadlineExceeded {
+		t.Fatal("concurrent read/write test timed out")
+	}
+}
 
 func TestInitializeSeedsBootstrapState(t *testing.T) {
 	store := newTestStore(t)

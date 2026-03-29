@@ -213,7 +213,7 @@ func (s *Store) UpsertDiscoveredServiceObservation(ctx context.Context, observat
 }
 
 func (s *Store) ListDiscoveredServices(ctx context.Context) ([]domain.DiscoveredService, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT
 			ds.id,
 			COALESCE(ds.device_id, ''),
@@ -304,7 +304,7 @@ func (s *Store) ListRecentDiscoveredServices(ctx context.Context, limit int) ([]
 }
 
 func (s *Store) GetDiscoveredService(ctx context.Context, id string) (domain.DiscoveredService, error) {
-	row := s.db.QueryRowContext(ctx, `
+	row := s.reader().QueryRowContext(ctx, `
 		SELECT
 			ds.id,
 			COALESCE(ds.device_id, ''),
@@ -413,7 +413,7 @@ func (s *Store) ListDiscoveredServicesDueForHealth(ctx context.Context, interval
 		interval = time.Minute
 	}
 	cutoff := time.Now().UTC().Add(-interval).Format(time.RFC3339Nano)
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT
 			ds.id,
 			COALESCE(ds.device_id, ''),
@@ -823,7 +823,7 @@ func (s *Store) upsertDiscoveredEvidenceTx(ctx context.Context, tx *sql.Tx, disc
 }
 
 func (s *Store) loadDiscoveryEvidence(ctx context.Context) (map[string][]domain.DiscoveryEvidence, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT
 			id,
 			discovered_service_id,
