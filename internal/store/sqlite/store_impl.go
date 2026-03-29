@@ -22,36 +22,78 @@ import (
 )
 
 type Store struct {
-	db *sql.DB
+	db     *sql.DB
+	readDB *sql.DB
 }
 
 func New(path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", path)
+	writeDB, err := openSQLiteDB(path, 1, 1)
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxOpenConns(1)
-	store := &Store{db: db}
+	store := &Store{db: writeDB}
 	if err := store.migrate(context.Background()); err != nil {
-		_ = db.Close()
+		_ = writeDB.Close()
 		return nil, err
 	}
 	if err := store.seedBuiltInServiceDefinitions(context.Background()); err != nil {
-		_ = db.Close()
+		_ = writeDB.Close()
 		return nil, err
 	}
+	readDB, err := openSQLiteDB(path, 4, 4)
+	if err != nil {
+		_ = writeDB.Close()
+		return nil, err
+	}
+	store.readDB = readDB
 	return store, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	var readErr error
+	if s.readDB != nil {
+		readErr = s.readDB.Close()
+	}
+	return errors.Join(s.db.Close(), readErr)
+}
+
+func (s *Store) reader() *sql.DB {
+	if s.readDB != nil {
+		return s.readDB
+	}
+	return s.db
+}
+
+func openSQLiteDB(path string, maxOpenConns, maxIdleConns int) (*sql.DB, error) {
+	db, err := sql.Open("sqlite", sqliteDSN(path))
+	if err != nil {
+		return nil, err
+	}
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	return db, nil
+}
+
+func sqliteDSN(path string) string {
+	query := url.Values{}
+	for _, pragma := range []string{
+		"foreign_keys=on",
+		"journal_mode=WAL",
+		"synchronous=NORMAL",
+		"busy_timeout=5000",
+	} {
+		query.Add("_pragma", pragma)
+	}
+	if strings.Contains(path, "?") {
+		return path + "&" + query.Encode()
+	}
+	return path + "?" + query.Encode()
+}
 
 func (s *Store) migrate(ctx context.Context) error {
-	if _, err := s.db.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
-		return err
-	}
 	migrationDir, err := findMigrationsDir()
 	if err != nil {
 		return err
@@ -132,7 +174,7 @@ func candidateRoots() []string {
 
 func (s *Store) BootstrapStatus(ctx context.Context) (domain.BootstrapStatus, error) {
 	var raw string
-	if err := s.db.QueryRowContext(ctx, "SELECT value FROM app_settings WHERE key = 'initialized'").Scan(&raw); err != nil {
+	if err := s.reader().QueryRowContext(ctx, "SELECT value FROM app_settings WHERE key = 'initialized'").Scan(&raw); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.BootstrapStatus{Initialized: false}, nil
 		}
@@ -142,7 +184,7 @@ func (s *Store) BootstrapStatus(ctx context.Context) (domain.BootstrapStatus, er
 }
 
 func (s *Store) GetAppSettings(ctx context.Context) (domain.AppSettings, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT key, value, updated_at FROM app_settings")
+	rows, err := s.reader().QueryContext(ctx, "SELECT key, value, updated_at FROM app_settings")
 	if err != nil {
 		return domain.AppSettings{}, err
 	}
@@ -333,7 +375,7 @@ func (s *Store) GetSettingsView(ctx context.Context) (domain.SettingsView, error
 }
 
 func (s *Store) ListAPITokens(ctx context.Context) ([]domain.APIToken, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, scope, token_prefix, COALESCE(last_used_at, ''), created_at, updated_at, COALESCE(revoked_at, '') FROM api_tokens ORDER BY revoked_at IS NOT NULL, created_at DESC`)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, name, scope, token_prefix, COALESCE(last_used_at, ''), created_at, updated_at, COALESCE(revoked_at, '') FROM api_tokens ORDER BY revoked_at IS NOT NULL, created_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +449,7 @@ func (s *Store) RevokeAPIToken(ctx context.Context, id string) error {
 }
 
 func (s *Store) ListDockerEndpoints(ctx context.Context) ([]domain.DockerEndpoint, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, kind, address, COALESCE(tls_ca_path, ''), COALESCE(tls_cert_path, ''), COALESCE(tls_key_path, ''), enabled, scan_interval_seconds, COALESCE(last_success_at, ''), COALESCE(last_error, ''), created_at, updated_at FROM docker_endpoints ORDER BY name`)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, name, kind, address, COALESCE(tls_ca_path, ''), COALESCE(tls_cert_path, ''), COALESCE(tls_key_path, ''), enabled, scan_interval_seconds, COALESCE(last_success_at, ''), COALESCE(last_error, ''), created_at, updated_at FROM docker_endpoints ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +535,7 @@ func (s *Store) UpdateDockerEndpointStatus(ctx context.Context, id string, succe
 }
 
 func (s *Store) ListScanTargets(ctx context.Context) ([]domain.ScanTarget, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, cidr, auto_detected, enabled, scan_interval_seconds, common_ports, created_at, updated_at FROM scan_targets ORDER BY auto_detected DESC, name`)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, name, cidr, auto_detected, enabled, scan_interval_seconds, common_ports, created_at, updated_at FROM scan_targets ORDER BY auto_detected DESC, name`)
 	if err != nil {
 		return nil, err
 	}
@@ -580,7 +622,7 @@ func (s *Store) DeleteScanTarget(ctx context.Context, id string) error {
 }
 
 func (s *Store) ListServices(ctx context.Context) ([]domain.Service, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id ORDER BY s.hidden ASC, s.name`)
+	rows, err := s.reader().QueryContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id ORDER BY s.hidden ASC, s.name`)
 	if err != nil {
 		return nil, err
 	}
@@ -606,7 +648,7 @@ func (s *Store) ListServices(ctx context.Context) ([]domain.Service, error) {
 }
 
 func (s *Store) GetService(ctx context.Context, id string) (domain.Service, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.id = ?`, id)
+	row := s.reader().QueryRowContext(ctx, `SELECT s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_definition_id, ''), COALESCE(s.service_type, ''), COALESCE(s.health_config_mode, 'auto'), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), COALESCE(d.display_name, d.hostname, ''), COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), COALESCE(s.fingerprinted_at, ''), s.details_json, s.created_at, s.updated_at FROM services s LEFT JOIN devices d ON d.id = s.device_id WHERE s.id = ?`, id)
 	item, err := scanService(row)
 	if err != nil {
 		return domain.Service{}, err
@@ -713,7 +755,7 @@ func (s *Store) ListServiceEvents(ctx context.Context, serviceID string, limit i
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT id, service_id, event_type, status, message, created_at FROM service_events WHERE service_id = ? ORDER BY created_at DESC LIMIT ?`, serviceID, limit)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, service_id, event_type, status, message, created_at FROM service_events WHERE service_id = ? ORDER BY created_at DESC LIMIT ?`, serviceID, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -732,7 +774,7 @@ func (s *Store) ListServiceEvents(ctx context.Context, serviceID string, limit i
 }
 
 func (s *Store) listLegacyServiceChecks(ctx context.Context, serviceID string) ([]domain.ServiceCheck, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.id, c.service_id, c.name, c.type, c.target, c.interval_seconds, c.timeout_seconds, c.expected_status_min, c.expected_status_max, c.enabled, c.created_at, c.updated_at, COALESCE(r.id, ''), COALESCE(r.status, ''), COALESCE(r.latency_ms, 0), COALESCE(r.message, ''), COALESCE(r.checked_at, '') FROM service_checks c LEFT JOIN (SELECT cr1.* FROM check_results cr1 JOIN (SELECT check_id, MAX(checked_at) AS checked_at FROM check_results GROUP BY check_id) latest ON latest.check_id = cr1.check_id AND latest.checked_at = cr1.checked_at) r ON r.check_id = c.id WHERE c.service_id = ? ORDER BY c.name`, serviceID)
+	rows, err := s.reader().QueryContext(ctx, `SELECT c.id, c.service_id, c.name, c.type, c.target, c.interval_seconds, c.timeout_seconds, c.expected_status_min, c.expected_status_max, c.enabled, c.created_at, c.updated_at, COALESCE(r.id, ''), COALESCE(r.status, ''), COALESCE(r.latency_ms, 0), COALESCE(r.message, ''), COALESCE(r.checked_at, '') FROM service_checks c LEFT JOIN (SELECT cr1.* FROM check_results cr1 JOIN (SELECT check_id, MAX(checked_at) AS checked_at FROM check_results GROUP BY check_id) latest ON latest.check_id = cr1.check_id AND latest.checked_at = cr1.checked_at) r ON r.check_id = c.id WHERE c.service_id = ? ORDER BY c.name`, serviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -811,7 +853,7 @@ func (s *Store) deleteLegacyServiceCheck(ctx context.Context, id string) error {
 }
 
 func (s *Store) ListDevices(ctx context.Context) ([]domain.Device, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, identity_key, COALESCE(primary_mac, ''), COALESCE(hostname, ''), COALESCE(display_name, ''), identity_confidence, hidden, first_seen_at, last_seen_at, created_at, updated_at FROM devices ORDER BY hidden ASC, COALESCE(display_name, hostname, identity_key)`)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, identity_key, COALESCE(primary_mac, ''), COALESCE(hostname, ''), COALESCE(display_name, ''), identity_confidence, hidden, first_seen_at, last_seen_at, created_at, updated_at FROM devices ORDER BY hidden ASC, COALESCE(display_name, hostname, identity_key)`)
 	if err != nil {
 		return nil, err
 	}
@@ -981,7 +1023,7 @@ func (s *Store) GetDashboard(ctx context.Context) (domain.Dashboard, error) {
 }
 
 func (s *Store) ListRecentEvents(ctx context.Context, limit int) ([]domain.ServiceEvent, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, service_id, event_type, status, message, created_at FROM service_events ORDER BY created_at DESC LIMIT ?`, limit)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, service_id, event_type, status, message, created_at FROM service_events ORDER BY created_at DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -1077,7 +1119,7 @@ func (s *Store) getLegacyChecksDue(ctx context.Context) ([]domain.MonitorCheck, 
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT
+	rows, err := s.reader().QueryContext(ctx, `SELECT
 		c.id, c.service_id, c.name, c.type, c.target, c.interval_seconds, c.timeout_seconds, c.expected_status_min, c.expected_status_max, c.enabled, c.created_at, c.updated_at,
 		COALESCE(r.id, ''), COALESCE(r.status, ''), COALESCE(r.latency_ms, 0), COALESCE(r.message, ''), COALESCE(r.checked_at, ''),
 		s.id, s.name, s.slug, s.source_type, s.source_ref, COALESCE(s.origin_discovered_service_id, ''), COALESCE(s.service_type, ''), COALESCE(s.address_source, 'literal_host'), COALESCE(s.host_value, s.host, ''), COALESCE(s.device_id, ''), '', COALESCE(s.icon, ''), COALESCE(s.scheme, ''), s.host, s.port, COALESCE(s.path, ''), s.url, s.hidden, s.status, COALESCE(s.last_seen_at, ''), COALESCE(s.last_checked_at, ''), s.details_json, s.created_at, s.updated_at
@@ -1168,7 +1210,7 @@ func (s *Store) RecordJobRun(ctx context.Context, jobName string, runErr error) 
 }
 
 func (s *Store) ListJobState(ctx context.Context) ([]domain.JobState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT job_name, COALESCE(last_run_at, ''), COALESCE(last_success_at, ''), COALESCE(last_error, ''), updated_at FROM job_state ORDER BY job_name`)
+	rows, err := s.reader().QueryContext(ctx, `SELECT job_name, COALESCE(last_run_at, ''), COALESCE(last_success_at, ''), COALESCE(last_error, ''), updated_at FROM job_state ORDER BY job_name`)
 	if err != nil {
 		return nil, err
 	}
@@ -1231,7 +1273,7 @@ func (s *Store) attachDeviceDetails(ctx context.Context, devices []domain.Device
 }
 
 func (s *Store) listDeviceAddresses(ctx context.Context, deviceID string) ([]domain.DeviceAddress, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, device_id, ip_address, COALESCE(mac_address, ''), COALESCE(interface_name, ''), is_primary, first_seen_at, last_seen_at FROM device_addresses WHERE device_id = ? ORDER BY is_primary DESC, ip_address`, deviceID)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, device_id, ip_address, COALESCE(mac_address, ''), COALESCE(interface_name, ''), is_primary, first_seen_at, last_seen_at FROM device_addresses WHERE device_id = ? ORDER BY is_primary DESC, ip_address`, deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -1253,7 +1295,7 @@ func (s *Store) listDeviceAddresses(ctx context.Context, deviceID string) ([]dom
 }
 
 func (s *Store) listDevicePorts(ctx context.Context, deviceID string) ([]domain.DevicePort, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, device_id, port, protocol, COALESCE(service_hint, ''), open, first_seen_at, last_seen_at FROM device_ports WHERE device_id = ? ORDER BY port`, deviceID)
+	rows, err := s.reader().QueryContext(ctx, `SELECT id, device_id, port, protocol, COALESCE(service_hint, ''), open, first_seen_at, last_seen_at FROM device_ports WHERE device_id = ? ORDER BY port`, deviceID)
 	if err != nil {
 		return nil, err
 	}

@@ -24,7 +24,7 @@ func (s *Store) listChecksBySubject(ctx context.Context, subjectType domain.Heal
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT
 			h.id,
 			h.subject_type,
@@ -259,7 +259,7 @@ func (s *Store) SaveCheckResult(ctx context.Context, result domain.CheckResult) 
 }
 
 func (s *Store) GetChecksDue(ctx context.Context) ([]domain.MonitorCheck, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT h.id, h.subject_id
 		FROM health_checks h
 		WHERE h.enabled = 1
@@ -297,7 +297,7 @@ func (s *Store) GetChecksDue(ctx context.Context) ([]domain.MonitorCheck, error)
 }
 
 func (s *Store) GetDiscoveredChecksDue(ctx context.Context) ([]domain.ServiceCheck, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT h.id, h.subject_id
 		FROM health_checks h
 		WHERE h.enabled = 1

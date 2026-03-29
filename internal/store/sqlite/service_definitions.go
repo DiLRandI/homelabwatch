@@ -130,7 +130,7 @@ func (s *Store) DeleteServiceDefinition(ctx context.Context, id string) error {
 }
 
 func (s *Store) listCustomServiceDefinitions(ctx context.Context) ([]domain.ServiceDefinition, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT id, key, name, icon, priority, built_in, enabled, created_at, updated_at
 		FROM service_definitions
 		ORDER BY priority DESC, name
@@ -191,7 +191,7 @@ func (s *Store) getCustomServiceDefinitionTx(ctx context.Context, tx *sql.Tx, id
 }
 
 func (s *Store) loadServiceDefinitionMatchers(ctx context.Context) (map[string][]domain.ServiceDefinitionMatcher, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT id, service_definition_id, type, operator, value, extra, weight, sort_order, created_at, updated_at
 		FROM service_definition_matchers
 		ORDER BY service_definition_id, sort_order
@@ -215,7 +215,7 @@ func (s *Store) loadServiceDefinitionMatchers(ctx context.Context) (map[string][
 }
 
 func (s *Store) loadServiceDefinitionChecks(ctx context.Context) (map[string][]domain.ServiceDefinitionCheckTemplate, error) {
-	rows, err := s.db.QueryContext(ctx, `
+	rows, err := s.reader().QueryContext(ctx, `
 		SELECT id, service_definition_id, name, kind, protocol, address_source, host_value, port, path, method, interval_seconds, timeout_seconds, expected_status_min, expected_status_max, enabled, sort_order, config_source
 		FROM service_definition_check_templates
 		ORDER BY service_definition_id, sort_order
