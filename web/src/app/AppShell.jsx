@@ -22,7 +22,6 @@ export default function AppShell({
   children,
   dashboard,
   error,
-  metrics,
   notice,
   onNavigate,
   onRefresh,
@@ -79,13 +78,10 @@ export default function AppShell({
     <DashboardLayout
       activeHref={activeRoute.path}
       alerts={<Alerts error={error} notice={notice} />}
-      metrics={metrics}
       navItems={navItems}
       onNavigate={onNavigate}
       sidebarMeta={{
-        apiTokenCount: settings?.apiAccess?.tokens?.length ?? 0,
         applianceName: settings?.appSettings?.applianceName,
-        trustedNetwork: canManageUI,
       }}
       statusItems={statusItems}
       subtitle={activeRoute.subtitle}

@@ -7,7 +7,6 @@ export default function DashboardLayout({
   activeHref,
   alerts,
   children,
-  metrics,
   navItems,
   onNavigate,
   sidebarMeta,
@@ -19,17 +18,20 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="grid min-h-screen gap-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="grid min-h-screen gap-0 lg:h-screen lg:grid-cols-[280px_minmax(0,1fr)] lg:overflow-hidden">
       <Sidebar
         activeHref={activeHref}
-        metrics={metrics}
         navItems={navItems}
         onClose={() => setSidebarOpen(false)}
         onNavigate={onNavigate}
         open={sidebarOpen}
         sidebarMeta={sidebarMeta}
       />
-      <div className="min-w-0">
+      <div
+        className="min-w-0 lg:h-screen lg:min-h-0 lg:overflow-y-auto"
+        data-app-scroll-root
+        id="app-scroll-root"
+      >
         <Navbar
           onOpenSidebar={() => setSidebarOpen(true)}
           statusItems={statusItems}

@@ -232,7 +232,6 @@ export default function App() {
           canManageUI={app.bootstrap.trustedNetwork}
           dashboard={dashboard}
           error={app.alerts.error}
-          metrics={metrics}
           notice={app.alerts.notice}
           onNavigate={navigate}
           onRefresh={app.actions.refreshAll}

@@ -1,10 +1,9 @@
 import { cn } from "../../lib/cn";
 import Badge from "../ui/Badge";
-import { ActivityIcon, CloseIcon, ShieldIcon } from "../ui/Icons";
+import { CloseIcon } from "../ui/Icons";
 
 export default function Sidebar({
   activeHref,
-  metrics,
   navItems,
   onClose,
   onNavigate,
@@ -22,7 +21,7 @@ export default function Sidebar({
       />
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-[280px] max-w-[85vw] flex-col border-r border-line bg-panel-strong p-5 shadow-card-lg transition lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:shadow-none",
+          "fixed inset-y-0 left-0 z-40 flex w-[280px] max-w-[85vw] flex-col overflow-y-auto border-r border-line bg-panel-strong p-5 shadow-card-lg transition lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:translate-x-0 lg:overscroll-contain lg:shadow-none",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
@@ -46,33 +45,6 @@ export default function Sidebar({
           >
             <CloseIcon className="h-4 w-4" />
           </button>
-        </div>
-
-        <div className="mt-8 rounded-3xl border border-line bg-base p-4">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent-strong">
-              <ShieldIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-sm font-medium text-ink">Workspace status</p>
-              <p className="text-sm text-muted">Live service and network inventory</p>
-            </div>
-          </div>
-          <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            {metrics.slice(0, 4).map((metric) => (
-              <div
-                className="rounded-2xl border border-line bg-panel-strong px-3 py-3"
-                key={metric.label}
-              >
-                <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  {metric.label}
-                </dt>
-                <dd className="mt-2 text-2xl font-semibold tracking-tight text-ink">
-                  {metric.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
         </div>
 
         <nav aria-label="Dashboard sections" className="mt-8 flex-1 space-y-1">
@@ -111,30 +83,6 @@ export default function Sidebar({
           ))}
         </nav>
 
-        <div className="rounded-3xl border border-line bg-base p-4">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-panel-strong text-muted shadow-sm">
-              <ActivityIcon className="h-4 w-4" />
-            </span>
-            <div>
-              <p className="text-sm font-medium text-ink">API access</p>
-              <p className="text-sm text-muted">
-                Trusted local UI plus external bearer tokens
-              </p>
-            </div>
-          </div>
-          <div className="mt-3 grid gap-2">
-            <p className="rounded-2xl border border-line bg-panel-strong px-3 py-2 text-xs font-medium text-muted">
-              {sidebarMeta?.trustedNetwork
-                ? "This browser can perform local write actions"
-                : "This browser is outside the trusted write boundary"}
-            </p>
-            <p className="rounded-2xl border border-line bg-panel-strong px-3 py-2 text-xs font-medium text-muted">
-              {sidebarMeta?.apiTokenCount ?? 0} external API token
-              {(sidebarMeta?.apiTokenCount ?? 0) === 1 ? "" : "s"} configured
-            </p>
-          </div>
-        </div>
       </aside>
     </>
   );
