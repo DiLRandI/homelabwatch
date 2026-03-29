@@ -6,7 +6,7 @@ require (
 	github.com/prometheus-community/pro-bing v0.8.0
 	golang.org/x/net v0.52.0
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.46.1
+	modernc.org/sqlite v1.48.0
 )
 
 require (
