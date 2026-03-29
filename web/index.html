@@ -4,6 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Homelabwatch</title>
+    <script>
+      (() => {
+        const storageKey = "homelabwatch-theme";
+        const defaultTheme = "dark";
+
+        try {
+          const storedTheme = localStorage.getItem(storageKey);
+          document.documentElement.dataset.theme =
+            storedTheme === "light" || storedTheme === "dark"
+              ? storedTheme
+              : defaultTheme;
+        } catch {
+          document.documentElement.dataset.theme = defaultTheme;
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

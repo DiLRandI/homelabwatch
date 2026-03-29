@@ -216,33 +216,33 @@ export default function BookmarksHome({
   return (
     <>
       <section className="grid gap-6" id="bookmarks">
-        <div className="rounded-[34px] border border-slate-200 bg-[linear-gradient(135deg,rgba(248,250,252,1),rgba(255,255,255,1))] p-6 shadow-card">
+        <div className="surface-hero rounded-[34px] border border-line p-6 shadow-card">
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div className="max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-strong">
                 Primary navigation
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink">
                 Launch the homelab from one curated workspace
               </h2>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
+              <p className="mt-3 text-sm leading-7 text-muted">
                 Discovery turns services into bookmarks, folders keep them ordered, and health badges make the next click obvious.
               </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[420px]">
-              <div className="rounded-3xl border border-white bg-white px-4 py-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="rounded-3xl border border-line bg-panel px-4 py-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   Total bookmarks
                 </p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-ink">
                   {bookmarks.length}
                 </p>
               </div>
-              <div className="rounded-3xl border border-white bg-white px-4 py-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              <div className="rounded-3xl border border-line bg-panel px-4 py-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   Favorites
                 </p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-ink">
                   {bookmarks.filter((bookmark) => bookmark.isFavorite).length}
                 </p>
               </div>

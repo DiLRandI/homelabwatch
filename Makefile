@@ -37,3 +37,4 @@ release-snapshot: web-build test ## Build a local snapshot release into dist/
 
 clean: ## Remove local build outputs
 	rm -rf $(BIN_DIR)
+	rm -rf web/dist

@@ -45,16 +45,16 @@ export default function DashboardHeader({
       className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_minmax(360px,1fr)]"
       id="overview"
     >
-      <Card className="overflow-hidden border-transparent bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_44%,#f8fafc_100%)]">
+      <Card className="surface-hero overflow-hidden border-transparent">
         <CardContent className="p-6 sm:p-8">
           <Badge tone="accent" withDot>
             Operations overview
           </Badge>
           <div className="mt-5 max-w-3xl">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
               Operate the lab from one clean control plane.
             </h1>
-            <p className="mt-4 text-sm leading-7 text-slate-600 sm:text-base">
+            <p className="mt-4 text-sm leading-7 text-muted sm:text-[1rem]">
               HomelabWatch keeps discovery, runtime health, containers, and
               automation access in one operator console so you can see what
               changed and act without credential juggling in the browser.
@@ -66,16 +66,16 @@ export default function DashboardHeader({
               const Icon = detailIcons[detail.label] || SparklesIcon;
               return (
                 <div
-                  className="rounded-3xl border border-white bg-white/90 p-4 shadow-card"
+                  className="rounded-3xl border border-line bg-panel p-4 shadow-card"
                   key={detail.label}
                 >
-                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-base text-muted">
                     <Icon className="h-4 w-4" />
                   </span>
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                     {detail.label}
                   </p>
-                  <p className="mt-2 text-sm font-medium text-slate-900">
+                  <p className="mt-2 text-sm font-medium text-ink">
                     {detail.value}
                   </p>
                 </div>
@@ -117,10 +117,10 @@ export default function DashboardHeader({
             <CardContent className="p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                     {metric.label}
                   </p>
-                  <p className="mt-3 text-4xl font-semibold tracking-tight text-slate-950">
+                  <p className="mt-3 text-4xl font-semibold tracking-tight text-ink">
                     {metric.value}
                   </p>
                 </div>
@@ -128,7 +128,7 @@ export default function DashboardHeader({
                   <metric.icon className="h-5 w-5" />
                 </span>
               </div>
-              <p className="mt-4 text-sm text-slate-500">{metric.description}</p>
+              <p className="mt-4 text-sm text-muted">{metric.description}</p>
             </CardContent>
           </Card>
         ))}

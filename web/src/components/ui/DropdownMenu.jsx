@@ -54,14 +54,14 @@ export default function DropdownMenu({
       {open ? (
         <div
           className={cn(
-            "absolute top-[calc(100%+0.75rem)] z-30 w-72 rounded-2xl border border-slate-200 bg-white p-2 shadow-card-lg",
+            "absolute top-[calc(100%+0.75rem)] z-30 w-72 rounded-2xl border border-line bg-panel-strong p-2 shadow-card-lg",
             align === "left" ? "left-0" : "right-0",
           )}
           role="menu"
         >
           {items.map((item) => (
             <button
-              className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-slate-200"
+              className="flex w-full items-start gap-3 rounded-2xl px-3 py-3 text-left transition hover:bg-base focus-visible:outline-hidden focus-visible:ring-4 focus-visible:ring-line"
               key={item.label}
               onClick={() => {
                 setOpen(false);
@@ -71,16 +71,16 @@ export default function DropdownMenu({
               type="button"
             >
               {item.icon ? (
-                <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <span className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-base text-muted">
                   <item.icon className="h-4 w-4" />
                 </span>
               ) : null}
               <span className="min-w-0">
-                <span className="block text-sm font-medium text-slate-900">
+                <span className="block text-sm font-medium text-ink">
                   {item.label}
                 </span>
                 {item.description ? (
-                  <span className="mt-1 block text-sm leading-5 text-slate-500">
+                  <span className="mt-1 block text-sm leading-5 text-muted">
                     {item.description}
                   </span>
                 ) : null}

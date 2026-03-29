@@ -21,12 +21,12 @@ import StatusBadge from "../ui/StatusBadge";
 const sourceMeta = {
   docker: {
     icon: DiscoveryIcon,
-    iconTone: "bg-sky-50 text-sky-700",
+    iconTone: "bg-sky-500/12 text-sky-300",
     tone: "info",
   },
   lan: {
     icon: ActivityIcon,
-    iconTone: "bg-slate-100 text-slate-700",
+    iconTone: "bg-base text-ink-soft",
     tone: "neutral",
   },
   manual: {

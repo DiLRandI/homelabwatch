@@ -22,7 +22,6 @@ export default function AppShell({
   children,
   dashboard,
   error,
-  metrics,
   notice,
   onNavigate,
   onRefresh,
@@ -51,7 +50,7 @@ export default function AppShell({
 
   const statusItems = [
     {
-      className: "border-slate-200 bg-white text-slate-600",
+      className: "border-line bg-panel-strong text-muted",
       icon: DiscoveryIcon,
       label: "Realtime updates",
     },
@@ -69,7 +68,7 @@ export default function AppShell({
     {
       className: canManageUI
         ? "border-accent/15 bg-accent/10 text-accent-strong"
-        : "border-slate-200 bg-white text-slate-600",
+        : "border-line bg-panel-strong text-muted",
       icon: ShieldIcon,
       label: canManageUI ? "Trusted LAN writes enabled" : "Read-only network",
     },
@@ -79,13 +78,10 @@ export default function AppShell({
     <DashboardLayout
       activeHref={activeRoute.path}
       alerts={<Alerts error={error} notice={notice} />}
-      metrics={metrics}
       navItems={navItems}
       onNavigate={onNavigate}
       sidebarMeta={{
-        apiTokenCount: settings?.apiAccess?.tokens?.length ?? 0,
         applianceName: settings?.appSettings?.applianceName,
-        trustedNetwork: canManageUI,
       }}
       statusItems={statusItems}
       subtitle={activeRoute.subtitle}
