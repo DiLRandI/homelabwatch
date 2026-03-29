@@ -50,6 +50,7 @@ export default function ServicesSection({
   onSaveHealthCheck,
   onTestHealthCheck,
   sectionId = "services",
+  showChecks = true,
   services,
   title = "Services",
 }) {
@@ -140,21 +141,36 @@ export default function ServicesSection({
                       <dl className="mt-5 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
                         <div className="rounded-2xl border border-white bg-white px-4 py-3">
                           <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                            Endpoint
+                            Open URL
                           </dt>
-                          <dd className="mt-2 truncate font-medium text-slate-900">
-                            {service.host}:{service.port}
+                          <dd
+                            className="mt-2 truncate font-medium text-slate-900"
+                            title={service.url}
+                          >
+                            {service.url}
                           </dd>
                         </div>
                         <div className="rounded-2xl border border-white bg-white px-4 py-3">
                           <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                            Last seen
+                            Health target
                           </dt>
-                          <dd className="mt-2 font-medium text-slate-900">
-                            {formatDate(service.lastSeenAt)}
+                          <dd
+                            className="mt-2 truncate font-medium text-slate-900"
+                            title={service.healthUrl || service.url}
+                          >
+                            {service.healthUrl || service.url}
                           </dd>
                         </div>
                       </dl>
+
+                      <div className="mt-3 rounded-2xl border border-white bg-white px-4 py-3 text-sm text-slate-600">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Last seen
+                        </p>
+                        <p className="mt-2 font-medium text-slate-900">
+                          {formatDate(service.lastSeenAt)}
+                        </p>
+                      </div>
 
                       <div className="mt-5 flex flex-wrap gap-2">
                         {onAddBookmark ? (
@@ -182,34 +198,36 @@ export default function ServicesSection({
                         </Button>
                       </div>
 
-                      <div className="mt-5 grid gap-2">
-                        {service.checks?.length > 0 ? (
-                          service.checks.map((check) => (
-                            <div
-                              className="rounded-2xl border border-white bg-white px-4 py-3"
-                              key={check.id}
-                            >
-                              <div className="flex flex-wrap items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-medium text-slate-900">
-                                    {check.name || `${check.type} check`}
-                                  </p>
-                                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
-                                    {check.type}
-                                  </p>
+                      {showChecks ? (
+                        <div className="mt-5 grid gap-2">
+                          {service.checks?.length > 0 ? (
+                            service.checks.map((check) => (
+                              <div
+                                className="rounded-2xl border border-white bg-white px-4 py-3"
+                                key={check.id}
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-sm font-medium text-slate-900">
+                                      {check.name || `${check.type} check`}
+                                    </p>
+                                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
+                                      {check.type}
+                                    </p>
+                                  </div>
+                                  <HealthStatusBadge
+                                    result={check.lastResult}
+                                    status={check.lastResult?.status || "unknown"}
+                                    subtle
+                                  />
                                 </div>
-                                <HealthStatusBadge
-                                  result={check.lastResult}
-                                  status={check.lastResult?.status || "unknown"}
-                                  subtle
-                                />
                               </div>
-                            </div>
-                          ))
-                        ) : (
-                          <Badge>No active checks</Badge>
-                        )}
-                      </div>
+                            ))
+                          ) : (
+                            <Badge>No active checks</Badge>
+                          )}
+                        </div>
+                      ) : null}
                     </article>
                   );
                 })}

@@ -372,7 +372,7 @@ func (s *Store) SyncServiceHealthChecks(ctx context.Context, serviceID string) e
 			if definition.ID != service.ServiceDefinitionID {
 				continue
 			}
-			checks := servicedefs.InstantiateChecks(domain.HealthCheckSubjectService, service.ID, service.AddressSource, service.HostValue, service.Host, service.Scheme, service.Port, service.Path, definition)
+			checks := servicedefs.InstantiateChecks(domain.HealthCheckSubjectService, service.ID, service.HealthAddressSource, service.HealthHostValue, service.HealthHost, service.HealthScheme, service.HealthPort, service.HealthPath, definition)
 			return s.ReplaceManagedChecks(ctx, domain.HealthCheckSubjectService, service.ID, checks, definition.ID, domain.HealthConfigModeAuto)
 		}
 	}
@@ -380,12 +380,12 @@ func (s *Store) SyncServiceHealthChecks(ctx context.Context, serviceID string) e
 		SubjectType:     domain.HealthCheckSubjectService,
 		SubjectID:       service.ID,
 		ServiceID:       service.ID,
-		AddressSource:   service.AddressSource,
-		HostValue:       service.HostValue,
-		Host:            service.Host,
-		Protocol:        service.Scheme,
-		Port:            service.Port,
-		Path:            service.Path,
+		AddressSource:   service.HealthAddressSource,
+		HostValue:       service.HealthHostValue,
+		Host:            service.HealthHost,
+		Protocol:        service.HealthScheme,
+		Port:            service.HealthPort,
+		Path:            service.HealthPath,
 		Enabled:         true,
 		IntervalSeconds: 60,
 		TimeoutSeconds:  10,
@@ -393,13 +393,13 @@ func (s *Store) SyncServiceHealthChecks(ctx context.Context, serviceID string) e
 		ConfigSource:    domain.HealthCheckConfigSourceFallback,
 	}
 	switch {
-	case service.Path != "" && (service.Scheme == "http" || service.Scheme == "https"):
+	case service.HealthPath != "" && (service.HealthScheme == "http" || service.HealthScheme == "https"):
 		check.Name = "HTTP endpoint"
 		check.Type = domain.CheckTypeHTTP
 		check.Method = "GET"
 		check.ExpectedStatusMin = 200
 		check.ExpectedStatusMax = 399
-	case service.Host != "" && service.Port > 0:
+	case service.HealthHost != "" && service.HealthPort > 0:
 		check.Name = "TCP connectivity"
 		check.Type = domain.CheckTypeTCP
 	default:
@@ -717,26 +717,26 @@ func (s *Store) ensureDefaultCheckTx(ctx context.Context, tx *sql.Tx, service do
 		SubjectType:     domain.HealthCheckSubjectService,
 		SubjectID:       service.ID,
 		ServiceID:       service.ID,
-		AddressSource:   service.AddressSource,
-		HostValue:       service.HostValue,
-		Host:            service.Host,
-		Protocol:        service.Scheme,
-		Port:            service.Port,
-		Path:            service.Path,
+		AddressSource:   service.HealthAddressSource,
+		HostValue:       service.HealthHostValue,
+		Host:            service.HealthHost,
+		Protocol:        service.HealthScheme,
+		Port:            service.HealthPort,
+		Path:            service.HealthPath,
 		Enabled:         true,
 		IntervalSeconds: 60,
 		TimeoutSeconds:  10,
 		SortOrder:       0,
 	}
 	switch {
-	case service.Path != "" && (service.Scheme == "http" || service.Scheme == "https"):
+	case service.HealthPath != "" && (service.HealthScheme == "http" || service.HealthScheme == "https"):
 		check.Name = "HTTP endpoint"
 		check.Type = domain.CheckTypeHTTP
 		check.Method = "GET"
 		check.ExpectedStatusMin = 200
 		check.ExpectedStatusMax = 399
 		check.ConfigSource = domain.HealthCheckConfigSourceFallback
-	case service.Host != "" && service.Port > 0:
+	case service.HealthHost != "" && service.HealthPort > 0:
 		check.Name = "TCP connectivity"
 		check.Type = domain.CheckTypeTCP
 		check.ConfigSource = domain.HealthCheckConfigSourceFallback

@@ -63,12 +63,30 @@ func (a *App) TestServiceCheck(ctx context.Context, serviceID string, input doma
 		check.SubjectType = domain.HealthCheckSubjectService
 	}
 	check.Type = normalizedCheckType(check.Type)
-	check.Protocol = normalizedProtocol(check.Type, firstNonEmpty(check.Protocol, service.Scheme))
-	check.AddressSource = firstNonEmptyAddressSource(check.AddressSource, service.AddressSource)
-	check.HostValue = firstNonEmpty(strings.TrimSpace(check.HostValue), strings.TrimSpace(check.Host), service.HostValue, service.Host)
-	check.Host = resolveAddressSourceHost(check.AddressSource, check.HostValue, service.Host)
+	check.Protocol = normalizedProtocol(
+		check.Type,
+		firstNonEmpty(check.Protocol, service.HealthScheme, service.Scheme),
+	)
+	check.AddressSource = firstNonEmptyAddressSource(
+		check.AddressSource,
+		service.HealthAddressSource,
+		service.AddressSource,
+	)
+	check.HostValue = firstNonEmpty(
+		strings.TrimSpace(check.HostValue),
+		strings.TrimSpace(check.Host),
+		service.HealthHostValue,
+		service.HostValue,
+		service.HealthHost,
+		service.Host,
+	)
+	check.Host = resolveAddressSourceHost(
+		check.AddressSource,
+		check.HostValue,
+		firstNonEmpty(service.HealthHost, service.Host),
+	)
 	if check.Port == 0 {
-		check.Port = service.Port
+		check.Port = nonZeroOr(service.HealthPort, service.Port)
 	}
 	check.Path = normalizePath(check.Path)
 	check.Method = ensureMethod(check.Method)
@@ -186,7 +204,7 @@ func (a *App) testHTTPServiceCheck(ctx context.Context, service domain.Service, 
 		candidates = append(candidates, "", "/admin", "/health", "/status", "/api/health", "/-/healthy", "/api/")
 	}
 	if len(candidates) == 0 {
-		candidates = []string{normalizePath(service.Path)}
+		candidates = []string{normalizePath(firstNonEmpty(service.HealthPath, service.Path))}
 	}
 
 	seen := map[string]struct{}{}

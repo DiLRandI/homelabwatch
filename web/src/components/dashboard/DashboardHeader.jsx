@@ -2,9 +2,7 @@ import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 import { Card, CardContent } from "../ui/Card";
 import {
-  BookmarkIcon,
   PlusIcon,
-  TokenIcon,
   ShieldIcon,
   DatabaseIcon,
   DiscoveryIcon,
@@ -92,20 +90,11 @@ export default function DashboardHeader({
               Add service
             </Button>
             <Button
-              disabled={!canManageUI}
-              leadingIcon={BookmarkIcon}
-              onClick={() => onOpenModal("bookmark")}
+              leadingIcon={DiscoveryIcon}
+              onClick={() => onOpenModal("discovery")}
               variant="secondary"
             >
-              Add bookmark
-            </Button>
-            <Button
-              disabled={!canManageUI}
-              leadingIcon={TokenIcon}
-              onClick={() => onOpenModal("apiToken")}
-              variant="subtle"
-            >
-              Create API token
+              Review discovery
             </Button>
           </div>
         </CardContent>

@@ -16,6 +16,8 @@ service fingerprinting in one deployable container.
   services and bookmarks
 - device inventory keyed by stable identity when possible, with MAC-aware reuse
 - health monitoring for HTTP, TCP, and ping checks
+- separate open URL and health URL targeting for services that should be
+  checked on a different endpoint than the one users open
 - endpoint testing before saving health-check changes
 - built-in service definitions for common homelab apps, plus custom
   SQLite-backed definitions managed from the UI and API
@@ -28,10 +30,13 @@ service fingerprinting in one deployable container.
 
 ![Control plane map](docs/assets/control-plane-map.svg)
 
-- `Dashboard`: favorites, health summary, recent activity, and quick actions
+- `Dashboard`: favorites, health summary, recent activity, and limited quick
+  actions
 - `Bookmarks`: curated links, folders, tags, favorites, import/export
-- `Services`: accepted endpoints, Docker workloads, bookmark promotion
-- `Health`: check editing, endpoint testing, fleet health status
+- `Services`: accepted endpoints, open URLs, Docker workloads, bookmark
+  promotion
+- `Health`: monitoring status, check editing, endpoint testing, health-target
+  configuration
 - `Discovery`: Docker endpoints, scan targets, policy, and discovered-service
   review
 - `Devices`: device inventory, IPs, MACs, visibility, attached services
@@ -177,6 +182,10 @@ Additional guidance lives in [`SECURITY.md`](SECURITY.md).
 
 HomelabWatch does not assume every HTTP service is healthy at `/`.
 
+Each service can keep a user-facing open URL and a separate health target.
+That lets operators open an app at one address while checking a more reliable
+path or port for monitoring.
+
 Each HTTP check can define:
 
 - `protocol`
@@ -192,6 +201,7 @@ Operators can:
 
 - create multiple checks per service
 - choose HTTP, TCP, or ping checks
+- keep the service open URL and health URL separate
 - test a candidate endpoint before saving
 - switch a service from auto-managed checks to custom checks by editing it
 

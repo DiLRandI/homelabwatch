@@ -32,9 +32,10 @@ export default function OverviewScreen({
 }) {
   const [selectedDiscoveredService, setSelectedDiscoveredService] = useState(null);
   const favorites = useMemo(() => sortFavorites(bookmarks), [bookmarks]);
-  const pendingDiscoveredServices = (dashboard?.discoveredServices ?? []).filter(
-    (item) => item.state === "pending" || item.state === "ignored",
-  );
+  const pendingDiscoveredServices = (dashboard?.discoveredServices ?? [])
+    .filter((item) => item.state === "pending" || item.state === "ignored")
+    .slice(0, 4);
+  const recentEvents = (dashboard?.recentEvents ?? []).slice(0, 6);
 
   function handleOpenBookmark(bookmark) {
     window.open(bookmarkOpenURL(bookmark.id), "_blank", "noopener,noreferrer");
@@ -48,8 +49,8 @@ export default function OverviewScreen({
       case "bookmark":
         onNavigate("/bookmarks");
         break;
-      case "apiToken":
-        onNavigate("/settings");
+      case "discovery":
+        onNavigate("/discovery");
         break;
       default:
         onNavigate("/");
@@ -79,7 +80,7 @@ export default function OverviewScreen({
       />
       <WorkersSection
         jobState={settings?.jobState ?? []}
-        recentEvents={dashboard?.recentEvents ?? []}
+        recentEvents={recentEvents}
         showWorkers={false}
       />
       <BookmarkSuggestionDialog
