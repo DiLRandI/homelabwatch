@@ -76,11 +76,11 @@ func TestConcurrentDashboardAndSettingsReadsDuringWriteBursts(t *testing.T) {
 	}
 
 	var wg sync.WaitGroup
-	for writerID := 0; writerID < 3; writerID++ {
+	for writerID := range 3 {
 		wg.Add(1)
 		go func(writerID int) {
 			defer wg.Done()
-			for iteration := 0; iteration < 25; iteration++ {
+			for iteration := range 25 {
 				if ctx.Err() != nil {
 					return
 				}
@@ -123,11 +123,11 @@ func TestConcurrentDashboardAndSettingsReadsDuringWriteBursts(t *testing.T) {
 		}(writerID)
 	}
 
-	for readerID := 0; readerID < 4; readerID++ {
+	for readerID := range 4 {
 		wg.Add(1)
 		go func(readerID int) {
 			defer wg.Done()
-			for iteration := 0; iteration < 40; iteration++ {
+			for range 40 {
 				if ctx.Err() != nil {
 					return
 				}
