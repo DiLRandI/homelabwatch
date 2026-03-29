@@ -45,18 +45,8 @@
 }
 
 :root {
-  --body-top: #0c1528;
-  --body-mid: #09111f;
-  --body-bottom: #13203b;
-  --shell-glow-a: rgba(37, 99, 235, 0.18);
-  --shell-glow-b: rgba(14, 165, 233, 0.16);
-  --shell-fade: rgba(15, 23, 42, 0.28);
-  --shell-grid: rgba(148, 163, 184, 0.09);
-  --surface-hero-start: rgba(15, 23, 42, 0.95);
-  --surface-hero-mid: rgba(22, 40, 74, 0.92);
-  --surface-hero-end: rgba(29, 78, 216, 0.78);
-  --surface-warm-start: rgba(120, 53, 15, 0.18);
-  --surface-warm-end: rgba(15, 23, 42, 0.94);
+  --surface-hero: #111b2f;
+  --surface-warm: rgba(245, 158, 11, 0.08);
   color-scheme: dark;
 }
 
@@ -79,18 +69,8 @@
   --shadow-card: 0 12px 36px rgba(15, 23, 42, 0.07);
   --shadow-card-lg: 0 22px 60px rgba(15, 23, 42, 0.14);
   --shadow-halo: 0 20px 70px rgba(15, 23, 42, 0.1);
-  --body-top: #f8fbff;
-  --body-mid: #f3f6fb;
-  --body-bottom: #eef3f9;
-  --shell-glow-a: rgba(37, 99, 235, 0.12);
-  --shell-glow-b: rgba(14, 165, 233, 0.08);
-  --shell-fade: rgba(255, 255, 255, 0.45);
-  --shell-grid: rgba(148, 163, 184, 0.08);
-  --surface-hero-start: rgba(239, 246, 255, 1);
-  --surface-hero-mid: rgba(255, 255, 255, 1);
-  --surface-hero-end: rgba(248, 250, 252, 1);
-  --surface-warm-start: rgba(255, 251, 235, 1);
-  --surface-warm-end: rgba(255, 255, 255, 1);
+  --surface-hero: #ffffff;
+  --surface-warm: #fff7ed;
   color-scheme: light;
 }
 
@@ -115,10 +95,7 @@
     margin: 0;
     min-height: 100vh;
     font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
-    background:
-      radial-gradient(circle at top left, var(--shell-glow-a), transparent 32%),
-      radial-gradient(circle at right 20%, var(--shell-glow-b), transparent 28%),
-      linear-gradient(180deg, var(--body-top) 0%, var(--body-mid) 22%, var(--body-bottom) 100%);
+    background: var(--color-page);
     color: var(--color-ink);
   }
 
@@ -143,19 +120,11 @@
   }
 
   .app-shell__backdrop {
-    background:
-      radial-gradient(circle at top left, var(--shell-glow-a), transparent 32%),
-      radial-gradient(circle at right, var(--shell-glow-b), transparent 24%),
-      linear-gradient(180deg, var(--shell-fade), transparent 42%);
-    transition: background 180ms ease;
+    background: transparent;
   }
 
   .app-shell__grid {
-    opacity: 0.42;
-    background-image:
-      linear-gradient(var(--shell-grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--shell-grid) 1px, transparent 1px);
-    background-size: 72px 72px;
+    display: none;
   }
 
   .theme-toggle {
@@ -195,22 +164,11 @@
   }
 
   .surface-hero {
-    background:
-      linear-gradient(
-        135deg,
-        var(--surface-hero-start) 0%,
-        var(--surface-hero-mid) 44%,
-        var(--surface-hero-end) 100%
-      );
+    background: var(--surface-hero);
   }
 
   .surface-warm {
-    background:
-      linear-gradient(
-        135deg,
-        var(--surface-warm-start) 0%,
-        var(--surface-warm-end) 100%
-      );
+    background: var(--surface-warm);
   }
 }
 

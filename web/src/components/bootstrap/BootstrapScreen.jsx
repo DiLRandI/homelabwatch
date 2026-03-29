@@ -114,7 +114,7 @@ export default function BootstrapScreen({
   return (
     <div className="px-4 py-6 pr-20 sm:px-6 sm:pr-24 lg:px-8">
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(420px,0.88fr)]">
-        <Card className="overflow-hidden border-transparent bg-[linear-gradient(145deg,#0f172a_0%,#13233f_38%,#1d4ed8_100%)] text-white shadow-card-lg">
+        <Card className="overflow-hidden border-transparent bg-[#13233f] text-white shadow-card-lg">
           <CardContent className="p-7 sm:p-9">
             <Badge className="border-white/10 bg-white/10 text-white" withDot>
               First-run setup
@@ -122,7 +122,7 @@ export default function BootstrapScreen({
             <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
               Bring the lab online with a guided control-plane setup.
             </h1>
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-200 sm:text-base">
+            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-200 sm:text-[1rem]">
               HomelabWatch is tuned for a trusted local console. Configure the
               appliance once, seed discovery defaults, and move straight into
               operations without juggling bootstrap secrets in the browser.

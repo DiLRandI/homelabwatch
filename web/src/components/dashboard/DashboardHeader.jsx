@@ -54,7 +54,7 @@ export default function DashboardHeader({
             <h1 className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
               Operate the lab from one clean control plane.
             </h1>
-            <p className="mt-4 text-sm leading-7 text-muted sm:text-base">
+            <p className="mt-4 text-sm leading-7 text-muted sm:text-[1rem]">
               HomelabWatch keeps discovery, runtime health, containers, and
               automation access in one operator console so you can see what
               changed and act without credential juggling in the browser.
