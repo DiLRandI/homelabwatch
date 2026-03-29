@@ -13,36 +13,57 @@ export default function BookmarkToolbar({
   setFavoritesOnly,
 }) {
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-card">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-        <Input
-          containerClassName="gap-3"
-          inputClassName="pl-11"
-          label="Search bookmarks"
-          onChange={onSearchChange}
-          placeholder="Search by name, tag, device, or service"
-          value={search}
-        />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[repeat(4,auto)]">
-          <Button disabled={!canManage} leadingIcon={PlusIcon} onClick={onNewBookmark}>
+    <div className="rounded-[28px] border border-line bg-panel p-4 shadow-card">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="relative">
+            <Input
+              containerClassName="gap-3"
+              inputClassName="pl-11"
+              label="Search bookmarks"
+              onChange={onSearchChange}
+              placeholder="Search by name, tag, device, or service"
+              value={search}
+            />
+            <div className="pointer-events-none absolute bottom-3.5 left-4 text-copy-subtle">
+              <SearchIcon className="h-4 w-4" />
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 xl:justify-end xl:pl-4">
+          <Button
+            className="shrink-0 whitespace-nowrap"
+            disabled={!canManage}
+            leadingIcon={PlusIcon}
+            onClick={onNewBookmark}
+          >
             Add bookmark
           </Button>
           <Button
+            className="shrink-0 whitespace-nowrap"
             onClick={() => setFavoritesOnly(!favoritesOnly)}
-            variant={favoritesOnly ? "secondary" : "ghost"}
+            variant={favoritesOnly ? "secondary" : "subtle"}
           >
             {favoritesOnly ? "Showing favorites" : "Favorites only"}
           </Button>
-          <Button leadingIcon={DownloadIcon} onClick={onExport} variant="secondary">
+          <Button
+            className="shrink-0 whitespace-nowrap"
+            leadingIcon={DownloadIcon}
+            onClick={onExport}
+            variant="secondary"
+          >
             Export JSON
           </Button>
-          <Button disabled={!canManage} leadingIcon={UploadIcon} onClick={onImport} variant="ghost">
+          <Button
+            className="shrink-0 whitespace-nowrap"
+            disabled={!canManage}
+            leadingIcon={UploadIcon}
+            onClick={onImport}
+            variant="subtle"
+          >
             Import JSON
           </Button>
         </div>
-      </div>
-      <div className="pointer-events-none relative -mt-12 ml-4 hidden text-slate-400 md:block">
-        <SearchIcon className="h-4 w-4" />
       </div>
     </div>
   );
