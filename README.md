@@ -5,7 +5,40 @@ It runs as a single Go service, stores state in SQLite, serves a React frontend,
 and combines discovery, health monitoring, bookmarks, device inventory, and
 service fingerprinting in one deployable container.
 
-![HomelabWatch architecture](docs/assets/architecture-overview.svg)
+```mermaid
+flowchart LR
+    UI["Browser UI<br/>React app with focused screens<br/>Dashboard, bookmarks, apps<br/>Discovery, devices, health<br/>Definitions, settings, theme"]
+    API["HTTP API<br/>/api/ui/v1/* browser API<br/>/api/external/v1/* token API<br/>Legacy /api/v1/* support<br/>Trusted writes and CSRF"]
+    APP["App Layer<br/>Product behavior and flow<br/>Setup, discovery, monitoring<br/>Bookmarks, definitions, events<br/>Transport and store coordination"]
+    WORKERS["Workers<br/>Docker polling and sync<br/>LAN scan and identity updates<br/>Fingerprinting, checks, cleanup"]
+    STORE["SQLite Store<br/>Repos and read models<br/>Services, devices, bookmarks<br/>Checks, tokens, event log"]
+    STATE["Persistent State<br/>SQLite DB<br/>/data volume<br/>Bookmark assets<br/>API tokens and event history"]
+    SOURCES["Discovery Sources<br/>Docker endpoints<br/>LAN scan targets<br/>mDNS hints and HTTP evidence"]
+
+    UI -->|REST + SSE| API
+    API -->|commands + queries| APP
+    APP -->|scheduled jobs| WORKERS
+    APP -->|persistence| STORE
+    WORKERS -->|observations| STORE
+    STORE --> STATE
+    SOURCES --> WORKERS
+
+    classDef browser fill:#E0F2FE,stroke:#38BDF8,color:#0C4A6E
+    classDef api fill:#DCFCE7,stroke:#22C55E,color:#14532D
+    classDef app fill:#FEF3C7,stroke:#F59E0B,color:#78350F
+    classDef worker fill:#FCE7F3,stroke:#EC4899,color:#831843
+    classDef store fill:#EDE9FE,stroke:#8B5CF6,color:#4C1D95
+    classDef state fill:#F1F5F9,stroke:#94A3B8,color:#334155
+    classDef source fill:#FEE2E2,stroke:#F87171,color:#7F1D1D
+
+    class UI browser
+    class API api
+    class APP app
+    class WORKERS worker
+    class STORE store
+    class STATE state
+    class SOURCES source
+```
 
 ## What It Does
 
@@ -28,7 +61,43 @@ service fingerprinting in one deployable container.
 
 ## Product Surfaces
 
-![Control plane map](docs/assets/control-plane-map.svg)
+```mermaid
+flowchart TB
+    DASH["Dashboard<br/>Favorites<br/>Health summary<br/>Recent activity and quick actions"]
+    BOOK["Bookmarks<br/>Folders, tags, favorites<br/>Import and promotion targets"]
+    DEV["Devices<br/>Inventory and network identity"]
+    HEALTH["Health<br/>Checks, status, endpoint testing"]
+    SERVICES["Services<br/>Accepted services<br/>Bookmark promotion and review"]
+    DISCOVERY["Discovery<br/>Docker endpoints<br/>Scan targets and review"]
+    DEFINITIONS["Definitions<br/>Matchers<br/>Managed check templates"]
+    SETTINGS["Settings<br/>Tokens and worker state<br/>Appliance-level admin"]
+
+    BOOK --> DASH
+    DEV --> DASH
+    HEALTH --> DASH
+    SERVICES --> DASH
+    DASH --> DISCOVERY
+    DASH --> DEFINITIONS
+    DASH --> SETTINGS
+
+    classDef dash fill:#E0F2FE,stroke:#38BDF8,color:#0C4A6E
+    classDef book fill:#DCFCE7,stroke:#22C55E,color:#14532D
+    classDef dev fill:#CFFAFE,stroke:#06B6D4,color:#0E7490
+    classDef health fill:#FEE2E2,stroke:#EF4444,color:#991B1B
+    classDef svc fill:#FCE7F3,stroke:#EC4899,color:#831843
+    classDef disc fill:#FEF3C7,stroke:#F59E0B,color:#78350F
+    classDef defs fill:#F1F5F9,stroke:#94A3B8,color:#334155
+    classDef settings fill:#EDE9FE,stroke:#8B5CF6,color:#4C1D95
+
+    class DASH dash
+    class BOOK book
+    class DEV dev
+    class HEALTH health
+    class SERVICES svc
+    class DISCOVERY disc
+    class DEFINITIONS defs
+    class SETTINGS settings
+```
 
 - `Dashboard`: favorites, health summary, recent activity, and limited quick
   actions
@@ -137,7 +206,9 @@ the Go API.
 ## Configuration
 
 Configuration can come from `config.yaml` / `config.yml` or environment
-variables.
+variables. `HOMELABWATCH_CONFIG` points at an explicit YAML file, otherwise the
+app auto-detects `./config.yaml` and `./config.yml`. Environment variables
+override file values after the YAML is loaded.
 
 Example config: [`config.example.yaml`](config.example.yaml)
 
@@ -158,6 +229,10 @@ Example trust-boundary override:
 ```bash
 HOMELABWATCH_TRUSTED_CIDRS=127.0.0.1/32,192.168.1.0/24
 ```
+
+If you do not set `HOMELABWATCH_TRUSTED_CIDRS`, the default trusted set covers
+localhost, RFC1918 private IPv4 ranges, IPv4 link-local, IPv6 loopback,
+IPv6 ULA, and IPv6 link-local ranges.
 
 ## Security Model
 
@@ -287,61 +362,6 @@ Common external API flow:
 2. Go to `Settings > API access`.
 3. Create a read or write token.
 4. Call `/api/external/v1/*` with `Authorization: Bearer <token>`.
-
-## Project Structure
-
-### Frontend
-
-```text
-web/src/
-  App.jsx
-  app/
-    AppShell.jsx
-    routes.js
-    screens/
-  components/
-    bookmarks/
-    bootstrap/
-    dashboard/
-    discovery/
-    forms/
-    health/
-    layout/
-    ui/
-  hooks/
-    useBookmarksData.js
-    useDashboardData.js
-    useHomelabwatchApp.js
-    useServerEvents.js
-    useSettingsData.js
-    useUIBootstrap.js
-  lib/
-  main.jsx
-```
-
-### Backend
-
-```text
-cmd/homelabwatch
-internal/api/http
-internal/api/sse
-internal/app
-internal/discovery
-internal/domain
-internal/events
-internal/monitoring
-internal/servicedefs
-internal/store/sqlite
-internal/worker
-migrations
-```
-
-More detail:
-
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/domain-model.md`](docs/domain-model.md)
-- [`docs/launch-readiness.md`](docs/launch-readiness.md)
-- [`docs/operations.md`](docs/operations.md)
 
 ## Docs And Community
 
