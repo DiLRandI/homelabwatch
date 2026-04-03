@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { bookmarkOpenURL } from "../../lib/api";
 import { useBookmarksWorkspace } from "../../hooks/useBookmarksWorkspace";
@@ -86,11 +86,7 @@ export default function BookmarksHome({
     setBookmarkEditorOpen(true);
   }, [openBookmarkComposerToken]);
 
-  const visibleBookmarks = workspace.filteredBookmarks;
-  const currentFolderBookmarks = useMemo(
-    () => visibleBookmarks.filter((bookmark) => !workspace.favorites.includes(bookmark)),
-    [visibleBookmarks, workspace.favorites],
-  );
+  const currentFolderBookmarks = workspace.filteredBookmarks;
 
   async function handleOpenBookmark(bookmark) {
     window.open(bookmarkOpenURL(bookmark.id), "_blank", "noopener,noreferrer");
@@ -308,7 +304,7 @@ export default function BookmarksHome({
                     {workspace.activeFolder?.name || "All folders"}
                   </p>
                   <p className="text-sm text-slate-500">
-                    {visibleBookmarks.length} bookmark{visibleBookmarks.length === 1 ? "" : "s"} match the current view
+                    {currentFolderBookmarks.length} bookmark{currentFolderBookmarks.length === 1 ? "" : "s"} match the current view
                   </p>
                 </div>
               </div>
