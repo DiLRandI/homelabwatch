@@ -26,8 +26,8 @@ HomelabWatch stores persistent state under `/data`.
 At minimum, back up:
 
 - `/data/homelabwatch.db`
-- `/data/bookmark-assets/`
-- any custom `config.yaml` you use outside container env vars
+- `/data/bookmark-assets/` when you use uploaded bookmark icons
+- any custom `config.yaml` you reference with `HOMELABWATCH_CONFIG`
 
 For a simple filesystem-level backup:
 
@@ -39,8 +39,9 @@ For a simple filesystem-level backup:
 
 1. Stop HomelabWatch.
 2. Restore the `/data` directory.
-3. Start the same or newer version of HomelabWatch.
-4. Confirm setup state, bookmarks, services, and health history in the UI.
+3. Restore any external config file referenced by `HOMELABWATCH_CONFIG`.
+4. Start the same or newer version of HomelabWatch.
+5. Confirm setup state, bookmarks, services, and health history in the UI.
 
 ## Upgrades
 

@@ -31,6 +31,11 @@ breaking changes may still happen between minor releases.
 
 - Updated the main README and Docker Hub documentation for the current
   control-plane structure and trust model.
+- Refreshed repo docs for the current config loading flow, frontend/backend
+  layout, and backup notes for uploaded bookmark assets and external YAML
+  config.
+- Replaced the generated SVG architecture diagrams with Mermaid blocks in the
+  GitHub-rendered docs.
 
 ## [0.1.0]
 

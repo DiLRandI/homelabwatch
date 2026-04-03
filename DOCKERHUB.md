@@ -54,6 +54,8 @@ docker run --rm \
 
 - Persist `/data` if you want state to survive restarts.
 - Mount `/var/run/docker.sock` if you want local Docker discovery.
+- Mount a config file and set `HOMELABWATCH_CONFIG` if you want the container
+  to load YAML configuration instead of relying only on env vars.
 - Without persistent `/data`, a fresh container starts the setup wizard again.
 - Database migrations run automatically at startup.
 
@@ -104,6 +106,7 @@ automatic reapply runs.
 - `HOMELABWATCH_DATA_DIR`
 - `HOMELABWATCH_DB_PATH`
 - `HOMELABWATCH_STATIC_DIR`
+- `HOMELABWATCH_CONFIG`
 - `HOMELABWATCH_SEED_CIDRS`
 - `HOMELABWATCH_DEFAULT_SCAN_PORTS`
 - `HOMELABWATCH_SEED_DOCKER_SOCKET`
@@ -119,6 +122,10 @@ docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   deleema1/homelabwatch:latest
 ```
+
+If you do not set `HOMELABWATCH_TRUSTED_CIDRS`, the default trusted set covers
+localhost, RFC1918 private IPv4 ranges, IPv4 link-local, IPv6 loopback,
+IPv6 ULA, and IPv6 link-local ranges.
 
 ## External API
 
