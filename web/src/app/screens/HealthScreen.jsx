@@ -19,17 +19,31 @@ export default function HealthScreen({
   const bookmarkedServiceIds = new Set(
     bookmarks.map((bookmark) => bookmark.serviceId).filter(Boolean),
   );
-  const monitoredServices = useMemo(
-    () =>
-      (dashboard?.services ?? []).filter(
+  const monitoredServices = useMemo(() => {
+    const statusRank = {
+      unhealthy: 0,
+      degraded: 1,
+      unknown: 2,
+      healthy: 3,
+    };
+
+    return (dashboard?.services ?? [])
+      .filter(
         (service) =>
           (service.checks?.length ?? 0) > 0 ||
           service.status === "healthy" ||
           service.status === "degraded" ||
           service.status === "unhealthy",
-      ),
-    [dashboard?.services],
-  );
+      )
+      .sort((left, right) => {
+        const statusDelta =
+          (statusRank[left.status] ?? 99) - (statusRank[right.status] ?? 99);
+        if (statusDelta !== 0) {
+          return statusDelta;
+        }
+        return left.name.localeCompare(right.name);
+      });
+  }, [dashboard?.services]);
 
   async function handleSaveService(payload) {
     const successful = await onSaveManualService(payload);
@@ -61,10 +75,10 @@ export default function HealthScreen({
         onTestHealthCheck={onTestServiceCheck}
         sectionId="health"
         services={monitoredServices}
-        title="Health checks"
+        title="Monitoring and health"
       />
       <Modal
-        description="Capture a stable URL and turn it into a monitored endpoint."
+        description="Capture the open URL and, optionally, a different health target for monitoring."
         onClose={() => setCreatingService(false)}
         open={creatingService}
         title="Add monitored service"

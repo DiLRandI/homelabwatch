@@ -7,6 +7,7 @@ export const defaultSetupForm = {
 };
 
 export const defaultServiceForm = {
+  healthUrl: "",
   name: "",
   url: "",
 };

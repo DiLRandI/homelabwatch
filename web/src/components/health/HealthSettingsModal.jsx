@@ -51,7 +51,7 @@ function firstDefined(...values) {
 }
 
 function defaultCheckType(service) {
-  const scheme = (service?.scheme || "").toLowerCase();
+  const scheme = (service?.healthScheme || service?.scheme || "").toLowerCase();
   if (scheme === "http" || scheme === "https") {
     return "http";
   }
@@ -59,24 +59,41 @@ function defaultCheckType(service) {
 }
 
 function buildDefaultCheck(service, type = defaultCheckType(service), sortOrder = 0) {
-  const protocol = type === "http" ? firstDefined(service?.scheme, "http") : "";
+  const protocol =
+    type === "http"
+      ? firstDefined(service?.healthScheme, service?.scheme, "http")
+      : "";
 
   return {
-    addressSource: firstDefined(service?.addressSource, "literal_host"),
+    addressSource: firstDefined(
+      service?.healthAddressSource,
+      service?.addressSource,
+      "literal_host",
+    ),
     configSource: "user",
     draftKey: makeDraftKey(),
     enabled: true,
     expectedStatusMax: type === "http" ? 399 : 0,
     expectedStatusMin: type === "http" ? 200 : 0,
-    host: firstDefined(service?.host, service?.hostValue),
-    hostValue: firstDefined(service?.hostValue, service?.host),
+    host: firstDefined(
+      service?.healthHost,
+      service?.healthHostValue,
+      service?.host,
+      service?.hostValue,
+    ),
+    hostValue: firstDefined(
+      service?.healthHostValue,
+      service?.healthHost,
+      service?.hostValue,
+      service?.host,
+    ),
     id: "",
     intervalSeconds: 60,
     lastResult: null,
     method: "GET",
     name: `${service?.name || "Service"} ${CHECK_LABELS[type] || "check"}`,
-    path: type === "http" ? service?.path || "" : "",
-    port: Number(service?.port || 0),
+    path: type === "http" ? service?.healthPath || service?.path || "" : "",
+    port: Number(service?.healthPort || service?.port || 0),
     protocol,
     serviceDefinitionId: "",
     sortOrder,
@@ -348,7 +365,12 @@ export default function HealthSettingsModal({
           <aside className="grid gap-4">
             <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-sm font-semibold text-slate-950">{service.name}</p>
-              <p className="mt-1 text-sm text-slate-500">{service.url}</p>
+              <p className="mt-1 text-sm text-slate-500">Open URL: {service.url}</p>
+              {service.healthUrl && service.healthUrl !== service.url ? (
+                <p className="mt-1 text-sm text-slate-500">
+                  Health URL: {service.healthUrl}
+                </p>
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge tone="info">{service.source}</Badge>
                 <Badge>{service.serviceDefinitionId || "custom target"}</Badge>

@@ -31,6 +31,19 @@ export default function ManualServiceForm({ onSubmit, submitLabel = "Save servic
         placeholder="http://192.168.1.20:32400"
         value={form.url}
       />
+      <Input
+        label="Health URL"
+        autoComplete="url"
+        onChange={(value) =>
+          setForm((current) => ({ ...current, healthUrl: value }))
+        }
+        placeholder="http://192.168.1.20:32400/identity"
+        value={form.healthUrl}
+      />
+      <p className="-mt-1 text-sm leading-6 text-slate-500">
+        Leave blank to monitor the open URL. If this differs, HomelabWatch will
+        use it as the explicit health target.
+      </p>
       <div className="flex justify-end">
         <Button type="submit">{submitLabel}</Button>
       </div>

@@ -11,6 +11,8 @@ devices, service definitions, and settings.
 - Docker and LAN discovery with promotion into managed services and bookmarks
 - device tracking with MAC-aware identity where available
 - HTTP, TCP, and ping health checks with editable HTTP paths
+- separate open URL and health URL targeting for services that need a
+  different monitoring endpoint
 - endpoint testing before saving a check
 - built-in and custom service definitions for fingerprinting and managed checks
 - scoped bearer tokens for external automation
@@ -71,6 +73,8 @@ docker run --rm \
 
 Health checks are configurable per service.
 
+- Services can keep a user-facing open URL and a separate health target for
+  monitoring.
 - HTTP checks support protocol, host, port, path, method, timeout, interval,
   and expected status range.
 - TCP and ping checks are supported for non-HTTP services or conservative

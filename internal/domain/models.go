@@ -213,14 +213,21 @@ type Service struct {
 	HealthConfigMode          HealthConfigMode     `json:"healthConfigMode,omitempty"`
 	AddressSource             ServiceAddressSource `json:"addressSource,omitempty"`
 	HostValue                 string               `json:"hostValue,omitempty"`
+	HealthAddressSource       ServiceAddressSource `json:"healthAddressSource,omitempty"`
+	HealthHostValue           string               `json:"healthHostValue,omitempty"`
 	DeviceID                  string               `json:"deviceId,omitempty"`
 	DeviceName                string               `json:"deviceName,omitempty"`
 	Icon                      string               `json:"icon,omitempty"`
 	Scheme                    string               `json:"scheme,omitempty"`
+	HealthScheme              string               `json:"healthScheme,omitempty"`
 	Host                      string               `json:"host"`
 	Port                      int                  `json:"port"`
 	Path                      string               `json:"path,omitempty"`
 	URL                       string               `json:"url"`
+	HealthHost                string               `json:"healthHost,omitempty"`
+	HealthPort                int                  `json:"healthPort,omitempty"`
+	HealthPath                string               `json:"healthPath,omitempty"`
+	HealthURL                 string               `json:"healthUrl,omitempty"`
 	Hidden                    bool                 `json:"hidden"`
 	Status                    HealthStatus         `json:"status"`
 	LastSeenAt                time.Time            `json:"lastSeenAt"`

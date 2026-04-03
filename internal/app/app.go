@@ -456,18 +456,63 @@ func normalizeService(service domain.Service) domain.Service {
 	if service.Source == "" {
 		service.Source = domain.ServiceSourceManual
 	}
-	if service.URL != "" && (service.Host == "" || service.Scheme == "") {
-		if parsed, err := url.Parse(service.URL); err == nil {
-			service.Scheme = firstNonEmpty(service.Scheme, parsed.Scheme)
-			service.Host = firstNonEmpty(service.Host, parsed.Hostname())
-			service.Path = firstNonEmpty(service.Path, parsed.EscapedPath())
-			if port, err := strconv.Atoi(parsed.Port()); err == nil {
-				service.Port = port
-			}
+	if service.URL != "" && (service.Host == "" || service.Scheme == "" || service.Path == "") {
+		scheme, host, port, path := parseServiceURLFields(service.URL)
+		service.Scheme = firstNonEmpty(service.Scheme, scheme)
+		service.Host = firstNonEmpty(service.Host, host)
+		service.Path = firstNonEmpty(service.Path, path)
+		if service.Port == 0 {
+			service.Port = port
 		}
+	}
+	if service.HealthURL != "" {
+		scheme, host, port, path := parseServiceURLFields(service.HealthURL)
+		service.HealthScheme = firstNonEmpty(service.HealthScheme, scheme)
+		service.HealthHostValue = firstNonEmpty(service.HealthHostValue, host)
+		service.HealthHost = firstNonEmpty(service.HealthHost, host)
+		service.HealthPath = firstNonEmpty(service.HealthPath, path)
+		if service.HealthPort == 0 {
+			service.HealthPort = port
+		}
+		if service.HealthAddressSource == "" {
+			service.HealthAddressSource = domain.ServiceAddressLiteralHost
+		}
+	}
+	if service.HealthAddressSource == "" {
+		service.HealthAddressSource = firstNonEmptyAddressSource(
+			service.AddressSource,
+			domain.ServiceAddressLiteralHost,
+		)
+	}
+	if service.HealthHostValue == "" {
+		service.HealthHostValue = firstNonEmpty(service.HostValue, service.Host)
+	}
+	if service.HealthHost == "" {
+		service.HealthHost = firstNonEmpty(service.HealthHostValue, service.HostValue, service.Host)
+	}
+	if service.HealthScheme == "" {
+		service.HealthScheme = firstNonEmpty(service.Scheme, "http")
+	}
+	if service.HealthPort == 0 {
+		service.HealthPort = service.Port
+	}
+	if service.HealthPath == "" {
+		service.HealthPath = service.Path
 	}
 	if service.URL == "" && service.Host != "" {
 		service.URL = buildURL(service.Scheme, service.Host, service.Port, service.Path)
+	}
+	if service.HealthURL == "" {
+		healthHost := firstNonEmpty(service.HealthHost, service.HealthHostValue)
+		service.HealthURL = buildURL(
+			service.HealthScheme,
+			healthHost,
+			service.HealthPort,
+			service.HealthPath,
+		)
+	}
+	if service.HealthConfigMode == "" && serviceHasExplicitHealthTarget(service) {
+		service.HealthConfigMode = domain.HealthConfigModeCustom
 	}
 	return service
 }
@@ -487,6 +532,41 @@ func buildURL(scheme, host string, port int, path string) string {
 		path = "/" + path
 	}
 	return base + path
+}
+
+func parseServiceURLFields(raw string) (string, string, int, string) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "", "", 0, ""
+	}
+	path := parsed.EscapedPath()
+	if parsed.RawQuery != "" {
+		path += "?" + parsed.RawQuery
+	}
+	port, _ := strconv.Atoi(parsed.Port())
+	return parsed.Scheme, parsed.Hostname(), port, path
+}
+
+func serviceHasExplicitHealthTarget(service domain.Service) bool {
+	if service.HealthAddressSource != "" && service.HealthAddressSource != service.AddressSource {
+		return true
+	}
+	if strings.TrimSpace(service.HealthHostValue) != "" &&
+		strings.TrimSpace(service.HealthHostValue) != strings.TrimSpace(service.HostValue) &&
+		strings.TrimSpace(service.HealthHostValue) != strings.TrimSpace(service.Host) {
+		return true
+	}
+	if strings.TrimSpace(service.HealthScheme) != "" &&
+		strings.TrimSpace(service.HealthScheme) != strings.TrimSpace(service.Scheme) {
+		return true
+	}
+	if service.HealthPort > 0 && service.HealthPort != service.Port {
+		return true
+	}
+	if normalizePath(service.HealthPath) != normalizePath(service.Path) {
+		return true
+	}
+	return false
 }
 
 func firstNonEmpty(values ...string) string {

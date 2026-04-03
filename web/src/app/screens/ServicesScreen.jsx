@@ -34,6 +34,7 @@ export default function ServicesScreen({
       <ServicesSection
         bookmarkedServiceIds={bookmarkedServiceIds}
         canManage={canManageUI}
+        description="Accepted services and stable open URLs promoted from discovery, Docker, and manual entry."
         onAdd={() => setCreatingService(true)}
         onAddBookmark={(service) =>
           void onSaveBookmarkFromService({
@@ -45,11 +46,13 @@ export default function ServicesScreen({
         onFetchHealthChecks={onFetchServiceHealthChecks}
         onSaveHealthCheck={onSaveServiceHealthCheck}
         onTestHealthCheck={onTestServiceCheck}
+        showChecks={false}
         services={dashboard?.services ?? []}
+        title="Accepted services"
       />
       <ContainersSection containers={dashboard?.containers ?? []} />
       <Modal
-        description="Capture a stable URL that should be monitored alongside discovered infrastructure."
+        description="Capture the open URL and, optionally, a separate URL HomelabWatch should probe for health."
         onClose={() => setCreatingService(false)}
         open={creatingService}
         title="Add manual service"
