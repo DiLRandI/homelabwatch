@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,20 +12,28 @@ import (
 	"github.com/deleema/homelabwatch/internal/app"
 	"github.com/deleema/homelabwatch/internal/config"
 	"github.com/deleema/homelabwatch/internal/events"
+	"github.com/deleema/homelabwatch/internal/logging"
 	"github.com/deleema/homelabwatch/internal/store/sqlite"
 )
 
 func main() {
+	logger, logCfg := logging.NewFromEnv()
+	if logCfg.InvalidValue != "" {
+		logger.Warn("invalid LOG_LEVEL; defaulting to info", "value", logCfg.InvalidValue)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		logger.Error("failed to load config", "err", err)
+		os.Exit(1)
 	}
 	store, err := sqlite.New(cfg.DBPath)
 	if err != nil {
-		log.Fatalf("failed to open store: %v", err)
+		logger.Error("failed to open store", "path", cfg.DBPath, "err", err)
+		os.Exit(1)
 	}
 	bus := events.NewBus()
-	application := app.New(cfg, store, bus)
+	application := app.New(cfg, store, bus, logger)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -39,16 +46,22 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("homelabwatch listening on %s", cfg.ListenAddr)
+		logger.Info("homelabwatch listening", "addr", cfg.ListenAddr, "log_level", logCfg.Level.String())
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Printf("http server failed: %v", err)
+			logger.Error("http server failed", "err", err)
 			stop()
 		}
 	}()
 
 	<-ctx.Done()
+	logger.Info("shutdown requested")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_ = server.Shutdown(shutdownCtx)
-	_ = store.Close()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Warn("http server shutdown failed", "err", err)
+	}
+	if err := store.Close(); err != nil {
+		logger.Warn("store close failed", "err", err)
+	}
+	logger.Info("shutdown complete")
 }

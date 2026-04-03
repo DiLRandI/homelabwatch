@@ -6,6 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      LOG_LEVEL: "info"
       HOMELABWATCH_TRUSTED_CIDRS: "127.0.0.1/32,192.168.0.0/16"
     volumes:
       - ./data:/data

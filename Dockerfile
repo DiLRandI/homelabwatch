@@ -19,7 +19,8 @@ WORKDIR /app
 COPY --from=go-build /out/homelabwatch /app/homelabwatch
 COPY migrations /app/migrations
 COPY --from=web-build /src/web/dist /app/web/dist
-ENV HOMELABWATCH_LISTEN_ADDR=:8080 \
+ENV LOG_LEVEL=info \
+    HOMELABWATCH_LISTEN_ADDR=:8080 \
     HOMELABWATCH_DATA_DIR=/data \
     HOMELABWATCH_DB_PATH=/data/homelabwatch.db \
     HOMELABWATCH_STATIC_DIR=/app/web/dist
