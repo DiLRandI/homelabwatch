@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -103,7 +105,8 @@ func newRouterTestHarness(t *testing.T) (http.Handler, *app.App, *sqlite.Store, 
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
-	application := app.New(cfg, store, events.NewBus())
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	application := app.New(cfg, store, events.NewBus(), logger)
 	return NewRouter(application, cfg), application, store, cfg
 }
 

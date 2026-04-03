@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"os"
 	"strconv"
@@ -24,6 +25,7 @@ const eventsRetention = 14 * 24 * time.Hour
 
 type App struct {
 	config    config.Config
+	logger    *slog.Logger
 	store     *sqlite.Store
 	bus       *events.Bus
 	docker    *docker.Provider
@@ -32,9 +34,13 @@ type App struct {
 	scheduler *worker.Scheduler
 }
 
-func New(cfg config.Config, store *sqlite.Store, bus *events.Bus) *App {
+func New(cfg config.Config, store *sqlite.Store, bus *events.Bus, logger *slog.Logger) *App {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	instance := &App{
 		config:  cfg,
+		logger:  logger.With("component", "app"),
 		store:   store,
 		bus:     bus,
 		docker:  docker.NewProvider(),
@@ -42,6 +48,7 @@ func New(cfg config.Config, store *sqlite.Store, bus *events.Bus) *App {
 		monitor: monitoring.NewRunner(store),
 	}
 	instance.scheduler = worker.NewScheduler(
+		logger.With("component", "worker"),
 		worker.Job{Name: "docker-sync", Interval: 30 * time.Second, Run: instance.runDockerDiscovery},
 		worker.Job{Name: "lan-scan", Interval: 5 * time.Minute, Run: instance.runLANDiscovery},
 		worker.Job{Name: "service-fingerprinting", Interval: 45 * time.Second, Run: instance.runFingerprinting},
@@ -52,6 +59,7 @@ func New(cfg config.Config, store *sqlite.Store, bus *events.Bus) *App {
 }
 
 func (a *App) Start(ctx context.Context) {
+	a.logger.Info("starting application services")
 	a.scheduler.Start(ctx)
 }
 
@@ -249,6 +257,7 @@ func (a *App) TriggerMonitoring(ctx context.Context) error {
 
 func (a *App) runDockerDiscovery(ctx context.Context) error {
 	if !a.isBootstrapped(ctx) {
+		a.logger.Debug("docker discovery skipped", "reason", "not_bootstrapped")
 		return nil
 	}
 	endpoints, err := a.store.ListDockerEndpoints(ctx)
@@ -258,9 +267,24 @@ func (a *App) runDockerDiscovery(ctx context.Context) error {
 	}
 	results := a.docker.Discover(ctx, endpoints)
 	var runErr error
+	processedEndpoints := 0
+	failedEndpoints := 0
+	serviceObservations := 0
 	for _, result := range results {
+		processedEndpoints++
+		for _, observation := range result.Observations {
+			serviceObservations += len(observation.Services)
+		}
 		if result.Err != nil && runErr == nil {
 			runErr = result.Err
+		}
+		if result.Err != nil {
+			failedEndpoints++
+			a.logger.Warn("docker endpoint discovery failed",
+				"endpoint_id", result.Endpoint.ID,
+				"endpoint_name", result.Endpoint.Name,
+				"err", result.Err,
+			)
 		}
 		successAt := time.Time{}
 		lastError := ""
@@ -274,12 +298,18 @@ func (a *App) runDockerDiscovery(ctx context.Context) error {
 		}
 		_ = a.store.UpdateDockerEndpointStatus(ctx, result.Endpoint.ID, successAt, lastError)
 	}
+	a.logger.Debug("docker discovery completed",
+		"endpoints", processedEndpoints,
+		"failed_endpoints", failedEndpoints,
+		"service_observations", serviceObservations,
+	)
 	_ = a.store.RecordJobRun(ctx, "docker-sync", runErr)
 	return runErr
 }
 
 func (a *App) runLANDiscovery(ctx context.Context) error {
 	if !a.isBootstrapped(ctx) {
+		a.logger.Debug("lan scan skipped", "reason", "not_bootstrapped")
 		return nil
 	}
 	settings, err := a.store.GetAppSettings(ctx)
@@ -288,6 +318,7 @@ func (a *App) runLANDiscovery(ctx context.Context) error {
 		return err
 	}
 	if !settings.AutoScanEnabled {
+		a.logger.Debug("lan scan skipped", "reason", "auto_scan_disabled")
 		_ = a.store.RecordJobRun(ctx, "lan-scan", nil)
 		return nil
 	}
@@ -306,6 +337,7 @@ func (a *App) runLANDiscovery(ctx context.Context) error {
 		_ = a.store.RecordJobRun(ctx, "lan-scan", processErr)
 		return processErr
 	}
+	a.logger.Debug("lan scan completed", "targets", len(targets), "observations", len(observations))
 	_ = a.store.RecordJobRun(ctx, "lan-scan", nil)
 	return nil
 }
@@ -322,10 +354,12 @@ func (a *App) runMonitoring(ctx context.Context) error {
 	for _, item := range results {
 		a.publish("check", item.CheckID, "recorded", item)
 	}
-	if err := a.runDiscoveredMonitoring(ctx); err != nil {
+	discoveredChecks, err := a.runDiscoveredMonitoring(ctx)
+	if err != nil {
 		_ = a.store.RecordJobRun(ctx, "health-checks", err)
 		return err
 	}
+	a.logger.Debug("health checks completed", "checks", len(results), "discovered_checks", discoveredChecks)
 	_ = a.store.RecordJobRun(ctx, "health-checks", nil)
 	return nil
 }
@@ -338,6 +372,9 @@ func (a *App) runFingerprinting(ctx context.Context) error {
 	if err == nil {
 		err = a.refreshDiscoveredServiceDefinitions(ctx)
 	}
+	if err == nil {
+		a.logger.Debug("service fingerprinting completed")
+	}
 	_ = a.store.RecordJobRun(ctx, "service-fingerprinting", err)
 	return err
 }
@@ -347,6 +384,9 @@ func (a *App) runCleanup(ctx context.Context) error {
 		return nil
 	}
 	err := a.store.Cleanup(ctx, eventsRetention)
+	if err == nil {
+		a.logger.Debug("cleanup completed")
+	}
 	_ = a.store.RecordJobRun(ctx, "cleanup", err)
 	return err
 }

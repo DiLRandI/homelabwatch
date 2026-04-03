@@ -214,6 +214,7 @@ Example config: [`config.example.yaml`](config.example.yaml)
 
 Important environment variables:
 
+- `LOG_LEVEL`
 - `HOMELABWATCH_LISTEN_ADDR`
 - `HOMELABWATCH_DATA_DIR`
 - `HOMELABWATCH_DB_PATH`
@@ -228,6 +229,16 @@ Example trust-boundary override:
 
 ```bash
 HOMELABWATCH_TRUSTED_CIDRS=127.0.0.1/32,192.168.1.0/24
+```
+
+Logging uses structured JSON output on stdout. Set `LOG_LEVEL` to `debug`,
+`info`, `warn`, or `error`. If unset or invalid, HomelabWatch defaults to
+`info`.
+
+Example debug run:
+
+```bash
+LOG_LEVEL=debug make run
 ```
 
 If you do not set `HOMELABWATCH_TRUSTED_CIDRS`, the default trusted set covers

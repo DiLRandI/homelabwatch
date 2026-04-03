@@ -111,19 +111,19 @@ func (a *App) CreateBookmarkFromDiscoveredService(ctx context.Context, input dom
 	return bookmark, nil
 }
 
-func (a *App) runDiscoveredMonitoring(ctx context.Context) error {
+func (a *App) runDiscoveredMonitoring(ctx context.Context) (int, error) {
 	checks, err := a.store.GetDiscoveredChecksDue(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	for _, check := range checks {
 		result := monitoring.RunAdhocCheck(ctx, check)
 		if err := a.store.SaveCheckResult(ctx, result); err != nil {
-			return err
+			return 0, err
 		}
 		a.publish("check", result.CheckID, "recorded", result)
 	}
-	return nil
+	return len(checks), nil
 }
 
 func (a *App) shouldAutoBookmark(item domain.DiscoveredService, settings domain.DiscoverySettings) bool {

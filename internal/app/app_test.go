@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"path/filepath"
 	"testing"
 	"time"
@@ -229,5 +231,6 @@ func newTestApp(t *testing.T, overrides config.Config) (*App, *sqlite.Store, con
 	}
 	t.Cleanup(func() { _ = store.Close() })
 
-	return New(cfg, store, events.NewBus()), store, cfg
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	return New(cfg, store, events.NewBus(), logger), store, cfg
 }

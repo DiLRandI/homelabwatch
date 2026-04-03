@@ -7,6 +7,8 @@
 - Linux LAN discovery and ping checks usually work best with `--network host`
   and `--cap-add NET_RAW`.
 - Database migrations run automatically at startup.
+- Logs are emitted as JSON on stdout; set `LOG_LEVEL=debug|info|warn|error`
+  to adjust verbosity.
 
 ## Docker Compose Example
 
@@ -66,6 +68,8 @@ For a simple filesystem-level backup:
 - verify the Docker socket mount if you expect Docker discovery
 - verify `seedCidrs` or configured scan targets for LAN discovery
 - verify host networking and `NET_RAW` on Linux for ping and network scanning
+- temporarily raise `LOG_LEVEL=debug` to inspect worker lifecycle and discovery
+  summaries
 
 ### Browser UI is read-only
 
