@@ -322,3 +322,69 @@ export function runMonitoringJob(csrfToken) {
     method: "POST",
   });
 }
+
+export function fetchNotificationChannels() {
+  return request("/api/ui/v1/notifications/channels");
+}
+
+export function createNotificationChannel(payload, csrfToken) {
+  return request("/api/ui/v1/notifications/channels", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function updateNotificationChannel(id, payload, csrfToken) {
+  return request(`/api/ui/v1/notifications/channels/${id}`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
+  });
+}
+
+export function deleteNotificationChannel(id, csrfToken) {
+  return request(`/api/ui/v1/notifications/channels/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function testNotificationChannel(id, csrfToken) {
+  return request(`/api/ui/v1/notifications/channels/${id}/test`, {
+    body: JSON.stringify({}),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function fetchNotificationRules() {
+  return request("/api/ui/v1/notifications/rules");
+}
+
+export function createNotificationRule(payload, csrfToken) {
+  return request("/api/ui/v1/notifications/rules", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function updateNotificationRule(id, payload, csrfToken) {
+  return request(`/api/ui/v1/notifications/rules/${id}`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
+  });
+}
+
+export function deleteNotificationRule(id, csrfToken) {
+  return request(`/api/ui/v1/notifications/rules/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function fetchNotificationDeliveries() {
+  return request("/api/ui/v1/notifications/deliveries");
+}

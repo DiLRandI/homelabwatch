@@ -9,8 +9,12 @@ import {
   createServiceDefinition,
   createFolder,
   createDockerEndpoint,
+  createNotificationChannel,
+  createNotificationRule,
   createScanTarget,
   createService,
+  deleteNotificationChannel,
+  deleteNotificationRule,
   deleteServiceCheck,
   deleteServiceDefinition,
   deleteBookmark,
@@ -27,7 +31,10 @@ import {
   revokeAPIToken,
   runDiscoveryJob,
   runMonitoringJob,
+  testNotificationChannel,
   testServiceCheck,
+  updateNotificationChannel,
+  updateNotificationRule,
   updateServiceCheck,
   updateServiceDefinition,
   updateDiscoverySettings,
@@ -37,6 +44,7 @@ import {
 } from "../lib/api";
 import { useBookmarksData } from "./useBookmarksData";
 import { useDashboardData } from "./useDashboardData";
+import { useNotificationsData } from "./useNotificationsData";
 import { useSettingsData } from "./useSettingsData";
 import { useServerEvents } from "./useServerEvents";
 import { useUIBootstrap } from "./useUIBootstrap";
@@ -52,6 +60,7 @@ export function useHomelabwatchApp() {
   const refreshStateRef = useRef({
     bookmarks: { dirty: false, maxTimerID: null, timerID: null },
     dashboard: { dirty: false, maxTimerID: null, timerID: null },
+    notifications: { dirty: false, maxTimerID: null, timerID: null },
     settings: { dirty: false, maxTimerID: null, timerID: null },
   });
   const bootstrap = useUIBootstrap({ onError: setError });
@@ -61,6 +70,7 @@ export function useHomelabwatchApp() {
     onError: setError,
     onTrustedNetworkChange: bootstrap.setTrustedNetwork,
   });
+  const notificationsState = useNotificationsData({ onError: setError });
 
   function clearRefreshTimers(kind) {
     const state = refreshStateRef.current[kind];
@@ -86,6 +96,10 @@ export function useHomelabwatchApp() {
     return Boolean(await settingsState.loadSettings());
   }
 
+  async function loadNotifications() {
+    return Boolean(await notificationsState.loadNotifications());
+  }
+
   async function flushRefresh(kind) {
     const state = refreshStateRef.current[kind];
     clearRefreshTimers(kind);
@@ -98,6 +112,8 @@ export function useHomelabwatchApp() {
         return loadBookmarksWorkspace();
       case "settings":
         return loadSettings();
+      case "notifications":
+        return loadNotifications();
       default:
         return loadDashboard();
     }
@@ -141,7 +157,12 @@ export function useHomelabwatchApp() {
   }
 
   async function refreshAll() {
-    await Promise.all([loadDashboard(), loadSettings(), loadBookmarksWorkspace()]);
+    await Promise.all([
+      loadDashboard(),
+      loadSettings(),
+      loadBookmarksWorkspace(),
+      loadNotifications(),
+    ]);
   }
 
   useEffect(() => {
@@ -196,6 +217,7 @@ export function useHomelabwatchApp() {
     "discovered-service": () => queueRefreshes("dashboard"),
     "docker-endpoint": () => queueRefreshes("settings"),
     folder: () => queueRefreshes("bookmarks"),
+    notification: () => queueRefreshes("notifications"),
     "scan-target": () => queueRefreshes("settings"),
     service: () => queueRefreshes("dashboard", "bookmarks"),
     "service-definition": () => queueRefreshes("dashboard", "settings"),
@@ -264,6 +286,49 @@ export function useHomelabwatchApp() {
       setError(requestError.message);
       return null;
     }
+  }
+
+  async function saveNotificationChannel(payload) {
+    return performAction(async () => {
+      if (payload.id) {
+        await updateNotificationChannel(payload.id, payload, bootstrap.csrfToken);
+      } else {
+        await createNotificationChannel(payload, bootstrap.csrfToken);
+      }
+      await loadNotifications();
+    }, "Notification channel saved.");
+  }
+
+  async function removeNotificationChannel(id) {
+    return performAction(async () => {
+      await deleteNotificationChannel(id, bootstrap.csrfToken);
+      await loadNotifications();
+    }, "Notification channel deleted.");
+  }
+
+  async function sendNotificationTest(id) {
+    return performAction(async () => {
+      await testNotificationChannel(id, bootstrap.csrfToken);
+      await loadNotifications();
+    }, "Test notification sent.");
+  }
+
+  async function saveNotificationRule(payload) {
+    return performAction(async () => {
+      if (payload.id) {
+        await updateNotificationRule(payload.id, payload, bootstrap.csrfToken);
+      } else {
+        await createNotificationRule(payload, bootstrap.csrfToken);
+      }
+      await loadNotifications();
+    }, "Notification rule saved.");
+  }
+
+  async function removeNotificationRule(id) {
+    return performAction(async () => {
+      await deleteNotificationRule(id, bootstrap.csrfToken);
+      await loadNotifications();
+    }, "Notification rule deleted.");
   }
 
   async function saveServiceDefinitionRecord(payload) {
@@ -495,6 +560,8 @@ export function useHomelabwatchApp() {
       refreshAll,
       removeBookmark,
       removeFolder,
+      removeNotificationChannel,
+      removeNotificationRule,
       removeServiceDefinitionRecord,
       removeServiceHealthCheck,
       restoreSuggestion,
@@ -502,6 +569,9 @@ export function useHomelabwatchApp() {
       runDiscovery,
       runMonitoring,
       runServiceCheckTest,
+      saveNotificationChannel,
+      saveNotificationRule,
+      sendNotificationTest,
       saveBookmark,
       saveBookmarkFromDiscoveredService,
       saveBookmarkFromService,
@@ -531,6 +601,7 @@ export function useHomelabwatchApp() {
       bookmarks: bookmarksState.bookmarks,
       dashboard: dashboardState.dashboard,
       folders: bookmarksState.folders,
+      notifications: notificationsState.notifications,
       settings: settingsState.settings,
       tags: bookmarksState.tags,
     },

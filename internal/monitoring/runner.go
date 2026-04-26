@@ -16,7 +16,7 @@ import (
 
 type CheckStore interface {
 	GetChecksDue(context.Context) ([]domain.MonitorCheck, error)
-	SaveCheckResult(context.Context, domain.CheckResult) error
+	SaveCheckResultWithOutcome(context.Context, domain.CheckResult) (domain.CheckResultOutcome, error)
 }
 
 type Runner struct {
@@ -27,22 +27,23 @@ func NewRunner(store CheckStore) *Runner {
 	return &Runner{store: store}
 }
 
-func (r *Runner) RunDueChecks(ctx context.Context) ([]domain.CheckResult, error) {
+func (r *Runner) RunDueChecks(ctx context.Context) ([]domain.CheckResultOutcome, error) {
 	checks, err := r.store.GetChecksDue(ctx)
 	if err != nil {
 		return nil, err
 	}
 	now := time.Now().UTC()
-	results := make([]domain.CheckResult, 0, len(checks))
+	results := make([]domain.CheckResultOutcome, 0, len(checks))
 	for _, item := range checks {
 		if !isDue(item.Check, now) {
 			continue
 		}
 		result := runCheck(ctx, item)
-		if err := r.store.SaveCheckResult(ctx, result); err != nil {
+		outcome, err := r.store.SaveCheckResultWithOutcome(ctx, result)
+		if err != nil {
 			return results, err
 		}
-		results = append(results, result)
+		results = append(results, outcome)
 	}
 	return results, nil
 }

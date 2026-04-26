@@ -87,6 +87,16 @@ export function BookmarkIcon({ className }) {
   );
 }
 
+export function BellIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <path d="M15 18.5a3 3 0 0 1-6 0" />
+      <path d="M18 16.5H6l1.4-2.1V10a4.6 4.6 0 0 1 9.2 0v4.4L18 16.5Z" />
+      <path d="M12 3.5v1.2" />
+    </Icon>
+  );
+}
+
 export function ActivityIcon({ className }) {
   return (
     <Icon className={className}>

@@ -5,6 +5,7 @@ import DefinitionsScreen from "./app/screens/DefinitionsScreen";
 import DevicesScreen from "./app/screens/DevicesScreen";
 import DiscoveryScreen from "./app/screens/DiscoveryScreen";
 import HealthScreen from "./app/screens/HealthScreen";
+import NotificationsScreen from "./app/screens/NotificationsScreen";
 import OverviewScreen from "./app/screens/OverviewScreen";
 import ServicesScreen from "./app/screens/ServicesScreen";
 import SettingsScreen from "./app/screens/SettingsScreen";
@@ -176,6 +177,19 @@ export default function App() {
         />
       );
       break;
+    case "notifications":
+      content = (
+        <NotificationsScreen
+          canManageUI={app.bootstrap.trustedNetwork}
+          notifications={app.data.notifications}
+          onDeleteChannel={app.actions.removeNotificationChannel}
+          onDeleteRule={app.actions.removeNotificationRule}
+          onSaveChannel={app.actions.saveNotificationChannel}
+          onSaveRule={app.actions.saveNotificationRule}
+          onTestChannel={app.actions.sendNotificationTest}
+        />
+      );
+      break;
     case "definitions":
       content = (
         <DefinitionsScreen
@@ -233,6 +247,7 @@ export default function App() {
           dashboard={dashboard}
           error={app.alerts.error}
           notice={app.alerts.notice}
+          notifications={app.data.notifications}
           onNavigate={navigate}
           onRefresh={app.actions.refreshAll}
           onRunDiscovery={app.actions.runDiscovery}

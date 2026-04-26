@@ -118,10 +118,11 @@ func (a *App) runDiscoveredMonitoring(ctx context.Context) (int, error) {
 	}
 	for _, check := range checks {
 		result := monitoring.RunAdhocCheck(ctx, check)
-		if err := a.store.SaveCheckResult(ctx, result); err != nil {
+		outcome, err := a.store.SaveCheckResultWithOutcome(ctx, result)
+		if err != nil {
 			return 0, err
 		}
-		a.publish("check", result.CheckID, "recorded", result)
+		a.publishCheckOutcome(outcome)
 	}
 	return len(checks), nil
 }

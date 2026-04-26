@@ -492,11 +492,12 @@ type ScanTarget struct {
 }
 
 type JobState struct {
-	JobName       string    `json:"jobName"`
-	LastRunAt     time.Time `json:"lastRunAt"`
-	LastSuccessAt time.Time `json:"lastSuccessAt"`
-	LastError     string    `json:"lastError,omitempty"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	JobName             string    `json:"jobName"`
+	LastRunAt           time.Time `json:"lastRunAt"`
+	LastSuccessAt       time.Time `json:"lastSuccessAt"`
+	LastError           string    `json:"lastError,omitempty"`
+	ConsecutiveFailures int       `json:"consecutiveFailures"`
+	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
 type MonitorCheck struct {

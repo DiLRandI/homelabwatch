@@ -17,6 +17,7 @@ import (
 	"github.com/deleema/homelabwatch/internal/domain"
 	"github.com/deleema/homelabwatch/internal/events"
 	"github.com/deleema/homelabwatch/internal/monitoring"
+	"github.com/deleema/homelabwatch/internal/notifications"
 	"github.com/deleema/homelabwatch/internal/store/sqlite"
 	"github.com/deleema/homelabwatch/internal/worker"
 )
@@ -24,14 +25,15 @@ import (
 const eventsRetention = 14 * 24 * time.Hour
 
 type App struct {
-	config    config.Config
-	logger    *slog.Logger
-	store     *sqlite.Store
-	bus       *events.Bus
-	docker    *docker.Provider
-	lan       *lan.Provider
-	monitor   *monitoring.Runner
-	scheduler *worker.Scheduler
+	config        config.Config
+	logger        *slog.Logger
+	store         *sqlite.Store
+	bus           *events.Bus
+	docker        *docker.Provider
+	lan           *lan.Provider
+	monitor       *monitoring.Runner
+	notifications *notifications.Engine
+	scheduler     *worker.Scheduler
 }
 
 func New(cfg config.Config, store *sqlite.Store, bus *events.Bus, logger *slog.Logger) *App {
@@ -39,13 +41,14 @@ func New(cfg config.Config, store *sqlite.Store, bus *events.Bus, logger *slog.L
 		logger = slog.Default()
 	}
 	instance := &App{
-		config:  cfg,
-		logger:  logger.With("component", "app"),
-		store:   store,
-		bus:     bus,
-		docker:  docker.NewProvider(),
-		lan:     lan.NewProvider(),
-		monitor: monitoring.NewRunner(store),
+		config:        cfg,
+		logger:        logger.With("component", "app"),
+		store:         store,
+		bus:           bus,
+		docker:        docker.NewProvider(),
+		lan:           lan.NewProvider(),
+		monitor:       monitoring.NewRunner(store),
+		notifications: notifications.NewEngine(store, bus, logger),
 	}
 	instance.scheduler = worker.NewScheduler(
 		logger.With("component", "worker"),
@@ -60,6 +63,7 @@ func New(cfg config.Config, store *sqlite.Store, bus *events.Bus, logger *slog.L
 
 func (a *App) Start(ctx context.Context) {
 	a.logger.Info("starting application services")
+	a.notifications.Start(ctx)
 	a.scheduler.Start(ctx)
 }
 
@@ -262,7 +266,7 @@ func (a *App) runDockerDiscovery(ctx context.Context) error {
 	}
 	endpoints, err := a.store.ListDockerEndpoints(ctx)
 	if err != nil {
-		_ = a.store.RecordJobRun(ctx, "docker-sync", err)
+		a.recordJobRun(ctx, "docker-sync", err)
 		return err
 	}
 	results := a.docker.Discover(ctx, endpoints)
@@ -303,7 +307,7 @@ func (a *App) runDockerDiscovery(ctx context.Context) error {
 		"failed_endpoints", failedEndpoints,
 		"service_observations", serviceObservations,
 	)
-	_ = a.store.RecordJobRun(ctx, "docker-sync", runErr)
+	a.recordJobRun(ctx, "docker-sync", runErr)
 	return runErr
 }
 
@@ -314,31 +318,31 @@ func (a *App) runLANDiscovery(ctx context.Context) error {
 	}
 	settings, err := a.store.GetAppSettings(ctx)
 	if err != nil {
-		_ = a.store.RecordJobRun(ctx, "lan-scan", err)
+		a.recordJobRun(ctx, "lan-scan", err)
 		return err
 	}
 	if !settings.AutoScanEnabled {
 		a.logger.Debug("lan scan skipped", "reason", "auto_scan_disabled")
-		_ = a.store.RecordJobRun(ctx, "lan-scan", nil)
+		a.recordJobRun(ctx, "lan-scan", nil)
 		return nil
 	}
 	targets, err := a.store.ListScanTargets(ctx)
 	if err != nil {
-		_ = a.store.RecordJobRun(ctx, "lan-scan", err)
+		a.recordJobRun(ctx, "lan-scan", err)
 		return err
 	}
 	observations, err := a.lan.Discover(ctx, targets)
 	if err != nil && !errors.Is(err, context.Canceled) {
-		_ = a.store.RecordJobRun(ctx, "lan-scan", err)
+		a.recordJobRun(ctx, "lan-scan", err)
 		return err
 	}
 	processErr := a.processObservations(ctx, observations)
 	if processErr != nil {
-		_ = a.store.RecordJobRun(ctx, "lan-scan", processErr)
+		a.recordJobRun(ctx, "lan-scan", processErr)
 		return processErr
 	}
 	a.logger.Debug("lan scan completed", "targets", len(targets), "observations", len(observations))
-	_ = a.store.RecordJobRun(ctx, "lan-scan", nil)
+	a.recordJobRun(ctx, "lan-scan", nil)
 	return nil
 }
 
@@ -348,19 +352,19 @@ func (a *App) runMonitoring(ctx context.Context) error {
 	}
 	results, err := a.monitor.RunDueChecks(ctx)
 	if err != nil {
-		_ = a.store.RecordJobRun(ctx, "health-checks", err)
+		a.recordJobRun(ctx, "health-checks", err)
 		return err
 	}
 	for _, item := range results {
-		a.publish("check", item.CheckID, "recorded", item)
+		a.publishCheckOutcome(item)
 	}
 	discoveredChecks, err := a.runDiscoveredMonitoring(ctx)
 	if err != nil {
-		_ = a.store.RecordJobRun(ctx, "health-checks", err)
+		a.recordJobRun(ctx, "health-checks", err)
 		return err
 	}
 	a.logger.Debug("health checks completed", "checks", len(results), "discovered_checks", discoveredChecks)
-	_ = a.store.RecordJobRun(ctx, "health-checks", nil)
+	a.recordJobRun(ctx, "health-checks", nil)
 	return nil
 }
 
@@ -375,7 +379,7 @@ func (a *App) runFingerprinting(ctx context.Context) error {
 	if err == nil {
 		a.logger.Debug("service fingerprinting completed")
 	}
-	_ = a.store.RecordJobRun(ctx, "service-fingerprinting", err)
+	a.recordJobRun(ctx, "service-fingerprinting", err)
 	return err
 }
 
@@ -387,7 +391,7 @@ func (a *App) runCleanup(ctx context.Context) error {
 	if err == nil {
 		a.logger.Debug("cleanup completed")
 	}
-	_ = a.store.RecordJobRun(ctx, "cleanup", err)
+	a.recordJobRun(ctx, "cleanup", err)
 	return err
 }
 
@@ -399,19 +403,29 @@ func (a *App) processObservations(ctx context.Context, observations []domain.Obs
 	for _, observation := range observations {
 		deviceID := ""
 		if hasDevice(observation.Device) {
-			device, err := a.store.UpsertDeviceObservation(ctx, observation.Device)
+			outcome, err := a.store.UpsertDeviceObservationWithOutcome(ctx, observation.Device)
 			if err != nil {
 				return err
 			}
+			device := outcome.Device
 			deviceID = device.ID
-			a.publish("device", device.ID, "seen", device)
+			if outcome.Created {
+				a.publish("device", device.ID, "created", device)
+			} else {
+				a.publish("device", device.ID, "seen", device)
+			}
 		}
 		for _, serviceObservation := range observation.Services {
-			discovered, err := a.store.UpsertDiscoveredServiceObservation(ctx, serviceObservation, deviceID)
+			outcome, err := a.store.UpsertDiscoveredServiceObservationWithOutcome(ctx, serviceObservation, deviceID)
 			if err != nil {
 				return err
 			}
-			a.publish("discovered-service", discovered.ID, "seen", discovered)
+			discovered := outcome.DiscoveredService
+			if outcome.Created {
+				a.publish("discovered-service", discovered.ID, "created", discovered)
+			} else {
+				a.publish("discovered-service", discovered.ID, "seen", discovered)
+			}
 			if a.shouldAutoBookmark(discovered, settings) {
 				bookmark, createErr := a.CreateBookmarkFromDiscoveredService(ctx, domain.CreateBookmarkFromDiscoveredServiceInput{
 					DiscoveredServiceID: discovered.ID,
@@ -434,6 +448,33 @@ func (a *App) publish(resource, id, action string, payload any) {
 		Payload:    payload,
 		OccurredAt: time.Now().UTC(),
 	})
+}
+
+func (a *App) publishCheckOutcome(outcome domain.CheckResultOutcome) {
+	a.publish("check", outcome.Result.CheckID, "recorded", outcome.Result)
+	if outcome.ServiceStatusChanged {
+		a.publish("service", outcome.Service.ID, "health_changed", outcome)
+	}
+	if outcome.CheckFailedTransition {
+		a.publish("check", outcome.Check.ID, "failed", outcome)
+	}
+	if outcome.CheckRecoveredTransition {
+		a.publish("check", outcome.Check.ID, "recovered", outcome)
+	}
+}
+
+func (a *App) recordJobRun(ctx context.Context, name string, runErr error) {
+	outcome, err := a.store.RecordJobRunWithOutcome(ctx, name, runErr)
+	if err != nil {
+		a.logger.Warn("failed to record job run", "job", name, "err", err)
+		return
+	}
+	if outcome.Failed {
+		a.publish("worker", name, "failed", outcome)
+	}
+	if outcome.Recovered {
+		a.publish("worker", name, "recovered", outcome)
+	}
 }
 
 func (a *App) seedDockerEndpoints(existing []domain.DockerEndpointSeed) []domain.DockerEndpointSeed {

@@ -23,6 +23,7 @@ export default function AppShell({
   dashboard,
   error,
   notice,
+  notifications,
   onNavigate,
   onRefresh,
   onRunDiscovery,
@@ -37,6 +38,8 @@ export default function AppShell({
     devices: summary.devicesSeen,
     discovery: summary.discoveredServices + (settings?.dockerEndpoints?.length ?? 0),
     health: issuesCount,
+    notifications:
+      (notifications?.channels?.length ?? 0) + (notifications?.rules?.length ?? 0),
     services: summary.totalServices,
     settings: settings?.apiAccess?.tokens?.length ?? 0,
   };
