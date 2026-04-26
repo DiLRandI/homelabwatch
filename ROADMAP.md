@@ -4,6 +4,13 @@ HomelabWatch is moving from "feature-rich MVP" to "polished open-source control
 plane." The roadmap favors structural cleanup, calmer UX, and release
 confidence over net-new surface area.
 
+## Current State
+
+- Latest tagged release: `v0.5.0`.
+- `main` is past `v0.5.0` with Go module and frontend package refreshes.
+- Core product surfaces are implemented; pending work is mostly launch
+  readiness, release validation, and incremental domain/read-model hardening.
+
 ## Active Direction
 
 ### Cohesive Control Plane

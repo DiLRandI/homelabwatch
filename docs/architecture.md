@@ -9,7 +9,7 @@ HomelabWatch is a single-process control plane:
 
 ```mermaid
 flowchart LR
-    UI["Browser UI<br/>React app with focused screens<br/>Dashboard, bookmarks, apps<br/>Discovery, devices, health<br/>Definitions, settings, theme"]
+    UI["Browser UI<br/>React app with focused screens<br/>Dashboard, bookmarks, services<br/>Discovery, devices, health<br/>Definitions, settings, theme"]
     API["HTTP API<br/>/api/ui/v1/* browser API<br/>/api/external/v1/* token API<br/>Legacy /api/v1/* support<br/>Trusted writes and CSRF"]
     APP["App Layer<br/>Product behavior and flow<br/>Setup, discovery, monitoring<br/>Bookmarks, definitions, events<br/>Transport and store coordination"]
     WORKERS["Workers<br/>Docker polling and sync<br/>LAN scan and identity updates<br/>Fingerprinting, checks, cleanup"]

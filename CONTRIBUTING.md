@@ -53,7 +53,7 @@ cd web && npm run build
 - `web/src/app`: app shell and route-level screens
 - `web/src/components`: shared UI primitives and screen sections
 - `web/src/hooks`: screen/bootstrap data loading and SSE integration
-- `docs`: architecture, domain, and operations documentation
+- `docs`: architecture, domain, operations, and launch-readiness documentation
 
 ## Change Expectations
 
