@@ -11,8 +11,12 @@ import {
   createDockerEndpoint,
   createNotificationChannel,
   createNotificationRule,
+  createStatusPage,
+  createStatusPageAnnouncement,
   createScanTarget,
   createService,
+  deleteStatusPage,
+  deleteStatusPageAnnouncement,
   deleteNotificationChannel,
   deleteNotificationRule,
   deleteServiceCheck,
@@ -33,6 +37,8 @@ import {
   runMonitoringJob,
   testNotificationChannel,
   testServiceCheck,
+  updateStatusPage,
+  updateStatusPageAnnouncement,
   updateNotificationChannel,
   updateNotificationRule,
   updateServiceCheck,
@@ -41,12 +47,14 @@ import {
   updateBookmark,
   updateFolder,
   uploadBookmarkAsset,
+  replaceStatusPageServices,
 } from "../lib/api";
 import { useBookmarksData } from "./useBookmarksData";
 import { useDashboardData } from "./useDashboardData";
 import { useNotificationsData } from "./useNotificationsData";
 import { useSettingsData } from "./useSettingsData";
 import { useServerEvents } from "./useServerEvents";
+import { useStatusPagesData } from "./useStatusPagesData";
 import { useUIBootstrap } from "./useUIBootstrap";
 
 const REFRESH_DEBOUNCE_MS = 1500;
@@ -62,6 +70,7 @@ export function useHomelabwatchApp() {
     dashboard: { dirty: false, maxTimerID: null, timerID: null },
     notifications: { dirty: false, maxTimerID: null, timerID: null },
     settings: { dirty: false, maxTimerID: null, timerID: null },
+    statusPages: { dirty: false, maxTimerID: null, timerID: null },
   });
   const bootstrap = useUIBootstrap({ onError: setError });
   const dashboardState = useDashboardData({ onError: setError });
@@ -71,6 +80,7 @@ export function useHomelabwatchApp() {
     onTrustedNetworkChange: bootstrap.setTrustedNetwork,
   });
   const notificationsState = useNotificationsData({ onError: setError });
+  const statusPagesState = useStatusPagesData({ onError: setError });
 
   function clearRefreshTimers(kind) {
     const state = refreshStateRef.current[kind];
@@ -114,6 +124,8 @@ export function useHomelabwatchApp() {
         return loadSettings();
       case "notifications":
         return loadNotifications();
+      case "statusPages":
+        return loadStatusPages();
       default:
         return loadDashboard();
     }
@@ -162,6 +174,7 @@ export function useHomelabwatchApp() {
       loadSettings(),
       loadBookmarksWorkspace(),
       loadNotifications(),
+      loadStatusPages(),
     ]);
   }
 
@@ -221,7 +234,17 @@ export function useHomelabwatchApp() {
     "scan-target": () => queueRefreshes("settings"),
     service: () => queueRefreshes("dashboard", "bookmarks"),
     "service-definition": () => queueRefreshes("dashboard", "settings"),
+    "status-page": () => queueRefreshes("statusPages"),
+    "status-page-announcement": () => queueRefreshes("statusPages"),
   });
+
+  async function loadStatusPages() {
+    return Boolean(await statusPagesState.loadStatusPages());
+  }
+
+  async function loadStatusPage(id) {
+    return statusPagesState.loadStatusPage(id);
+  }
 
   async function submitSetup(payload) {
     return performAction(async () => {
@@ -329,6 +352,66 @@ export function useHomelabwatchApp() {
       await deleteNotificationRule(id, bootstrap.csrfToken);
       await loadNotifications();
     }, "Notification rule deleted.");
+  }
+
+  async function saveStatusPage(payload) {
+    try {
+      setError("");
+      setNotice("");
+      const saved = payload.id
+        ? await updateStatusPage(payload.id, payload, bootstrap.csrfToken)
+        : await createStatusPage(payload, bootstrap.csrfToken);
+      await statusPagesState.loadStatusPages(saved.id);
+      setNotice(payload.id ? "Status page saved." : "Status page created.");
+      return saved;
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function removeStatusPage(id) {
+    return performAction(async () => {
+      await deleteStatusPage(id, bootstrap.csrfToken);
+      await statusPagesState.loadStatusPages();
+    }, "Status page deleted.");
+  }
+
+  async function saveStatusPageServices(pageId, services) {
+    try {
+      setError("");
+      setNotice("");
+      const saved = await replaceStatusPageServices(pageId, services, bootstrap.csrfToken);
+      await statusPagesState.loadStatusPages(pageId);
+      setNotice("Status page services updated.");
+      return saved;
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function saveStatusPageAnnouncement(pageId, payload) {
+    try {
+      setError("");
+      setNotice("");
+      const saved = payload.id
+        ? await updateStatusPageAnnouncement(payload.id, payload, bootstrap.csrfToken)
+        : await createStatusPageAnnouncement(pageId, payload, bootstrap.csrfToken);
+      await statusPagesState.loadStatusPages(pageId);
+      setNotice("Status page announcement saved.");
+      return saved;
+    } catch (requestError) {
+      setError(requestError.message);
+      return null;
+    }
+  }
+
+  async function removeStatusPageAnnouncement(pageId, id) {
+    return performAction(async () => {
+      await deleteStatusPageAnnouncement(id, bootstrap.csrfToken);
+      await statusPagesState.loadStatusPages(pageId);
+    }, "Status page announcement deleted.");
   }
 
   async function saveServiceDefinitionRecord(payload) {
@@ -557,11 +640,14 @@ export function useHomelabwatchApp() {
       ignoreSuggestion,
       importBookmarksData,
       loadServiceHealthChecks,
+      loadStatusPage,
       refreshAll,
       removeBookmark,
       removeFolder,
       removeNotificationChannel,
       removeNotificationRule,
+      removeStatusPage,
+      removeStatusPageAnnouncement,
       removeServiceDefinitionRecord,
       removeServiceHealthCheck,
       restoreSuggestion,
@@ -571,6 +657,9 @@ export function useHomelabwatchApp() {
       runServiceCheckTest,
       saveNotificationChannel,
       saveNotificationRule,
+      saveStatusPage,
+      saveStatusPageAnnouncement,
+      saveStatusPageServices,
       sendNotificationTest,
       saveBookmark,
       saveBookmarkFromDiscoveredService,
@@ -603,6 +692,7 @@ export function useHomelabwatchApp() {
       folders: bookmarksState.folders,
       notifications: notificationsState.notifications,
       settings: settingsState.settings,
+      statusPages: statusPagesState.statusPages,
       tags: bookmarksState.tags,
     },
   };

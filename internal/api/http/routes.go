@@ -30,6 +30,8 @@ func (r *Router) registerBootstrapRoutes(mux *http.ServeMux) {
 func (r *Router) registerUIRoutes(mux *http.ServeMux) {
 	openRoutes := []routeSpec{
 		{method: http.MethodGet, path: "/api/ui/v1/dashboard", handler: r.handleDashboard},
+		{method: http.MethodGet, path: "/api/ui/v1/status-pages", handler: r.handleStatusPages},
+		{method: http.MethodGet, path: "/api/ui/v1/status-pages/{id}", handler: r.handleStatusPageByID},
 		{method: http.MethodGet, path: "/api/ui/v1/settings", handler: r.handleSettings},
 		{method: http.MethodGet, path: "/api/ui/v1/services", handler: r.handleServices},
 		{method: http.MethodGet, path: "/api/ui/v1/services/{id}", handler: r.handleServiceByID},
@@ -53,6 +55,13 @@ func (r *Router) registerUIRoutes(mux *http.ServeMux) {
 	}
 
 	trustedRoutes := []routeSpec{
+		{method: http.MethodPost, path: "/api/ui/v1/status-pages", handler: r.handleStatusPages},
+		{method: http.MethodPatch, path: "/api/ui/v1/status-pages/{id}", handler: r.handleStatusPageByID},
+		{method: http.MethodDelete, path: "/api/ui/v1/status-pages/{id}", handler: r.handleStatusPageByID},
+		{method: http.MethodPut, path: "/api/ui/v1/status-pages/{id}/services", handler: r.handleStatusPageServices},
+		{method: http.MethodPost, path: "/api/ui/v1/status-pages/{id}/announcements", handler: r.handleStatusPageAnnouncements},
+		{method: http.MethodPatch, path: "/api/ui/v1/status-page-announcements/{id}", handler: r.handleStatusPageAnnouncementByID},
+		{method: http.MethodDelete, path: "/api/ui/v1/status-page-announcements/{id}", handler: r.handleStatusPageAnnouncementByID},
 		{method: http.MethodPost, path: "/api/ui/v1/settings/api-tokens", handler: r.handleAPITokens},
 		{method: http.MethodDelete, path: "/api/ui/v1/settings/api-tokens/{id}", handler: r.handleAPITokenByID},
 		{method: http.MethodPost, path: "/api/ui/v1/services", handler: r.handleServices},

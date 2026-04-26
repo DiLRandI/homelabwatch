@@ -11,6 +11,8 @@ const EVENT_TYPES = [
   "scan-target",
   "discovered-service",
   "service-definition",
+  "status-page",
+  "status-page-announcement",
 ];
 
 export function useServerEvents(enabled, handlers = {}, debounceMs = 200) {

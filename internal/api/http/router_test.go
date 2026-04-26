@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -82,6 +83,34 @@ func TestExternalTokenRoutesEnforceScope(t *testing.T) {
 	handler.ServeHTTP(writeRec, writeReq)
 	if writeRec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected read token to fail write route, got %d", writeRec.Code)
+	}
+}
+
+func TestPublicStatusPageRouteAndStaticFallback(t *testing.T) {
+	handler, application, _, cfg := newRouterTestHarness(t)
+	bootstrapTestApp(t, application)
+	if err := os.WriteFile(filepath.Join(cfg.StaticDir, "index.html"), []byte("<html>app</html>"), 0o644); err != nil {
+		t.Fatalf("write index: %v", err)
+	}
+	if _, err := application.SaveStatusPage(context.Background(), domain.StatusPageInput{Slug: "example", Title: "Example"}); err != nil {
+		t.Fatalf("save status page: %v", err)
+	}
+
+	publicReq := httptest.NewRequest(http.MethodGet, "/api/public/v1/status-pages/example", nil)
+	publicRec := httptest.NewRecorder()
+	handler.ServeHTTP(publicRec, publicReq)
+	if publicRec.Code != http.StatusOK {
+		t.Fatalf("expected public json, got %d", publicRec.Code)
+	}
+	if !strings.Contains(publicRec.Header().Get("Content-Type"), "application/json") {
+		t.Fatalf("expected json content type, got %q", publicRec.Header().Get("Content-Type"))
+	}
+
+	staticReq := httptest.NewRequest(http.MethodGet, "/status/example", nil)
+	staticRec := httptest.NewRecorder()
+	handler.ServeHTTP(staticRec, staticReq)
+	if staticRec.Code != http.StatusOK || !strings.Contains(staticRec.Body.String(), "<html>app</html>") {
+		t.Fatalf("expected status route to fall through to static index, got %d %q", staticRec.Code, staticRec.Body.String())
 	}
 }
 

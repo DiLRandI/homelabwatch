@@ -9,7 +9,9 @@ import NotificationsScreen from "./app/screens/NotificationsScreen";
 import OverviewScreen from "./app/screens/OverviewScreen";
 import ServicesScreen from "./app/screens/ServicesScreen";
 import SettingsScreen from "./app/screens/SettingsScreen";
+import StatusPagesScreen from "./app/screens/StatusPagesScreen";
 import BootstrapScreen from "./components/bootstrap/BootstrapScreen";
+import PublicStatusPageScreen from "./components/status-pages/PublicStatusPageScreen";
 import {
   DevicesIcon,
   DiscoveryIcon,
@@ -20,7 +22,9 @@ import {
 import EmptyState from "./components/ui/EmptyState";
 import Shell from "./components/ui/Shell";
 import { useHomelabwatchApp } from "./hooks/useHomelabwatchApp";
+import { usePublicStatusPage } from "./hooks/usePublicStatusPage";
 import { useThemePreference } from "./hooks/useThemePreference";
+import { isPublicStatusPath, statusSlugFromPath } from "./app/routes";
 
 const DEFAULT_SUMMARY = {
   bookmarks: 0,
@@ -87,9 +91,29 @@ function countByDevice(items = []) {
 }
 
 export default function App() {
-  const app = useHomelabwatchApp();
   const { theme, toggleTheme } = useThemePreference();
-  const { navigate, route } = useAppRoute();
+  const { route } = useAppRoute();
+  const pathname = window.location.pathname;
+
+  if (isPublicStatusPath(pathname)) {
+    return (
+      <Shell onToggleTheme={toggleTheme} theme={theme}>
+        <PublicStatusApp slug={statusSlugFromPath(pathname)} />
+      </Shell>
+    );
+  }
+
+  return <ManagementApp route={route} theme={theme} toggleTheme={toggleTheme} />;
+}
+
+function PublicStatusApp({ slug }) {
+  const statusPage = usePublicStatusPage(slug);
+  return <PublicStatusPageScreen {...statusPage} />;
+}
+
+function ManagementApp({ route, theme, toggleTheme }) {
+  const app = useHomelabwatchApp();
+  const { navigate } = useAppRoute();
   const dashboard = app.data.dashboard;
   const settings = app.data.settings;
   const summary = dashboard?.summary ?? DEFAULT_SUMMARY;
@@ -190,6 +214,29 @@ export default function App() {
         />
       );
       break;
+    case "status-pages":
+      content = (
+        <StatusPagesScreen
+          canManageUI={app.bootstrap.trustedNetwork}
+          dashboard={dashboard}
+          onCreatePage={() =>
+            void app.actions.saveStatusPage({
+              enabled: true,
+              slug: `status-${Date.now().toString(36)}`,
+              title: "New Status Page",
+              description: "",
+            })
+          }
+          onDeleteAnnouncement={app.actions.removeStatusPageAnnouncement}
+          onDeletePage={app.actions.removeStatusPage}
+          onSaveAnnouncement={app.actions.saveStatusPageAnnouncement}
+          onSavePage={app.actions.saveStatusPage}
+          onSaveServices={app.actions.saveStatusPageServices}
+          onSelectPage={app.actions.loadStatusPage}
+          statusPages={app.data.statusPages}
+        />
+      );
+      break;
     case "definitions":
       content = (
         <DefinitionsScreen
@@ -253,6 +300,7 @@ export default function App() {
           onRunDiscovery={app.actions.runDiscovery}
           onRunMonitoring={app.actions.runMonitoring}
           settings={settings}
+          statusPages={app.data.statusPages}
         >
           {content}
         </AppShell>

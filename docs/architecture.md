@@ -45,11 +45,16 @@ flowchart LR
 ## Runtime Shape
 
 1. The browser loads the React bundle served by the Go process.
-2. The UI bootstraps from `/api/ui/v1/bootstrap`.
+2. Admin UI routes bootstrap from `/api/ui/v1/bootstrap`.
 3. Screen-level data is loaded from REST endpoints under `/api/ui/v1/*`.
 4. Background workers update discovery, health, and activity state.
 5. The backend publishes SSE events to `/api/ui/v1/events`.
 6. The frontend refreshes only the affected feature slices.
+
+Public status pages are the exception to the admin bootstrap path. The React
+bundle still serves `/status/{slug}`, but that route mounts a public app that
+only calls `/api/public/v1/status-pages/{slug}`. It does not load dashboard,
+settings, bootstrap, SSE, or other admin APIs.
 
 ## Backend Boundaries
 
@@ -60,6 +65,8 @@ flowchart LR
 - handler files such as `bookmarks.go`, `bootstrap_handlers.go`,
   `discovery_handlers.go`, `inventory_handlers.go`, and
   `service_definitions.go`: resource handlers split by concern
+- `status_pages.go`: admin status-page CRUD handlers and the public JSON
+  handler for `/api/public/v1/status-pages/{slug}`
 - `security.go`: trusted-network, same-origin, CSRF, and token middleware
 
 Rules:
@@ -115,6 +122,8 @@ Current note:
 ### `web/src/app`
 
 - `App.jsx`: root composition
+- `/status/{slug}` is detected at the root and renders the public status app
+  before admin data hooks are mounted
 - `AppShell.jsx`: shared chrome, nav, metrics rail, global actions
 - `routes.js`: route metadata
 - `screens/*`: route-level ownership for the main product surfaces

@@ -38,6 +38,72 @@ export function fetchDashboard() {
   return request("/api/ui/v1/dashboard");
 }
 
+export function fetchStatusPages() {
+  return request("/api/ui/v1/status-pages");
+}
+
+export function fetchStatusPage(id) {
+  return request(`/api/ui/v1/status-pages/${id}`);
+}
+
+export function createStatusPage(payload, csrfToken) {
+  return request("/api/ui/v1/status-pages", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function updateStatusPage(id, payload, csrfToken) {
+  return request(`/api/ui/v1/status-pages/${id}`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
+  });
+}
+
+export function deleteStatusPage(id, csrfToken) {
+  return request(`/api/ui/v1/status-pages/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function replaceStatusPageServices(id, services, csrfToken) {
+  return request(`/api/ui/v1/status-pages/${id}/services`, {
+    body: JSON.stringify({ services }),
+    csrfToken,
+    method: "PUT",
+  });
+}
+
+export function createStatusPageAnnouncement(pageId, payload, csrfToken) {
+  return request(`/api/ui/v1/status-pages/${pageId}/announcements`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function updateStatusPageAnnouncement(id, payload, csrfToken) {
+  return request(`/api/ui/v1/status-page-announcements/${id}`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
+  });
+}
+
+export function deleteStatusPageAnnouncement(id, csrfToken) {
+  return request(`/api/ui/v1/status-page-announcements/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function fetchPublicStatusPage(slug) {
+  return request(`/api/public/v1/status-pages/${encodeURIComponent(slug)}`);
+}
+
 export function fetchBookmarks(params = {}) {
   const query = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {

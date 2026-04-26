@@ -1,6 +1,7 @@
 import {
   BookmarkIcon,
   BellIcon,
+  ActivityIcon,
   DatabaseIcon,
   DevicesIcon,
   DiscoveryIcon,
@@ -57,6 +58,15 @@ export const APP_ROUTES = [
     title: "Notifications",
   },
   {
+    countKey: "statusPages",
+    icon: ActivityIcon,
+    id: "status-pages",
+    label: "Status Pages",
+    path: "/status-pages",
+    subtitle: "Public health pages with curated services and announcements.",
+    title: "Status Pages",
+  },
+  {
     countKey: "discovery",
     icon: DiscoveryIcon,
     id: "discovery",
@@ -106,4 +116,15 @@ export function normalizePath(pathname) {
 export function getRoute(pathname) {
   const normalized = normalizePath(pathname);
   return APP_ROUTES.find((route) => route.path === normalized) || APP_ROUTES[0];
+}
+
+export function isPublicStatusPath(pathname) {
+  return /^\/status\/[^/]+\/?$/.test(pathname || "");
+}
+
+export function statusSlugFromPath(pathname) {
+  if (!isPublicStatusPath(pathname)) {
+    return "";
+  }
+  return decodeURIComponent(normalizePath(pathname).replace(/^\/status\//, ""));
 }
