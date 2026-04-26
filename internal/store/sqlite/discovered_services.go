@@ -120,9 +120,14 @@ func (s *Store) SaveDiscoverySettings(ctx context.Context, input domain.Discover
 }
 
 func (s *Store) UpsertDiscoveredServiceObservation(ctx context.Context, observation domain.ServiceObservation, deviceID string) (domain.DiscoveredService, error) {
+	outcome, err := s.UpsertDiscoveredServiceObservationWithOutcome(ctx, observation, deviceID)
+	return outcome.DiscoveredService, err
+}
+
+func (s *Store) UpsertDiscoveredServiceObservationWithOutcome(ctx context.Context, observation domain.ServiceObservation, deviceID string) (domain.DiscoveredServiceObservationOutcome, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return domain.DiscoveredService{}, err
+		return domain.DiscoveredServiceObservationOutcome{}, err
 	}
 	defer tx.Rollback()
 
@@ -135,7 +140,7 @@ func (s *Store) UpsertDiscoveredServiceObservation(ctx context.Context, observat
 
 	record, found, err := s.lookupDiscoveredServiceByMergeKeyTx(ctx, tx, mergeKey)
 	if err != nil {
-		return domain.DiscoveredService{}, err
+		return domain.DiscoveredServiceObservationOutcome{}, err
 	}
 	if !found {
 		record = discoveredServiceRecord{
@@ -192,7 +197,7 @@ func (s *Store) UpsertDiscoveredServiceObservation(ctx context.Context, observat
 
 	settings, err := s.discoverySettingsTx(ctx, tx)
 	if err != nil {
-		return domain.DiscoveredService{}, err
+		return domain.DiscoveredServiceObservationOutcome{}, err
 	}
 	record.AutomationMode = settings.BookmarkPolicy
 	if record.HealthConfigMode == "" {
@@ -200,16 +205,20 @@ func (s *Store) UpsertDiscoveredServiceObservation(ctx context.Context, observat
 	}
 
 	if err := s.saveDiscoveredServiceTx(ctx, tx, record); err != nil {
-		return domain.DiscoveredService{}, err
+		return domain.DiscoveredServiceObservationOutcome{}, err
 	}
 	if err := s.upsertDiscoveredEvidenceTx(ctx, tx, record.ID, observation, fingerprint, now); err != nil {
-		return domain.DiscoveredService{}, err
+		return domain.DiscoveredServiceObservationOutcome{}, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return domain.DiscoveredService{}, err
+		return domain.DiscoveredServiceObservationOutcome{}, err
 	}
-	return s.GetDiscoveredService(ctx, record.ID)
+	discovered, err := s.GetDiscoveredService(ctx, record.ID)
+	if err != nil {
+		return domain.DiscoveredServiceObservationOutcome{}, err
+	}
+	return domain.DiscoveredServiceObservationOutcome{DiscoveredService: discovered, Created: !found}, nil
 }
 
 func (s *Store) ListDiscoveredServices(ctx context.Context) ([]domain.DiscoveredService, error) {

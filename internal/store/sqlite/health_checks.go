@@ -180,16 +180,22 @@ func (s *Store) DeleteServiceCheck(ctx context.Context, id string) error {
 }
 
 func (s *Store) SaveCheckResult(ctx context.Context, result domain.CheckResult) error {
+	_, err := s.SaveCheckResultWithOutcome(ctx, result)
+	return err
+}
+
+func (s *Store) SaveCheckResultWithOutcome(ctx context.Context, result domain.CheckResult) (domain.CheckResultOutcome, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return domain.CheckResultOutcome{}, err
 	}
 	defer tx.Rollback()
 
 	check, intervalSeconds, err := s.getHealthCheckTx(ctx, tx, result.CheckID)
 	if err != nil {
-		return err
+		return domain.CheckResultOutcome{}, err
 	}
+	outcome := domain.CheckResultOutcome{Check: check}
 	if result.ID == "" {
 		result.ID = newID("hcr")
 	}
@@ -204,15 +210,17 @@ func (s *Store) SaveCheckResult(ctx context.Context, result domain.CheckResult) 
 			id, health_check_id, subject_type, subject_id, status, latency_ms, message, checked_at, http_status_code, response_size_bytes
 		) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`, result.ID, result.CheckID, result.SubjectType, result.SubjectID, result.Status, result.LatencyMS, result.Message, result.CheckedAt.Format(time.RFC3339Nano), result.HTTPStatusCode, result.ResponseSizeBytes); err != nil {
-		return err
+		return domain.CheckResultOutcome{}, err
 	}
 
 	consecutiveFailures := 0
 	var currentFailures int
 	var currentLastStatus string
 	if err := tx.QueryRowContext(ctx, `SELECT consecutive_failures, COALESCE(last_status, 'unknown') FROM health_checks WHERE id = ?`, check.ID).Scan(&currentFailures, &currentLastStatus); err != nil {
-		return err
+		return domain.CheckResultOutcome{}, err
 	}
+	outcome.PreviousCheckStatus = domain.HealthStatus(currentLastStatus)
+	outcome.CurrentCheckStatus = result.Status
 	if result.Status != domain.HealthStatusHealthy {
 		if currentLastStatus != string(domain.HealthStatusHealthy) {
 			consecutiveFailures = currentFailures
@@ -225,37 +233,51 @@ func (s *Store) SaveCheckResult(ctx context.Context, result domain.CheckResult) 
 		SET target = ?, last_run_at = ?, last_status = ?, consecutive_failures = ?, next_run_at = ?, updated_at = ?
 		WHERE id = ?
 	`, servicedefs.ResolveCheckTarget(check), result.CheckedAt.Format(time.RFC3339Nano), result.Status, consecutiveFailures, nextRunAt.Format(time.RFC3339Nano), nowString(), check.ID); err != nil {
-		return err
+		return domain.CheckResultOutcome{}, err
 	}
 
 	switch check.SubjectType {
 	case domain.HealthCheckSubjectService:
 		var previousStatus string
 		if err := tx.QueryRowContext(ctx, `SELECT status FROM services WHERE id = ?`, check.SubjectID).Scan(&previousStatus); err != nil {
-			return err
+			return domain.CheckResultOutcome{}, err
 		}
+		outcome.PreviousServiceStatus = domain.HealthStatus(previousStatus)
 		nextStatus, err := s.rollupServiceStatusTx(ctx, tx, check.SubjectID)
 		if err != nil {
-			return err
+			return domain.CheckResultOutcome{}, err
 		}
+		outcome.CurrentServiceStatus = nextStatus
 		if _, err := tx.ExecContext(ctx, `UPDATE services SET status = ?, last_checked_at = ?, updated_at = ? WHERE id = ?`, nextStatus, result.CheckedAt.Format(time.RFC3339Nano), nowString(), check.SubjectID); err != nil {
-			return err
+			return domain.CheckResultOutcome{}, err
 		}
 		if previousStatus != string(nextStatus) {
+			outcome.ServiceStatusChanged = true
 			if err := s.insertServiceEventTx(ctx, tx, check.SubjectID, "health_changed", nextStatus, firstNonEmpty(result.Message, fmt.Sprintf("service status changed to %s", nextStatus))); err != nil {
-				return err
+				return domain.CheckResultOutcome{}, err
 			}
 		}
 	case domain.HealthCheckSubjectDiscoveredService:
 		nextStatus, err := s.rollupDiscoveredServiceStatusTx(ctx, tx, check.SubjectID)
 		if err != nil {
-			return err
+			return domain.CheckResultOutcome{}, err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE discovered_services SET status = ?, last_checked_at = ?, updated_at = ? WHERE id = ?`, nextStatus, result.CheckedAt.Format(time.RFC3339Nano), nowString(), check.SubjectID); err != nil {
-			return err
+			return domain.CheckResultOutcome{}, err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return domain.CheckResultOutcome{}, err
+	}
+	outcome.Result = result
+	outcome.CheckFailedTransition = outcome.PreviousCheckStatus == domain.HealthStatusHealthy && outcome.CurrentCheckStatus != domain.HealthStatusHealthy
+	outcome.CheckRecoveredTransition = outcome.PreviousCheckStatus != "" && outcome.PreviousCheckStatus != domain.HealthStatusUnknown && outcome.PreviousCheckStatus != domain.HealthStatusHealthy && outcome.CurrentCheckStatus == domain.HealthStatusHealthy
+	if check.SubjectType == domain.HealthCheckSubjectService {
+		if service, err := s.GetService(ctx, check.SubjectID); err == nil {
+			outcome.Service = service
+		}
+	}
+	return outcome, nil
 }
 
 func (s *Store) GetChecksDue(ctx context.Context) ([]domain.MonitorCheck, error) {

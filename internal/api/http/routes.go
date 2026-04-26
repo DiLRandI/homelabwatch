@@ -47,6 +47,9 @@ func (r *Router) registerUIRoutes(mux *http.ServeMux) {
 		{method: http.MethodGet, path: "/api/ui/v1/discovery/scan-targets", handler: r.handleScanTargets},
 		{method: http.MethodGet, path: "/api/ui/v1/discovered-services", handler: r.handleDiscoveredServices},
 		{method: http.MethodGet, path: "/api/ui/v1/service-definitions", handler: r.handleServiceDefinitions},
+		{method: http.MethodGet, path: "/api/ui/v1/notifications/channels", handler: r.handleNotificationChannels},
+		{method: http.MethodGet, path: "/api/ui/v1/notifications/rules", handler: r.handleNotificationRules},
+		{method: http.MethodGet, path: "/api/ui/v1/notifications/deliveries", handler: r.handleNotificationDeliveries},
 	}
 
 	trustedRoutes := []routeSpec{
@@ -88,6 +91,13 @@ func (r *Router) registerUIRoutes(mux *http.ServeMux) {
 		{method: http.MethodPatch, path: "/api/ui/v1/service-definitions/{id}", handler: r.handleServiceDefinitionByID},
 		{method: http.MethodDelete, path: "/api/ui/v1/service-definitions/{id}", handler: r.handleServiceDefinitionByID},
 		{method: http.MethodPost, path: "/api/ui/v1/service-definitions/{id}/reapply", handler: r.handleServiceDefinitionReapply},
+		{method: http.MethodPost, path: "/api/ui/v1/notifications/channels", handler: r.handleNotificationChannels},
+		{method: http.MethodPatch, path: "/api/ui/v1/notifications/channels/{id}", handler: r.handleNotificationChannelByID},
+		{method: http.MethodDelete, path: "/api/ui/v1/notifications/channels/{id}", handler: r.handleNotificationChannelByID},
+		{method: http.MethodPost, path: "/api/ui/v1/notifications/channels/{id}/test", handler: r.handleNotificationChannelTest},
+		{method: http.MethodPost, path: "/api/ui/v1/notifications/rules", handler: r.handleNotificationRules},
+		{method: http.MethodPatch, path: "/api/ui/v1/notifications/rules/{id}", handler: r.handleNotificationRuleByID},
+		{method: http.MethodDelete, path: "/api/ui/v1/notifications/rules/{id}", handler: r.handleNotificationRuleByID},
 	}
 
 	for _, route := range openRoutes {
@@ -154,6 +164,16 @@ func (r *Router) registerTokenRoutes(mux *http.ServeMux, prefix string) {
 		{method: http.MethodPatch, path: "/service-definitions/{id}", scope: domain.TokenScopeWrite, handler: r.handleServiceDefinitionByID},
 		{method: http.MethodDelete, path: "/service-definitions/{id}", scope: domain.TokenScopeWrite, handler: r.handleServiceDefinitionByID},
 		{method: http.MethodPost, path: "/service-definitions/{id}/reapply", scope: domain.TokenScopeWrite, handler: r.handleServiceDefinitionReapply},
+		{method: http.MethodGet, path: "/notifications/channels", scope: domain.TokenScopeRead, handler: r.handleNotificationChannels},
+		{method: http.MethodPost, path: "/notifications/channels", scope: domain.TokenScopeWrite, handler: r.handleNotificationChannels},
+		{method: http.MethodPatch, path: "/notifications/channels/{id}", scope: domain.TokenScopeWrite, handler: r.handleNotificationChannelByID},
+		{method: http.MethodDelete, path: "/notifications/channels/{id}", scope: domain.TokenScopeWrite, handler: r.handleNotificationChannelByID},
+		{method: http.MethodPost, path: "/notifications/channels/{id}/test", scope: domain.TokenScopeWrite, handler: r.handleNotificationChannelTest},
+		{method: http.MethodGet, path: "/notifications/rules", scope: domain.TokenScopeRead, handler: r.handleNotificationRules},
+		{method: http.MethodPost, path: "/notifications/rules", scope: domain.TokenScopeWrite, handler: r.handleNotificationRules},
+		{method: http.MethodPatch, path: "/notifications/rules/{id}", scope: domain.TokenScopeWrite, handler: r.handleNotificationRuleByID},
+		{method: http.MethodDelete, path: "/notifications/rules/{id}", scope: domain.TokenScopeWrite, handler: r.handleNotificationRuleByID},
+		{method: http.MethodGet, path: "/notifications/deliveries", scope: domain.TokenScopeRead, handler: r.handleNotificationDeliveries},
 	}
 
 	for _, route := range routes {

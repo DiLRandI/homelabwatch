@@ -1,5 +1,6 @@
 import {
   BookmarkIcon,
+  BellIcon,
   DatabaseIcon,
   DevicesIcon,
   DiscoveryIcon,
@@ -45,6 +46,15 @@ export const APP_ROUTES = [
     path: "/health",
     subtitle: "Health checks, test flows, and monitored service status.",
     title: "Health",
+  },
+  {
+    countKey: "notifications",
+    icon: BellIcon,
+    id: "notifications",
+    label: "Notifications",
+    path: "/notifications",
+    subtitle: "Webhook and ntfy delivery channels, routing rules, and recent delivery history.",
+    title: "Notifications",
   },
   {
     countKey: "discovery",

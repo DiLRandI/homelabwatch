@@ -905,30 +905,45 @@ func (s *Store) UpdateDevice(ctx context.Context, id string, displayName *string
 }
 
 func (s *Store) UpsertDeviceObservation(ctx context.Context, observation domain.DeviceObservation) (domain.Device, error) {
+	outcome, err := s.UpsertDeviceObservationWithOutcome(ctx, observation)
+	return outcome.Device, err
+}
+
+func (s *Store) UpsertDeviceObservationWithOutcome(ctx context.Context, observation domain.DeviceObservation) (domain.DeviceObservationOutcome, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return domain.Device{}, err
+		return domain.DeviceObservationOutcome{}, err
 	}
 	defer tx.Rollback()
 	if observation.LastSeenAt.IsZero() {
 		observation.LastSeenAt = time.Now().UTC()
 	}
+	created := false
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM devices WHERE identity_key = ? OR (? <> '' AND primary_mac = ?)`, observation.IdentityKey, observation.PrimaryMAC, observation.PrimaryMAC).Scan(&exists); err != nil {
+		return domain.DeviceObservationOutcome{}, err
+	}
+	created = exists == 0
 	device, err := s.findOrCreateDeviceTx(ctx, tx, observation)
 	if err != nil {
-		return domain.Device{}, err
+		return domain.DeviceObservationOutcome{}, err
 	}
 	if err := s.upsertDeviceAddressTx(ctx, tx, device.ID, observation); err != nil {
-		return domain.Device{}, err
+		return domain.DeviceObservationOutcome{}, err
 	}
 	for _, port := range observation.Ports {
 		if err := s.upsertDevicePortTx(ctx, tx, device.ID, port, observation.LastSeenAt); err != nil {
-			return domain.Device{}, err
+			return domain.DeviceObservationOutcome{}, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return domain.Device{}, err
+		return domain.DeviceObservationOutcome{}, err
 	}
-	return s.GetDevice(ctx, device.ID)
+	saved, err := s.GetDevice(ctx, device.ID)
+	if err != nil {
+		return domain.DeviceObservationOutcome{}, err
+	}
+	return domain.DeviceObservationOutcome{Device: saved, Created: created}, nil
 }
 
 func (s *Store) findOrCreateDeviceTx(ctx context.Context, tx *sql.Tx, observation domain.DeviceObservation) (domain.Device, error) {
@@ -1202,20 +1217,39 @@ func (s *Store) legacyCleanup(ctx context.Context, retain time.Duration) error {
 }
 
 func (s *Store) RecordJobRun(ctx context.Context, jobName string, runErr error) error {
+	_, err := s.RecordJobRunWithOutcome(ctx, jobName, runErr)
+	return err
+}
+
+func (s *Store) RecordJobRunWithOutcome(ctx context.Context, jobName string, runErr error) (domain.JobRunOutcome, error) {
 	now := nowString()
 	lastSuccess := ""
 	lastError := ""
+	var previousFailures int
+	_ = s.reader().QueryRowContext(ctx, `SELECT consecutive_failures FROM job_state WHERE job_name = ?`, jobName).Scan(&previousFailures)
+	nextFailures := 0
 	if runErr == nil {
 		lastSuccess = now
 	} else {
 		lastError = runErr.Error()
+		nextFailures = previousFailures + 1
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO job_state(job_name, last_run_at, last_success_at, last_error, updated_at) VALUES(?, ?, ?, ?, ?) ON CONFLICT(job_name) DO UPDATE SET last_run_at = excluded.last_run_at, last_success_at = CASE WHEN excluded.last_success_at <> '' THEN excluded.last_success_at ELSE job_state.last_success_at END, last_error = excluded.last_error, updated_at = excluded.updated_at`, jobName, now, lastSuccess, lastError, now)
-	return err
+	_, err := s.db.ExecContext(ctx, `INSERT INTO job_state(job_name, last_run_at, last_success_at, last_error, updated_at, consecutive_failures) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(job_name) DO UPDATE SET last_run_at = excluded.last_run_at, last_success_at = CASE WHEN excluded.last_success_at <> '' THEN excluded.last_success_at ELSE job_state.last_success_at END, last_error = excluded.last_error, consecutive_failures = excluded.consecutive_failures, updated_at = excluded.updated_at`, jobName, now, lastSuccess, lastError, now, nextFailures)
+	if err != nil {
+		return domain.JobRunOutcome{}, err
+	}
+	return domain.JobRunOutcome{
+		JobName:             jobName,
+		Failed:              runErr != nil,
+		Recovered:           runErr == nil && previousFailures > 0,
+		ConsecutiveFailures: nextFailures,
+		LastError:           lastError,
+		AttemptedAt:         parseTime(now),
+	}, nil
 }
 
 func (s *Store) ListJobState(ctx context.Context) ([]domain.JobState, error) {
-	rows, err := s.reader().QueryContext(ctx, `SELECT job_name, COALESCE(last_run_at, ''), COALESCE(last_success_at, ''), COALESCE(last_error, ''), updated_at FROM job_state ORDER BY job_name`)
+	rows, err := s.reader().QueryContext(ctx, `SELECT job_name, COALESCE(last_run_at, ''), COALESCE(last_success_at, ''), COALESCE(last_error, ''), updated_at, consecutive_failures FROM job_state ORDER BY job_name`)
 	if err != nil {
 		return nil, err
 	}
@@ -1224,7 +1258,7 @@ func (s *Store) ListJobState(ctx context.Context) ([]domain.JobState, error) {
 	for rows.Next() {
 		var item domain.JobState
 		var lastRunAt, lastSuccessAt, updatedAt string
-		if err := rows.Scan(&item.JobName, &lastRunAt, &lastSuccessAt, &item.LastError, &updatedAt); err != nil {
+		if err := rows.Scan(&item.JobName, &lastRunAt, &lastSuccessAt, &item.LastError, &updatedAt, &item.ConsecutiveFailures); err != nil {
 			return nil, err
 		}
 		item.LastRunAt = parseTime(lastRunAt)
