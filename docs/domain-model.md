@@ -121,6 +121,48 @@ Does not own:
 
 - service metadata beyond what is required to execute the check
 
+## StatusPage
+
+Owns:
+
+- public page slug, title, description, enabled state, and timestamps
+- ordered service assignments for the page
+- page-level announcements
+
+References:
+
+- selected services by `serviceId`
+
+Does not own:
+
+- service URL, host, device, source reference, or raw check output
+- authentication or external API token behavior
+
+## StatusPageService
+
+Owns:
+
+- status-page-to-service membership
+- public display name override
+- sort order within the page
+
+Does not own:
+
+- the underlying service record
+- health-check execution or result storage
+
+## StatusPageAnnouncement
+
+Owns:
+
+- announcement kind: `info`, `maintenance`, `incident`, or `resolved`
+- title, message, optional start/end window, and timestamps
+
+Does not own:
+
+- service health state
+- user comments or subscription state
+
 ## ServiceDefinition
 
 Owns:

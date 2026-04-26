@@ -452,6 +452,13 @@ func (a *App) publish(resource, id, action string, payload any) {
 
 func (a *App) publishCheckOutcome(outcome domain.CheckResultOutcome) {
 	a.publish("check", outcome.Result.CheckID, "recorded", outcome.Result)
+	if outcome.Result.SubjectType == domain.HealthCheckSubjectService || outcome.Result.ServiceID != "" {
+		serviceID := firstNonEmpty(outcome.Result.ServiceID, outcome.Result.SubjectID, outcome.Check.ServiceID, outcome.Check.SubjectID)
+		a.publish("status-page", "all", "health_updated", map[string]any{
+			"serviceId": serviceID,
+			"status":    outcome.CurrentServiceStatus,
+		})
+	}
 	if outcome.ServiceStatusChanged {
 		a.publish("service", outcome.Service.ID, "health_changed", outcome)
 	}

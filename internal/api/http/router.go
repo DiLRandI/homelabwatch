@@ -35,6 +35,7 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc(routePattern(http.MethodGet, "/healthz"), router.healthz)
 	router.registerBootstrapRoutes(mux)
+	mux.HandleFunc(routePattern(http.MethodGet, "/api/public/v1/status-pages/{slug}"), router.handlePublicStatusPage)
 	router.registerUIRoutes(mux)
 	router.registerTokenRoutes(mux, "/api/external/v1")
 	router.registerTokenRoutes(mux, "/api/v1")

@@ -49,6 +49,8 @@ flowchart LR
   services and bookmarks
 - device inventory keyed by stable identity when possible, with MAC-aware reuse
 - health monitoring for HTTP, TCP, and ping checks
+- public status pages at `/status/{slug}` with sanitized service health and
+  announcements
 - separate open URL and health URL targeting for services that should be
   checked on a different endpoint than the one users open
 - endpoint testing before saving health-check changes
@@ -106,6 +108,7 @@ flowchart TB
   promotion
 - `Health`: monitoring status, check editing, endpoint testing, health-target
   configuration
+- `Status Pages`: curated public service health pages and announcements
 - `Discovery`: Docker endpoints, scan targets, policy, and discovered-service
   review
 - `Devices`: device inventory, IPs, MACs, visibility, attached services
@@ -158,6 +161,20 @@ Then open `http://localhost:8080`.
 On a fresh `/data` volume, HomelabWatch starts with a setup wizard in the
 browser. The UI stays open for trusted LAN clients. External automation tokens
 are created later from `Settings > API access`.
+
+## Status Pages
+
+Status pages are managed from `/status-pages` in the admin UI. Each page has a
+URL-safe slug, selected services, optional public display names, and
+announcements.
+
+Examples:
+
+- Public page: `http://localhost:8080/status/home`
+- Public JSON: `http://localhost:8080/api/public/v1/status-pages/home`
+
+Public responses intentionally omit internal service IDs, URLs, hosts, devices,
+source references, and raw check error strings.
 
 ### Run With Docker Compose
 

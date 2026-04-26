@@ -29,6 +29,7 @@ export default function AppShell({
   onRunDiscovery,
   onRunMonitoring,
   settings,
+  statusPages,
 }) {
   const summary = dashboard?.summary ?? DEFAULT_SUMMARY;
   const issuesCount = summary.degradedServices + summary.unhealthyServices;
@@ -42,6 +43,7 @@ export default function AppShell({
       (notifications?.channels?.length ?? 0) + (notifications?.rules?.length ?? 0),
     services: summary.totalServices,
     settings: settings?.apiAccess?.tokens?.length ?? 0,
+    statusPages: statusPages?.list?.length ?? 0,
   };
 
   const navItems = APP_ROUTES.map((route) => ({
