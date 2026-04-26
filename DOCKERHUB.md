@@ -143,5 +143,5 @@ curl -H "Authorization: Bearer <token>" \
 ## Source
 
 - Repository: `https://github.com/deleema/homelabwatch`
-- Full documentation: `README.md`, `CONTRIBUTING.md`, `SECURITY.md`,
-  `ROADMAP.md`, and `docs/*` in the repository
+- Full documentation: `README.md`, `CHANGELOG.md`, `CONTRIBUTING.md`,
+  `SECURITY.md`, `ROADMAP.md`, and `docs/*` in the repository

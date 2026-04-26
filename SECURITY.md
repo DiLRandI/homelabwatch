@@ -4,7 +4,7 @@
 
 HomelabWatch is pre-`1.0`.
 
-- Latest release: supported
+- Latest tagged release, currently `v0.5.0`: supported
 - `main`: supported for active contributors
 - Older pre-release builds: best effort only
 
