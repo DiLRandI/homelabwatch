@@ -92,8 +92,7 @@ function countByDevice(items = []) {
 
 export default function App() {
   const { theme, toggleTheme } = useThemePreference();
-  const { route } = useAppRoute();
-  const pathname = window.location.pathname;
+  const { navigate, pathname, route } = useAppRoute();
 
   if (isPublicStatusPath(pathname)) {
     return (
@@ -103,7 +102,14 @@ export default function App() {
     );
   }
 
-  return <ManagementApp route={route} theme={theme} toggleTheme={toggleTheme} />;
+  return (
+    <ManagementApp
+      navigate={navigate}
+      route={route}
+      theme={theme}
+      toggleTheme={toggleTheme}
+    />
+  );
 }
 
 function PublicStatusApp({ slug }) {
@@ -111,9 +117,8 @@ function PublicStatusApp({ slug }) {
   return <PublicStatusPageScreen {...statusPage} />;
 }
 
-function ManagementApp({ route, theme, toggleTheme }) {
+function ManagementApp({ navigate, route, theme, toggleTheme }) {
   const app = useHomelabwatchApp();
-  const { navigate } = useAppRoute();
   const dashboard = app.data.dashboard;
   const settings = app.data.settings;
   const summary = dashboard?.summary ?? DEFAULT_SUMMARY;
