@@ -51,6 +51,20 @@ const setupHighlights = [
   },
 ];
 
+function SetupHighlight({ item }) {
+  return (
+    <div className="bootstrap-hero__item">
+      <span className="bootstrap-hero__icon">
+        <item.icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <h2 className="bootstrap-hero__item-title">{item.title}</h2>
+        <p className="bootstrap-hero__item-body">{item.body}</p>
+      </div>
+    </div>
+  );
+}
+
 function StepPill({ active, complete, index, step }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-line bg-panel-strong px-4 py-3 shadow-sm">
@@ -112,51 +126,38 @@ export default function BootstrapScreen({
   const currentStep = steps[stepIndex];
 
   return (
-    <div className="px-4 py-6 pr-20 sm:px-6 sm:pr-24 lg:px-8">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(420px,0.88fr)]">
-        <Card className="overflow-hidden border-transparent bg-[#13233f] text-white shadow-card-lg">
-          <CardContent className="p-7 sm:p-9">
-            <Badge className="border-white/10 bg-white/10 text-white" withDot>
+    <div className="mx-auto max-w-[1560px] px-4 py-5 pr-20 sm:px-6 sm:py-6 sm:pr-24 lg:px-8">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
+        <Card className="bootstrap-hero overflow-hidden shadow-card-lg">
+          <CardContent className="p-6 sm:p-8">
+            <Badge className="bootstrap-hero__badge" withDot>
               First-run setup
             </Badge>
-            <h1 className="mt-5 max-w-2xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+            <h1 className="bootstrap-hero__title mt-5 max-w-2xl text-4xl font-semibold tracking-tight sm:text-5xl">
               Bring the lab online with a guided control-plane setup.
             </h1>
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-200 sm:text-[1rem]">
+            <p className="bootstrap-hero__copy mt-4 max-w-2xl text-sm leading-7 sm:text-[1rem]">
               HomelabWatch is tuned for a trusted local console. Configure the
               appliance once, seed discovery defaults, and move straight into
               operations without juggling bootstrap secrets in the browser.
             </p>
 
-            <div className="mt-8 grid gap-4">
+            <div className="mt-7 grid gap-3">
               {setupHighlights.map((item) => (
-                <div
-                  className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
-                  key={item.title}
-                >
-                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white">
-                    <item.icon className="h-5 w-5" />
-                  </span>
-                  <h2 className="mt-4 text-lg font-semibold text-white">
-                    {item.title}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-200">
-                    {item.body}
-                  </p>
-                </div>
+                <SetupHighlight item={item} key={item.title} />
               ))}
             </div>
 
-            <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+            <div className="bootstrap-hero__status mt-5">
               <div className="flex items-center gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-white">
+                <span className="bootstrap-hero__icon">
                   <SparklesIcon className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="text-sm font-medium text-white">
+                  <p className="bootstrap-hero__item-title">
                     {trustedNetwork ? "Trusted network detected" : "Read-only network"}
                   </p>
-                  <p className="mt-1 text-sm text-slate-200">
+                  <p className="bootstrap-hero__item-body">
                     {trustedNetwork
                       ? "Setup actions and later dashboard writes are enabled from this network."
                       : "You can review the UI here, but setup must be completed from a trusted local or LAN client."}
@@ -321,12 +322,12 @@ export default function BootstrapScreen({
 
               <Alerts error={error} notice={notice} />
 
-              <div className="flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm leading-6 text-slate-500">
+              <div className="flex flex-col gap-4 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="max-w-md text-sm leading-6 text-slate-500">
                   Step {stepIndex + 1} of {steps.length}. You can adjust
                   discovery settings later from the dashboard.
                 </p>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex shrink-0 flex-row-reverse items-center justify-start gap-3 sm:flex-row">
                   {stepIndex > 0 ? (
                     <Button onClick={() => setStepIndex((value) => value - 1)} variant="ghost">
                       Back
