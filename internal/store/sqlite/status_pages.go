@@ -287,7 +287,8 @@ func (s *Store) GetPublicStatusPage(ctx context.Context, slug string, now time.T
 
 func (s *Store) getStatusPageBase(ctx context.Context, queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, column, value string) (domain.StatusPage, error) {
+}, column, value string,
+) (domain.StatusPage, error) {
 	if column != "id" && column != "slug" {
 		return domain.StatusPage{}, fmt.Errorf("unsupported status page lookup %q", column)
 	}

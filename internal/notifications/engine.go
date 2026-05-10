@@ -149,7 +149,7 @@ func translateEnvelope(envelope domain.EventEnvelope) (NotificationEvent, bool) 
 	}
 }
 
-func baseEvent(eventType domain.NotificationEventType, title, message string, envelope domain.EventEnvelope, resource map[string]any, payload map[string]any) NotificationEvent {
+func baseEvent(eventType domain.NotificationEventType, title, message string, envelope domain.EventEnvelope, resource, payload map[string]any) NotificationEvent {
 	occurredAt := envelope.OccurredAt
 	if occurredAt.IsZero() {
 		occurredAt = time.Now().UTC()

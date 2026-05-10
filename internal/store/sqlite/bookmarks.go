@@ -208,7 +208,8 @@ func (s *Store) SaveBookmark(ctx context.Context, input domain.BookmarkInput) (d
 	record.FavoritePosition = input.FavoritePosition
 	record.UpdatedAt = now
 
-	if _, err := tx.ExecContext(ctx, `
+	if _, err := tx.ExecContext(
+		ctx, `
 		INSERT INTO bookmarks(
 			id, folder_id, service_id, device_id, manual_name, manual_url, description, icon_mode,
 			icon_value, use_device_primary_address, scheme, host, port, path, position, is_favorite,

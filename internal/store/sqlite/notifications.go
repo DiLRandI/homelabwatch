@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/url"
 	"strings"
 	"time"
@@ -298,7 +299,8 @@ func (s *Store) ListNotificationDeliveries(ctx context.Context, limit int) ([]do
 
 func (s *Store) getNotificationChannel(ctx context.Context, queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
-}, id string) (domain.NotificationChannel, error) {
+}, id string,
+) (domain.NotificationChannel, error) {
 	row := queryer.QueryRowContext(ctx, `SELECT id, name, type, enabled, config_json, created_at, updated_at FROM notification_channels WHERE id = ?`, id)
 	return scanNotificationChannel(row.Scan)
 }
@@ -389,9 +391,7 @@ func mergeNotificationChannelPatch(existing, input domain.NotificationChannel) d
 
 func redactNotificationConfig(channelType domain.NotificationChannelType, config map[string]any) map[string]any {
 	next := map[string]any{}
-	for key, value := range config {
-		next[key] = value
-	}
+	maps.Copy(next, config)
 	switch channelType {
 	case domain.NotificationChannelWebhook:
 		if stringConfig(next, "url") != "" {
