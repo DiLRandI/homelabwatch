@@ -67,7 +67,7 @@ type NotificationDelivery struct {
 type CheckResultOutcome struct {
 	Result                   CheckResult  `json:"result"`
 	Check                    ServiceCheck `json:"check"`
-	Service                  Service      `json:"service,omitempty"`
+	Service                  Service      `json:"service"`
 	PreviousServiceStatus    HealthStatus `json:"previousServiceStatus,omitempty"`
 	CurrentServiceStatus     HealthStatus `json:"currentServiceStatus,omitempty"`
 	PreviousCheckStatus      HealthStatus `json:"previousCheckStatus,omitempty"`

@@ -53,8 +53,8 @@ type StatusPageAnnouncement struct {
 	Kind         StatusPageAnnouncementKind `json:"kind"`
 	Title        string                     `json:"title"`
 	Message      string                     `json:"message"`
-	StartsAt     time.Time                  `json:"startsAt,omitempty"`
-	EndsAt       time.Time                  `json:"endsAt,omitempty"`
+	StartsAt     time.Time                  `json:"startsAt"`
+	EndsAt       time.Time                  `json:"endsAt"`
 	CreatedAt    time.Time                  `json:"createdAt"`
 	UpdatedAt    time.Time                  `json:"updatedAt"`
 }
@@ -80,8 +80,8 @@ type PublicStatusPageAnnouncement struct {
 	Kind     StatusPageAnnouncementKind `json:"kind"`
 	Title    string                     `json:"title"`
 	Message  string                     `json:"message"`
-	StartsAt time.Time                  `json:"startsAt,omitempty"`
-	EndsAt   time.Time                  `json:"endsAt,omitempty"`
+	StartsAt time.Time                  `json:"startsAt"`
+	EndsAt   time.Time                  `json:"endsAt"`
 }
 
 type PublicCheckSummary struct {
@@ -110,6 +110,6 @@ type StatusPageAnnouncementInput struct {
 	Kind     StatusPageAnnouncementKind `json:"kind"`
 	Title    string                     `json:"title"`
 	Message  string                     `json:"message"`
-	StartsAt time.Time                  `json:"startsAt,omitempty"`
-	EndsAt   time.Time                  `json:"endsAt,omitempty"`
+	StartsAt time.Time                  `json:"startsAt"`
+	EndsAt   time.Time                  `json:"endsAt"`
 }

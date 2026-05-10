@@ -423,7 +423,8 @@ func (s *Store) CreateAPIToken(ctx context.Context, input domain.CreateAPITokenI
 		UpdatedAt: now,
 	}
 	sum := sha256.Sum256([]byte(secret))
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO api_tokens(id, name, scope, token_hash, token_prefix, last_used_at, revoked_at, created_at, updated_at) VALUES(?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
+	if _, err := s.db.ExecContext(
+		ctx, `INSERT INTO api_tokens(id, name, scope, token_hash, token_prefix, last_used_at, revoked_at, created_at, updated_at) VALUES(?, ?, ?, ?, ?, NULL, NULL, ?, ?)`,
 		item.ID,
 		item.Name,
 		item.Scope,

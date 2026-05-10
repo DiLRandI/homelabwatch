@@ -284,7 +284,8 @@ func (a *App) runDockerDiscovery(ctx context.Context) error {
 		}
 		if result.Err != nil {
 			failedEndpoints++
-			a.logger.Warn("docker endpoint discovery failed",
+			a.logger.Warn(
+				"docker endpoint discovery failed",
 				"endpoint_id", result.Endpoint.ID,
 				"endpoint_name", result.Endpoint.Name,
 				"err", result.Err,
@@ -302,7 +303,8 @@ func (a *App) runDockerDiscovery(ctx context.Context) error {
 		}
 		_ = a.store.UpdateDockerEndpointStatus(ctx, result.Endpoint.ID, successAt, lastError)
 	}
-	a.logger.Debug("docker discovery completed",
+	a.logger.Debug(
+		"docker discovery completed",
 		"endpoints", processedEndpoints,
 		"failed_endpoints", failedEndpoints,
 		"service_observations", serviceObservations,

@@ -50,6 +50,7 @@ type busAdapter struct {
 func (b busAdapter) Subscribe(buffer int) chan domain.EventEnvelope {
 	return b.application.SubscribeEvents(buffer)
 }
+
 func (b busAdapter) Unsubscribe(ch chan domain.EventEnvelope) { b.application.UnsubscribeEvents(ch) }
 
 func (r *Router) handleStatic(w http.ResponseWriter, req *http.Request) {
