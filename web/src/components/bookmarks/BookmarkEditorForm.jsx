@@ -8,6 +8,56 @@ function optionsFromServices(services) {
   return [...services].sort((left, right) => left.name.localeCompare(right.name));
 }
 
+function SelectField({ children, label, onChange, value }) {
+  return (
+    <label className="grid gap-2 text-sm font-medium text-ink-soft">
+      {label}
+      <select
+        className="w-full rounded-lg border border-line bg-panel-strong px-4 py-3 text-sm text-ink shadow-sm outline-hidden transition focus:border-accent focus-visible:ring-4 focus-visible:ring-accent/15"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
+        {children}
+      </select>
+    </label>
+  );
+}
+
+function FieldGroup({ children, description, title }) {
+  return (
+    <section className="grid gap-4 rounded-lg border border-line bg-panel/60 p-4">
+      <div>
+        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        {description ? (
+          <p className="mt-1 text-sm leading-6 text-muted">{description}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function CheckboxCard({ checked, children, disabled = false, onChange }) {
+  return (
+    <label
+      className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-sm transition ${
+        checked
+          ? "border-accent bg-accent/10 text-ink"
+          : "border-line bg-panel-strong text-ink-soft hover:border-line-strong"
+      } ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+    >
+      <input
+        checked={checked}
+        className="mt-0.5"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span className="leading-6">{children}</span>
+    </label>
+  );
+}
+
 export default function BookmarkEditorForm({
   bookmark = null,
   devices = [],
@@ -100,73 +150,72 @@ export default function BookmarkEditorForm({
     });
   }
 
+  const submitLabel = bookmark ? "Save bookmark" : "Create bookmark";
+
   return (
-    <form className="grid gap-4" onSubmit={handleSubmit}>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Display name"
-          onChange={(value) => setForm((current) => ({ ...current, name: value }))}
-          placeholder="Home Assistant"
-          value={form.name}
-        />
-        <label className="grid gap-2 text-sm font-medium text-slate-700">
-          Folder
-          <select
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, folderId: event.target.value }))
+    <form className="grid gap-0" onSubmit={handleSubmit}>
+      <div className="grid gap-4 pb-20">
+        <FieldGroup
+          description="Name the launcher and decide where it should live in the bookmark tree."
+          title="Bookmark details"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Display name"
+              onChange={(value) => setForm((current) => ({ ...current, name: value }))}
+              placeholder="Home Assistant"
+              value={form.name}
+            />
+            <SelectField
+              label="Folder"
+              onChange={(value) => setForm((current) => ({ ...current, folderId: value }))}
+              value={form.folderId}
+            >
+              <option value="">Unfiled</option>
+              {folders.map((folder) => (
+                <option key={folder.id} value={folder.id}>
+                  {folder.name}
+                </option>
+              ))}
+            </SelectField>
+          </div>
+
+          <SelectField
+            label="Link existing service"
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                serviceId: value,
+              }))
             }
-            value={form.folderId}
+            value={form.serviceId}
           >
-            <option value="">Unfiled</option>
-            {folders.map((folder) => (
-              <option key={folder.id} value={folder.id}>
-                {folder.name}
+            <option value="">No linked service</option>
+            {serviceOptions.map((service) => (
+              <option key={service.id} value={service.id}>
+                {service.name}
               </option>
             ))}
-          </select>
-        </label>
-      </div>
+          </SelectField>
+        </FieldGroup>
 
-      <label className="grid gap-2 text-sm font-medium text-slate-700">
-        Link existing service
-        <select
-          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
-          onChange={(event) =>
-            setForm((current) => ({
-              ...current,
-              serviceId: event.target.value,
-            }))
-          }
-          value={form.serviceId}
-        >
-          <option value="">No linked service</option>
-          {serviceOptions.map((service) => (
-            <option key={service.id} value={service.id}>
-              {service.name}
-            </option>
-          ))}
-        </select>
-      </label>
+        {!form.serviceId ? (
+          <FieldGroup
+            description="Use a direct URL, optionally tied to a known device or promoted into monitoring."
+            title="Launch target"
+          >
+            <Input
+              autoComplete="url"
+              label="Launch URL"
+              onChange={(value) => setForm((current) => ({ ...current, url: value }))}
+              placeholder="http://192.168.1.20:8123"
+              value={form.url}
+            />
 
-      {!form.serviceId ? (
-        <>
-          <Input
-            autoComplete="url"
-            label="Launch URL"
-            onChange={(value) => setForm((current) => ({ ...current, url: value }))}
-            placeholder="http://192.168.1.20:8123"
-            value={form.url}
-          />
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Attach device
-              <select
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, deviceId: event.target.value }))
-                }
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="Attach device"
+                onChange={(value) => setForm((current) => ({ ...current, deviceId: value }))}
                 value={form.deviceId}
               >
                 <option value="">No device</option>
@@ -175,126 +224,124 @@ export default function BookmarkEditorForm({
                     {device.displayName || device.hostname || device.identityKey}
                   </option>
                 ))}
-              </select>
-            </label>
+              </SelectField>
 
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <input
-                checked={form.useDevicePrimaryAddress}
-                onChange={(event) =>
+              <div className="flex items-end">
+                <CheckboxCard
+                  checked={form.useDevicePrimaryAddress}
+                  disabled={!form.deviceId}
+                  onChange={(checked) =>
+                    setForm((current) => ({
+                      ...current,
+                      useDevicePrimaryAddress: checked,
+                    }))
+                  }
+                >
+                  Use the device's current primary IP
+                </CheckboxCard>
+              </div>
+            </div>
+
+            <div className="grid gap-3">
+              <CheckboxCard
+                checked={form.monitorEnabled}
+                onChange={(checked) =>
                   setForm((current) => ({
                     ...current,
-                    useDevicePrimaryAddress: event.target.checked,
+                    monitorEnabled: checked,
                   }))
                 }
-                type="checkbox"
-              />
-              Use the device's current primary IP
-            </label>
-          </div>
+              >
+                Create a monitored service behind this bookmark
+              </CheckboxCard>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-            <input
-              checked={form.monitorEnabled}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  monitorEnabled: event.target.checked,
-                }))
-              }
-              type="checkbox"
-            />
-            Create a monitored service behind this bookmark
-          </label>
+              {form.monitorEnabled ? (
+                <CheckboxCard
+                  checked={form.serviceVisible}
+                  onChange={(checked) =>
+                    setForm((current) => ({
+                      ...current,
+                      serviceVisible: checked,
+                    }))
+                  }
+                >
+                  Show the created service in the Services inventory
+                </CheckboxCard>
+              ) : null}
+            </div>
+          </FieldGroup>
+        ) : null}
 
-          {form.monitorEnabled ? (
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <input
-                checked={form.serviceVisible}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    serviceVisible: event.target.checked,
-                  }))
-                }
-                type="checkbox"
-              />
-              Show the created service in the Services inventory
-            </label>
-          ) : null}
-        </>
-      ) : null}
-
-      <Input
-        label="Tags"
-        onChange={(value) => setForm((current) => ({ ...current, tags: value }))}
-        placeholder="monitoring, media, infrastructure"
-        value={form.tags}
-      />
-
-      <TextArea
-        label="Description"
-        onChange={(value) =>
-          setForm((current) => ({ ...current, description: value }))
-        }
-        placeholder="Optional notes shown on the bookmark card."
-        value={form.description}
-      />
-
-      <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
-        <label className="grid gap-2 text-sm font-medium text-slate-700">
-          Icon mode
-          <select
-            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none transition focus:border-accent focus:ring-4 focus:ring-accent/10"
-            onChange={(event) =>
-              setForm((current) => ({ ...current, iconMode: event.target.value }))
-            }
-            value={form.iconMode}
-          >
-            <option value="auto">Automatic</option>
-            <option value="external">External URL</option>
-            <option value="uploaded">Uploaded image</option>
-          </select>
-        </label>
-
-        {form.iconMode === "external" ? (
+        <FieldGroup
+          description="These details control how the bookmark appears in the workspace."
+          title="Card appearance"
+        >
           <Input
-            label="Icon URL"
-            onChange={(value) =>
-              setForm((current) => ({ ...current, iconValue: value }))
-            }
-            placeholder="https://example.com/icon.png"
-            value={form.iconValue}
+            label="Tags"
+            onChange={(value) => setForm((current) => ({ ...current, tags: value }))}
+            placeholder="monitoring, media, infrastructure"
+            value={form.tags}
           />
-        ) : form.iconMode === "uploaded" ? (
-          <label className="grid gap-2 text-sm font-medium text-slate-700">
-            Upload icon
-            <input
-              className="w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-              onChange={handleIconUpload}
-              type="file"
-            />
-          </label>
-        ) : (
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-            HomelabWatch will use a known service badge when possible, then fall back to the target favicon.
+
+          <TextArea
+            label="Description"
+            onChange={(value) =>
+              setForm((current) => ({ ...current, description: value }))
+            }
+            placeholder="Optional notes shown on the bookmark card."
+            rows={3}
+            value={form.description}
+          />
+
+          <div className="grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)]">
+            <SelectField
+              label="Icon mode"
+              onChange={(value) => setForm((current) => ({ ...current, iconMode: value }))}
+              value={form.iconMode}
+            >
+              <option value="auto">Automatic</option>
+              <option value="external">External URL</option>
+              <option value="uploaded">Uploaded image</option>
+            </SelectField>
+
+            {form.iconMode === "external" ? (
+              <Input
+                label="Icon URL"
+                onChange={(value) =>
+                  setForm((current) => ({ ...current, iconValue: value }))
+                }
+                placeholder="https://example.com/icon.png"
+                value={form.iconValue}
+              />
+            ) : form.iconMode === "uploaded" ? (
+              <label className="grid gap-2 text-sm font-medium text-ink-soft">
+                Upload icon
+                <input
+                  className="w-full rounded-lg border border-dashed border-line bg-panel-strong px-4 py-3 text-sm text-ink file:mr-3 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+                  onChange={handleIconUpload}
+                  type="file"
+                />
+              </label>
+            ) : (
+              <div className="rounded-lg border border-line bg-panel-strong px-4 py-3 text-sm leading-6 text-muted">
+                HomelabWatch will use a known service badge when possible, then fall back to the target favicon.
+              </div>
+            )}
           </div>
-        )}
+
+          <CheckboxCard
+            checked={form.isFavorite}
+            onChange={(checked) =>
+              setForm((current) => ({ ...current, isFavorite: checked }))
+            }
+          >
+            Pin this bookmark to the favorites strip
+          </CheckboxCard>
+        </FieldGroup>
       </div>
 
-      <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        <input
-          checked={form.isFavorite}
-          onChange={(event) =>
-            setForm((current) => ({ ...current, isFavorite: event.target.checked }))
-          }
-          type="checkbox"
-        />
-        Pin this bookmark to the favorites strip
-      </label>
-
-      <div className="flex justify-end">
-        <Button type="submit">{bookmark ? "Save bookmark" : "Create bookmark"}</Button>
+      <div className="sticky bottom-0 -mx-5 -mb-5 flex justify-end border-t border-line bg-panel-strong px-5 py-4 sm:-mx-6 sm:px-6">
+        <Button type="submit">{submitLabel}</Button>
       </div>
     </form>
   );

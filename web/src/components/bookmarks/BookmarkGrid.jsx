@@ -20,7 +20,7 @@ export default function BookmarkGrid({
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2 2xl:grid-cols-3">
+    <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
       {bookmarks.map((bookmark) => (
         <div
           draggable={canManage}

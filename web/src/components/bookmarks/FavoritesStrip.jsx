@@ -7,9 +7,9 @@ export default function FavoritesStrip({ bookmarks = [], onOpen }) {
   }
 
   return (
-    <section className="surface-warm rounded-[30px] border border-amber-400/25 p-5 shadow-card">
+    <section className="surface-warm rounded-lg border border-amber-400/25 p-5 shadow-card">
       <div className="flex items-center gap-3">
-        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-500/12 text-amber-300">
+        <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-amber-500/12 text-amber-300">
           <PinIcon className="h-5 w-5" />
         </span>
         <div>
@@ -25,7 +25,7 @@ export default function FavoritesStrip({ bookmarks = [], onOpen }) {
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {bookmarks.map((bookmark) => (
           <button
-            className="rounded-2xl border border-line bg-panel-strong px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400/35"
+            className="rounded-lg border border-line bg-panel-strong px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-400/35"
             key={bookmark.id}
             onClick={() => onOpen(bookmark)}
             type="button"
