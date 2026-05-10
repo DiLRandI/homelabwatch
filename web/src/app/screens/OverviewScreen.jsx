@@ -33,8 +33,8 @@ export default function OverviewScreen({
   const [selectedDiscoveredService, setSelectedDiscoveredService] = useState(null);
   const favorites = useMemo(() => sortFavorites(bookmarks), [bookmarks]);
   const pendingDiscoveredServices = (dashboard?.discoveredServices ?? [])
-    .filter((item) => item.state === "pending" || item.state === "ignored")
-    .slice(0, 4);
+    .filter((item) => item.state === "pending" || item.state === "ignored");
+  const visibleDiscoveredServices = pendingDiscoveredServices.slice(0, 6);
   const recentEvents = (dashboard?.recentEvents ?? []).slice(0, 6);
 
   function handleOpenBookmark(bookmark) {
@@ -66,18 +66,23 @@ export default function OverviewScreen({
     <>
       <DashboardHeader
         canManageUI={canManageUI}
+        discoveredCount={pendingDiscoveredServices.length}
         metrics={metrics}
         onOpenModal={handleDashboardAction}
         settings={settings}
       />
       <FavoritesStrip bookmarks={favorites} onOpen={handleOpenBookmark} />
-      <DiscoveredServicesPanel
-        canManage={canManageUI}
-        items={pendingDiscoveredServices}
-        onCreateBookmark={(item) => setSelectedDiscoveredService(item)}
-        onIgnore={(item) => void onIgnoreDiscoveredService(item.id)}
-        onRestore={(item) => void onRestoreDiscoveredService(item.id)}
-      />
+      {visibleDiscoveredServices.length > 0 ? (
+        <DiscoveredServicesPanel
+          canManage={canManageUI}
+          compact
+          items={visibleDiscoveredServices}
+          totalItems={pendingDiscoveredServices.length}
+          onCreateBookmark={(item) => setSelectedDiscoveredService(item)}
+          onIgnore={(item) => void onIgnoreDiscoveredService(item.id)}
+          onRestore={(item) => void onRestoreDiscoveredService(item.id)}
+        />
+      ) : null}
       <WorkersSection
         jobState={settings?.jobState ?? []}
         recentEvents={recentEvents}
