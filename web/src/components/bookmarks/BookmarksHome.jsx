@@ -212,21 +212,21 @@ export default function BookmarksHome({
   return (
     <>
       <section className="grid gap-6" id="bookmarks">
-        <div className="surface-hero rounded-[34px] border border-line p-6 shadow-card">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <div className="surface-hero rounded-lg border border-line p-5 shadow-card">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-accent-strong">
-                Primary navigation
+                Bookmark workspace
               </p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-ink">
-                Launch the homelab from one curated workspace
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink">
+                Launch saved services without hunting for ports
               </h2>
-              <p className="mt-3 text-sm leading-7 text-muted">
-                Discovery turns services into bookmarks, folders keep them ordered, and health badges make the next click obvious.
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Folders shape the navigation, tags narrow the list, and health badges keep the next click visible.
               </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[420px]">
-              <div className="rounded-3xl border border-line bg-panel px-4 py-4 shadow-sm">
+            <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[360px]">
+              <div className="rounded-lg border border-line bg-panel px-4 py-3 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   Total bookmarks
                 </p>
@@ -234,7 +234,7 @@ export default function BookmarksHome({
                   {bookmarks.length}
                 </p>
               </div>
-              <div className="rounded-3xl border border-line bg-panel px-4 py-4 shadow-sm">
+              <div className="rounded-lg border border-line bg-panel px-4 py-3 shadow-sm">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                   Favorites
                 </p>
@@ -268,7 +268,7 @@ export default function BookmarksHome({
 
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="space-y-5">
-            <div className="rounded-[30px] border border-slate-200 bg-slate-50 p-5">
+            <div className="rounded-lg border border-line bg-panel p-5 shadow-card">
               <FolderTree
                 canManage={canManage}
                 folders={workspace.folderTree}
@@ -294,16 +294,16 @@ export default function BookmarksHome({
               />
             </div>
 
-            <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-card">
+            <div className="rounded-lg border border-line bg-panel p-4 shadow-card">
               <div className="flex items-center gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/10 text-accent-strong">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-accent/10 text-accent-strong">
                   <FolderIcon className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="text-sm font-semibold text-slate-950">
+                  <p className="text-sm font-semibold text-ink">
                     {workspace.activeFolder?.name || "All folders"}
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-muted">
                     {currentFolderBookmarks.length} bookmark{currentFolderBookmarks.length === 1 ? "" : "s"} match the current view
                   </p>
                 </div>
@@ -312,18 +312,16 @@ export default function BookmarksHome({
           </aside>
 
           <div className="space-y-5">
-            <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-card">
-              <div className="flex items-center justify-between gap-4">
+            <div className="rounded-lg border border-line bg-panel p-4 shadow-card">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
                     Filters
                   </p>
-                  <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">
+                  <h3 className="mt-1 text-lg font-semibold tracking-tight text-ink">
                     Tags and favorites
                   </h3>
                 </div>
-              </div>
-              <div className="mt-4">
                 <TagFilterBar
                   onSelect={workspace.setSelectedTag}
                   selectedTag={workspace.selectedTag}
@@ -337,13 +335,16 @@ export default function BookmarksHome({
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted">
                     Bookmark cards
                   </p>
-                  <h3 className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
+                  <h3 className="mt-1 text-xl font-semibold tracking-tight text-ink">
                     {workspace.activeFolder?.name || "All services"}
                   </h3>
                 </div>
+                <p className="shrink-0 text-sm text-muted">
+                  {currentFolderBookmarks.length} result{currentFolderBookmarks.length === 1 ? "" : "s"}
+                </p>
               </div>
 
               <BookmarkGrid

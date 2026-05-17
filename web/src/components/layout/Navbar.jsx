@@ -10,8 +10,8 @@ export default function Navbar({
 }) {
   return (
     <header className="sticky top-0 z-20 border-b border-line bg-page/90 backdrop-blur-xl">
-      <div className="px-4 py-4 pr-20 sm:px-6 sm:pr-24 lg:px-8">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+      <div className="px-4 py-3 pr-20 sm:px-6 sm:pr-24 lg:px-8">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-3">
               <button
@@ -23,14 +23,16 @@ export default function Navbar({
                 <MenuIcon className="h-4 w-4" />
               </button>
               <div className="min-w-0">
-                <h2 className="truncate text-2xl font-semibold tracking-tight text-ink">
+                <h2 className="truncate text-xl font-semibold tracking-tight text-ink">
                   {title}
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-muted">{subtitle}</p>
+                <p className="mt-0.5 hidden text-sm leading-5 text-muted sm:block">
+                  {subtitle}
+                </p>
               </div>
             </div>
             {statusItems.length > 0 ? (
-              <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 {statusItems.map((item) => (
                   <span
                     className={cn(
@@ -46,7 +48,7 @@ export default function Navbar({
               </div>
             ) : null}
           </div>
-          {toolbar ? <div className="xl:min-w-[520px]">{toolbar}</div> : null}
+          {toolbar ? <div className="xl:min-w-[490px]">{toolbar}</div> : null}
         </div>
       </div>
     </header>

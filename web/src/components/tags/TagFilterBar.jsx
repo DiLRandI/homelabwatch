@@ -17,10 +17,10 @@ export default function TagFilterBar({
       </Button>
       {tags.map((tag) => (
         <button
-          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition ${
+          className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition ${
             selectedTag === tag.name
               ? "border-accent bg-accent text-white"
-              : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"
+              : "border-line bg-panel-strong text-ink-soft hover:border-line-strong hover:text-ink"
           }`}
           key={tag.id}
           onClick={() => onSelect(tag.name)}

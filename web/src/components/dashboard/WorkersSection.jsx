@@ -87,32 +87,35 @@ export default function WorkersSection({
       {showRecentEvents ? (
         <Card>
           <CardHeader
+            className="py-4"
             description="Recent service and infrastructure events streamed from the live control plane."
             title="Recent events"
           />
-          <CardContent>
+          <CardContent className={recentEvents.length === 0 ? "py-4" : undefined}>
             {recentEvents.length === 0 ? (
-              <EmptyState
-                body="Health changes, discoveries, and state transitions will appear here as the system starts observing your estate."
-                title="No recent events yet"
-              />
+              <div className="rounded-2xl border border-dashed border-line bg-panel px-5 py-4">
+                <p className="font-medium text-ink">No recent events yet</p>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  Health changes, discoveries, and state transitions will appear here.
+                </p>
+              </div>
             ) : (
               <div className="grid gap-3">
                 {recentEvents.map((item) => (
                   <article
-                    className="rounded-3xl border border-slate-200 bg-slate-50 p-4"
+                    className="rounded-2xl border border-line bg-panel p-4"
                     key={item.id}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <p className="font-medium text-slate-900">{item.eventType}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-500">
+                        <p className="font-medium text-ink">{item.eventType}</p>
+                        <p className="mt-1 text-sm leading-6 text-muted">
                           {item.message}
                         </p>
                       </div>
                       <StatusBadge status={item.status} subtle />
                     </div>
-                    <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-muted">
                       {formatDate(item.createdAt)}
                     </p>
                   </article>

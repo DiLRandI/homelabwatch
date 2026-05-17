@@ -42,7 +42,7 @@ export default function Modal({
         aria-labelledby="modal-title"
         aria-modal="true"
         className={cn(
-          "relative z-10 w-full max-w-2xl overflow-hidden rounded-[28px] border border-line bg-panel-strong shadow-card-lg",
+          "relative z-10 flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-line bg-panel-strong shadow-card-lg",
           className,
         )}
         role="dialog"
@@ -70,7 +70,7 @@ export default function Modal({
             <CloseIcon className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-5 py-5 sm:px-6">{children}</div>
+        <div className="overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
       </div>
     </div>,
     document.body,

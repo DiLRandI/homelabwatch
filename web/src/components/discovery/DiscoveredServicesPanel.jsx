@@ -3,6 +3,7 @@ import Button from "../ui/Button";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 import EmptyState from "../ui/EmptyState";
 import StatusBadge from "../ui/StatusBadge";
+import { cn } from "../../lib/cn";
 import { BookmarkIcon, DiscoveryIcon, RefreshIcon } from "../ui/Icons";
 
 function sourceTone(source) {
@@ -18,7 +19,9 @@ function sourceTone(source) {
 
 export default function DiscoveredServicesPanel({
   canManage = true,
+  compact = false,
   items = [],
+  totalItems = items.length,
   onCreateBookmark,
   onIgnore,
   onRestore,
@@ -27,45 +30,53 @@ export default function DiscoveredServicesPanel({
     <section id="discovered-services">
       <Card>
         <CardHeader
-          description="Pending suggestions merged across Docker, LAN, and mDNS evidence before they become first-class bookmarks."
+          action={
+            items.length > 0 ? (
+              <Badge tone="warning" withDot>
+                {totalItems} pending
+              </Badge>
+            ) : null
+          }
+          className={compact ? "py-3" : undefined}
+          description="Triage suggestions from Docker, LAN, and mDNS before creating bookmarks."
           title="Discovered services"
         />
-        <CardContent>
+        <CardContent className={compact ? "p-0" : undefined}>
           {items.length === 0 ? (
             <EmptyState
               body="Run discovery to collect bookmark suggestions from containers and network services."
               title="No pending suggestions"
             />
           ) : (
-            <div className="grid gap-4 xl:grid-cols-2">
+            <div className="divide-y divide-line">
               {items.map((item) => (
                 <article
-                  className="flex h-full flex-col rounded-3xl border border-slate-200 bg-slate-50 p-5"
+                  className={cn(
+                    "grid gap-4 px-5 py-4 sm:px-6 xl:grid-cols-[minmax(260px,1.1fr)_minmax(180px,0.7fr)_minmax(180px,0.7fr)_auto] xl:items-center",
+                    "transition hover:bg-panel",
+                  )}
                   key={item.id}
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warn/12 text-warn-strong">
+                      <DiscoveryIcon className="h-5 w-5" />
+                    </span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                          <DiscoveryIcon className="h-5 w-5" />
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className="truncate text-lg font-semibold tracking-tight text-slate-950">
-                            {item.name}
-                          </h3>
-                          <p className="truncate text-sm text-slate-500" title={item.url}>
-                            {item.url}
-                          </p>
-                        </div>
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <h3 className="truncate text-base font-semibold tracking-tight text-ink">
+                          {item.name}
+                        </h3>
+                        <StatusBadge status={item.status} />
                       </div>
+                      <p className="mt-1 truncate text-sm text-muted" title={item.url}>
+                        {item.url}
+                      </p>
                     </div>
-                    <StatusBadge status={item.status} />
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="flex min-w-0 flex-wrap gap-2">
                     <Badge tone="warning">{item.confidenceScore}% confidence</Badge>
                     {item.serviceType ? <Badge>{item.serviceType}</Badge> : null}
-                    <Badge>{item.deviceName || item.host || "Unlinked device"}</Badge>
                     {(item.sourceTypes || []).map((source) => (
                       <Badge key={source} tone={sourceTone(source)}>
                         {source}
@@ -73,24 +84,16 @@ export default function DiscoveredServicesPanel({
                     ))}
                   </div>
 
-                  <dl className="mt-5 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-white bg-white px-4 py-3">
-                      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Endpoint
-                      </dt>
-                      <dd className="mt-2 truncate font-medium text-slate-900">
-                        {item.host}:{item.port}
-                      </dd>
-                    </div>
-                    <div className="rounded-2xl border border-white bg-white px-4 py-3">
-                      <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        State
-                      </dt>
-                      <dd className="mt-2 font-medium text-slate-900">{item.state}</dd>
-                    </div>
-                  </dl>
+                  <div className="grid min-w-0 gap-1 text-sm">
+                    <p className="truncate font-medium text-ink">
+                      {item.host}:{item.port}
+                    </p>
+                    <p className="truncate text-muted">
+                      {item.deviceName || "Unlinked device"} · {item.state}
+                    </p>
+                  </div>
 
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 xl:justify-end">
                     <Button
                       onClick={() => window.open(item.url, "_blank", "noopener,noreferrer")}
                       size="sm"

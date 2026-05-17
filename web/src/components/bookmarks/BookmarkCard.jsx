@@ -22,35 +22,35 @@ export default function BookmarkCard({
   onToggleFavorite,
 }) {
   return (
-    <article className="flex h-full flex-col rounded-[30px] border border-slate-200 bg-white p-5 shadow-card transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-card-lg">
+    <article className="flex h-full flex-col rounded-lg border border-line bg-panel p-4 shadow-card transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-card-lg">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           {bookmark.icon ? (
             <img
               alt=""
-              className="h-12 w-12 rounded-2xl border border-slate-200 bg-white object-contain p-2"
+              className="h-11 w-11 rounded-lg border border-line bg-panel-strong object-contain p-2"
               src={bookmark.icon}
             />
           ) : (
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10 text-sm font-semibold text-accent-strong">
+            <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-accent/10 text-sm font-semibold text-accent-strong">
               {iconFallback(bookmark.name)}
             </span>
           )}
           <div className="min-w-0">
-            <h3 className="truncate text-lg font-semibold tracking-tight text-slate-950">
+            <h3 className="truncate text-base font-semibold tracking-tight text-ink">
               {bookmark.name}
             </h3>
-            <p className="mt-1 truncate text-sm text-slate-500" title={bookmark.url}>
+            <p className="mt-1 truncate text-sm text-muted" title={bookmark.url}>
               {bookmark.deviceName || bookmark.folderName || "Independent link"}
             </p>
           </div>
         </div>
         <button
           disabled={!canManage}
-          className={`rounded-2xl border px-3 py-2 text-sm font-medium transition ${
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${
             bookmark.isFavorite
-              ? "border-amber-200 bg-amber-50 text-amber-700"
-              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-900"
+              ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+              : "border-line bg-panel-strong text-muted hover:border-line-strong hover:text-ink"
           }`}
           onClick={() => onToggleFavorite(bookmark)}
           type="button"
@@ -68,11 +68,11 @@ export default function BookmarkCard({
         <Badge>{bookmark.deviceName || bookmark.host || "No device"}</Badge>
       </div>
 
-      <div className="mt-4 rounded-3xl border border-slate-100 bg-slate-50 p-4">
-        <p className="truncate text-sm font-medium text-slate-900" title={bookmark.url}>
+      <div className="mt-4 rounded-lg border border-line bg-panel-strong p-3">
+        <p className="truncate text-sm font-medium text-ink" title={bookmark.url}>
           {bookmark.url}
         </p>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
+        <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">
           {bookmark.description || "Launch straight into the service without remembering the port."}
         </p>
       </div>
@@ -83,24 +83,24 @@ export default function BookmarkCard({
         ))}
       </div>
 
-      <dl className="mt-5 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-          <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+      <dl className="mt-4 grid gap-3 text-sm text-muted sm:grid-cols-2">
+        <div className="rounded-lg border border-line bg-panel-strong px-3 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             Last opened
           </dt>
-          <dd className="mt-2 font-medium text-slate-900">
+          <dd className="mt-2 font-medium text-ink">
             {formatDate(bookmark.lastOpenedAt)}
           </dd>
         </div>
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-          <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <div className="rounded-lg border border-line bg-panel-strong px-3 py-3">
+          <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
             Launches
           </dt>
-          <dd className="mt-2 font-medium text-slate-900">{bookmark.clickCount || 0}</dd>
+          <dd className="mt-2 font-medium text-ink">{bookmark.clickCount || 0}</dd>
         </div>
       </dl>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button onClick={() => onOpen(bookmark)} trailingIcon={ArrowUpRightIcon}>
           Open
         </Button>

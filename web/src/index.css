@@ -17,8 +17,8 @@
   --color-warn-strong: #fbbf24;
   --color-ok: #16a34a;
   --color-ok-strong: #4ade80;
-  --color-muted: #91a5c4;
-  --color-copy-subtle: #7185a5;
+  --color-muted: #9fb1ce;
+  --color-copy-subtle: #8194b2;
   --color-line: rgba(148, 163, 184, 0.18);
   --color-line-strong: rgba(148, 163, 184, 0.3);
   --color-overlay: rgba(2, 6, 23, 0.62);
@@ -47,6 +47,16 @@
 :root {
   --surface-hero: #111b2f;
   --surface-warm: rgba(245, 158, 11, 0.08);
+  --scrollbar-track: #07101e;
+  --scrollbar-thumb: #52627c;
+  --scrollbar-thumb-hover: #7485a0;
+  --bootstrap-hero-bg: #111b2f;
+  --bootstrap-hero-border: rgba(148, 163, 184, 0.16);
+  --bootstrap-hero-item: rgba(255, 255, 255, 0.07);
+  --bootstrap-hero-item-strong: rgba(255, 255, 255, 0.1);
+  --bootstrap-hero-ink: #f8fafc;
+  --bootstrap-hero-muted: #d7e1ef;
+  --bootstrap-hero-icon: rgba(255, 255, 255, 0.12);
   color-scheme: dark;
 }
 
@@ -71,6 +81,16 @@
   --shadow-halo: 0 20px 70px rgba(15, 23, 42, 0.1);
   --surface-hero: #ffffff;
   --surface-warm: #fff7ed;
+  --scrollbar-track: #e8eef7;
+  --scrollbar-thumb: #a7b4c7;
+  --scrollbar-thumb-hover: #7f8fa6;
+  --bootstrap-hero-bg: #ffffff;
+  --bootstrap-hero-border: #dbe3ef;
+  --bootstrap-hero-item: #f8fafc;
+  --bootstrap-hero-item-strong: #eef4ff;
+  --bootstrap-hero-ink: #0f172a;
+  --bootstrap-hero-muted: #475569;
+  --bootstrap-hero-icon: #e8eef8;
   color-scheme: light;
 }
 
@@ -89,6 +109,8 @@
 
   html {
     scroll-behavior: smooth;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-width: thin;
   }
 
   body {
@@ -97,6 +119,30 @@
     font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
     background: var(--color-page);
     color: var(--color-ink);
+  }
+
+  * {
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+    scrollbar-width: thin;
+  }
+
+  *::-webkit-scrollbar {
+    height: 0.75rem;
+    width: 0.75rem;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border: 3px solid var(--scrollbar-track);
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
   }
 
   #root {
@@ -169,6 +215,71 @@
 
   .surface-warm {
     background: var(--surface-warm);
+  }
+
+  .bootstrap-hero {
+    border-color: var(--bootstrap-hero-border);
+    background: var(--bootstrap-hero-bg);
+    color: var(--bootstrap-hero-ink);
+  }
+
+  .bootstrap-hero__title,
+  .bootstrap-hero__item-title {
+    color: var(--bootstrap-hero-ink);
+  }
+
+  .bootstrap-hero__copy,
+  .bootstrap-hero__item-body {
+    color: var(--bootstrap-hero-muted);
+  }
+
+  .bootstrap-hero__item-title {
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.5rem;
+  }
+
+  .bootstrap-hero__item-body {
+    margin-top: 0.25rem;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+
+  .bootstrap-hero__badge {
+    border-color: var(--bootstrap-hero-border);
+    background: var(--bootstrap-hero-item-strong);
+    color: var(--bootstrap-hero-ink);
+  }
+
+  .bootstrap-hero__item,
+  .bootstrap-hero__status {
+    border: 1px solid var(--bootstrap-hero-border);
+    border-radius: 1.25rem;
+    background: var(--bootstrap-hero-item);
+    backdrop-filter: blur(16px);
+  }
+
+  .bootstrap-hero__item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.125rem;
+  }
+
+  .bootstrap-hero__status {
+    padding: 1rem 1.125rem;
+  }
+
+  .bootstrap-hero__icon {
+    display: inline-flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1rem;
+    background: var(--bootstrap-hero-icon);
+    color: var(--bootstrap-hero-ink);
   }
 }
 

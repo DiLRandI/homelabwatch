@@ -13,7 +13,7 @@ export default function BookmarkToolbar({
   setFavoritesOnly,
 }) {
   return (
-    <div className="rounded-[28px] border border-line bg-panel p-4 shadow-card">
+    <div className="rounded-lg border border-line bg-panel p-4 shadow-card">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div className="min-w-0 flex-1">
           <div className="relative">
@@ -30,7 +30,7 @@ export default function BookmarkToolbar({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 xl:justify-end xl:pl-4">
+        <div className="flex flex-wrap items-center gap-2 xl:justify-end xl:pl-4">
           <Button
             className="shrink-0 whitespace-nowrap"
             disabled={!canManage}
@@ -42,7 +42,7 @@ export default function BookmarkToolbar({
           <Button
             className="shrink-0 whitespace-nowrap"
             onClick={() => setFavoritesOnly(!favoritesOnly)}
-            variant={favoritesOnly ? "secondary" : "subtle"}
+            variant={favoritesOnly ? "primary" : "secondary"}
           >
             {favoritesOnly ? "Showing favorites" : "Favorites only"}
           </Button>
