@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react";
+
 import AppShell from "./app/AppShell";
 import { useAppRoute } from "./app/useAppRoute";
 import BookmarksScreen from "./app/screens/BookmarksScreen";
@@ -12,7 +14,6 @@ import SettingsScreen from "./app/screens/SettingsScreen";
 import StatusPagesScreen from "./app/screens/StatusPagesScreen";
 import BootstrapScreen from "./components/bootstrap/BootstrapScreen";
 import PublicStatusPageScreen from "./components/status-pages/PublicStatusPageScreen";
-import TopologyScreen from "./components/topology/TopologyScreen";
 import {
   DevicesIcon,
   DiscoveryIcon,
@@ -26,6 +27,8 @@ import { useHomelabwatchApp } from "./hooks/useHomelabwatchApp";
 import { usePublicStatusPage } from "./hooks/usePublicStatusPage";
 import { useThemePreference } from "./hooks/useThemePreference";
 import { isPublicStatusPath, statusSlugFromPath } from "./app/routes";
+
+const TopologyScreen = lazy(() => import("./components/topology/TopologyScreen"));
 
 const DEFAULT_SUMMARY = {
   bookmarks: 0,
@@ -212,7 +215,17 @@ function ManagementApp({ navigate, route, theme, toggleTheme }) {
       );
       break;
     case "topology":
-      content = <TopologyScreen topology={app.data.topology} />;
+      content = (
+        <Suspense
+          fallback={
+            <div className="rounded-lg border border-line bg-panel p-6 text-sm text-muted shadow-card">
+              Loading topology...
+            </div>
+          }
+        >
+          <TopologyScreen topology={app.data.topology} />
+        </Suspense>
+      );
       break;
     case "notifications":
       content = (
