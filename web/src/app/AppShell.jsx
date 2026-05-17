@@ -30,6 +30,7 @@ export default function AppShell({
   onRunMonitoring,
   settings,
   statusPages,
+  topology,
 }) {
   const summary = dashboard?.summary ?? DEFAULT_SUMMARY;
   const issuesCount = summary.degradedServices + summary.unhealthyServices;
@@ -44,6 +45,7 @@ export default function AppShell({
     services: summary.totalServices,
     settings: settings?.apiAccess?.tokens?.length ?? 0,
     statusPages: statusPages?.list?.length ?? 0,
+    topology: topology?.summary?.subnetCount ?? 0,
   };
 
   const navItems = APP_ROUTES.map((route) => ({

@@ -3,8 +3,10 @@ import { useState } from "react";
 import DiscoverySection from "../../components/dashboard/DiscoverySection";
 import BookmarkSuggestionDialog from "../../components/discovery/BookmarkSuggestionDialog";
 import DiscoveredServicesPanel from "../../components/discovery/DiscoveredServicesPanel";
+import TopologySourcesPanel from "../../components/discovery/TopologySourcesPanel";
 import DockerEndpointForm from "../../components/forms/DockerEndpointForm";
 import ScanTargetForm from "../../components/forms/ScanTargetForm";
+import TopologySourceForm from "../../components/forms/TopologySourceForm";
 import Modal from "../../components/ui/Modal";
 
 function modalConfig(activeModal) {
@@ -21,6 +23,12 @@ function modalConfig(activeModal) {
           "Register a CIDR range and port profile for ongoing network discovery.",
         title: "Add scan target",
       };
+    case "topologySource":
+      return {
+        description:
+          "Add an SNMP source for observed LLDP and switch-port topology.",
+        title: "Topology source",
+      };
     default:
       return { description: "", title: "" };
   }
@@ -36,10 +44,16 @@ export default function DiscoveryScreen({
   onSaveDiscoveryPolicy,
   onSaveDockerEndpoint,
   onSaveScanTarget,
+  onSaveTopologySource,
+  onAutoDiscoverTopologySources,
+  onDeleteTopologySource,
+  onRunTopologyDiscovery,
   settings,
+  topologySources = [],
 }) {
   const [activeModal, setActiveModal] = useState("");
   const [selectedDiscoveredService, setSelectedDiscoveredService] = useState(null);
+  const [selectedTopologySource, setSelectedTopologySource] = useState(null);
   const pendingDiscoveredServices = (dashboard?.discoveredServices ?? []).filter(
     (item) => item.state === "pending" || item.state === "ignored",
   );
@@ -61,6 +75,20 @@ export default function DiscoveryScreen({
     return successful;
   }
 
+  async function handleSaveTopologySource(payload) {
+    const successful = await onSaveTopologySource(payload);
+    if (successful) {
+      setActiveModal("");
+      setSelectedTopologySource(null);
+    }
+    return successful;
+  }
+
+  function handleEditTopologySource(item) {
+    setSelectedTopologySource(item);
+    setActiveModal("topologySource");
+  }
+
   async function handleCreateBookmark(item, payload) {
     const successful = await onSaveBookmarkFromDiscoveredService(item.id, payload);
     if (successful) {
@@ -80,6 +108,18 @@ export default function DiscoveryScreen({
         onSaveSettings={onSaveDiscoveryPolicy}
         scanTargets={settings?.scanTargets ?? []}
       />
+      <TopologySourcesPanel
+        canManage={canManageUI}
+        items={topologySources}
+        onAutoDiscover={onAutoDiscoverTopologySources}
+        onAdd={() => {
+          setSelectedTopologySource(null);
+          setActiveModal("topologySource");
+        }}
+        onDelete={onDeleteTopologySource}
+        onEdit={handleEditTopologySource}
+        onRun={onRunTopologyDiscovery}
+      />
       <DiscoveredServicesPanel
         canManage={canManageUI}
         items={pendingDiscoveredServices}
@@ -89,7 +129,10 @@ export default function DiscoveryScreen({
       />
       <Modal
         description={currentModal.description}
-        onClose={() => setActiveModal("")}
+        onClose={() => {
+          setActiveModal("");
+          setSelectedTopologySource(null);
+        }}
         open={Boolean(activeModal)}
         title={currentModal.title}
       >
@@ -98,6 +141,13 @@ export default function DiscoveryScreen({
         ) : null}
         {activeModal === "target" ? (
           <ScanTargetForm onSubmit={handleSaveScanTarget} />
+        ) : null}
+        {activeModal === "topologySource" ? (
+          <TopologySourceForm
+            item={selectedTopologySource}
+            onSubmit={handleSaveTopologySource}
+            submitLabel={selectedTopologySource ? "Save source" : "Add source"}
+          />
         ) : null}
       </Modal>
       <BookmarkSuggestionDialog
