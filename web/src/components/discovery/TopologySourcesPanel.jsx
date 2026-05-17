@@ -1,9 +1,12 @@
+import { useState } from "react";
+
 import { formatDate } from "../../lib/format";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 import EmptyState from "../ui/EmptyState";
-import { NetworkIcon, PlusIcon, RefreshIcon } from "../ui/Icons";
+import { NetworkIcon, PlusIcon, RefreshIcon, SparklesIcon } from "../ui/Icons";
+import Input from "../ui/Input";
 import StatusBadge from "../ui/StatusBadge";
 import {
   Table,
@@ -26,15 +29,51 @@ export default function TopologySourcesPanel({
   canManage,
   items = [],
   onAdd,
+  onAutoDiscover,
   onDelete,
   onEdit,
   onRun,
 }) {
+  const [community, setCommunity] = useState("");
+  const [runningAutoDiscovery, setRunningAutoDiscovery] = useState(false);
+
+  async function handleAutoDiscover(event) {
+    event?.preventDefault();
+    if (!onAutoDiscover || runningAutoDiscovery) {
+      return;
+    }
+    setRunningAutoDiscovery(true);
+    try {
+      await onAutoDiscover({ community: community.trim() });
+    } finally {
+      setRunningAutoDiscovery(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader
         action={
-          <div className="flex flex-wrap gap-2">
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={handleAutoDiscover}
+          >
+            <Input
+              autoComplete="off"
+              compact
+              containerClassName="w-44"
+              label="SNMP key"
+              onChange={setCommunity}
+              placeholder="public"
+              value={community}
+            />
+            <Button
+              disabled={!canManage || runningAutoDiscovery}
+              leadingIcon={SparklesIcon}
+              type="submit"
+            >
+              Auto-discover
+            </Button>
             <Button
               disabled={!canManage}
               leadingIcon={RefreshIcon}
@@ -49,21 +88,21 @@ export default function TopologySourcesPanel({
               onClick={onAdd}
               variant="secondary"
             >
-              Add source
+              Advanced
             </Button>
-          </div>
+          </form>
         }
-        description="SNMP sources used for LLDP and switch MAC-table topology."
+        description="HomelabWatch probes likely routers and switches from scan targets, then uses any SNMP sources it finds for LLDP and switch-port topology."
         title="Topology sources"
       />
       <CardContent className="p-0">
         {items.length === 0 ? (
           <div className="px-5 py-5 sm:px-6">
             <EmptyState
-              action={canManage ? onAdd : undefined}
-              actionLabel="Add source"
-              body="Add managed switches, routers, APs, or hypervisors to discover observed network links."
-              title="No topology sources configured"
+              action={canManage ? handleAutoDiscover : undefined}
+              actionLabel="Auto-discover sources"
+              body="Run automatic probing first. Use Advanced only when a device needs custom SNMP settings."
+              title="No topology sources found yet"
             />
           </div>
         ) : (
@@ -84,12 +123,12 @@ export default function TopologySourcesPanel({
                 <TableRow key={item.id}>
                   <TableCell className="min-w-[240px]">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                      <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-base text-muted">
                         <NetworkIcon className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-900">{item.name}</p>
-                        <p className="truncate text-sm text-slate-500">
+                        <p className="truncate font-medium text-ink">{item.name}</p>
+                        <p className="truncate text-sm text-muted">
                           {item.address}:{item.port || 161}
                         </p>
                       </div>

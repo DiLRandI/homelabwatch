@@ -161,6 +161,18 @@ type TopologySource struct {
 	UpdatedAt            time.Time `json:"updatedAt"`
 }
 
+type TopologyAutoDiscoverInput struct {
+	Community string `json:"community,omitempty"`
+}
+
+type TopologyAutoDiscoverResult struct {
+	CandidateCount int              `json:"candidateCount"`
+	TestedCount    int              `json:"testedCount"`
+	Added          []TopologySource `json:"added"`
+	Existing       []TopologySource `json:"existing,omitempty"`
+	FailedCount    int              `json:"failedCount"`
+}
+
 type TopologySourceObservation struct {
 	SourceID   string
 	Source     TopologySource

@@ -17,6 +17,9 @@ import (
 )
 
 const (
+	oidSysDescr         = ".1.3.6.1.2.1.1.1.0"
+	oidSysName          = ".1.3.6.1.2.1.1.5.0"
+	oidSysServices      = ".1.3.6.1.2.1.1.7.0"
 	oidIfDescr          = ".1.3.6.1.2.1.2.2.1.2"
 	oidIfType           = ".1.3.6.1.2.1.2.2.1.3"
 	oidIfSpeed          = ".1.3.6.1.2.1.2.2.1.5"
@@ -45,12 +48,21 @@ type SourceResult struct {
 	Error       error
 }
 
+type ProbeResult struct {
+	Address           string
+	SystemName        string
+	SystemDescription string
+	Role              string
+	InterfaceCount    int
+}
+
 type Provider struct {
 	open func(context.Context, domain.TopologySource) (session, error)
 	now  func() time.Time
 }
 
 type session interface {
+	Get(oids []string) (*g.SnmpPacket, error)
 	WalkAll(oid string) ([]g.SnmpPDU, error)
 	Close() error
 }
@@ -123,6 +135,40 @@ func (p *Provider) Discover(ctx context.Context, sources []domain.TopologySource
 	return results
 }
 
+func (p *Provider) Probe(ctx context.Context, source domain.TopologySource) (ProbeResult, error) {
+	if p == nil {
+		p = NewProvider()
+	}
+	source.Enabled = true
+	sess, err := p.open(ctx, source)
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	defer sess.Close()
+
+	packet, err := sess.Get([]string{oidSysDescr, oidSysName, oidSysServices})
+	if err != nil {
+		return ProbeResult{}, err
+	}
+	result := ProbeResult{Address: source.Address}
+	for _, pdu := range packet.Variables {
+		switch strings.TrimPrefix(pdu.Name, ".") {
+		case strings.TrimPrefix(oidSysDescr, "."):
+			result.SystemDescription = pduText(pdu)
+		case strings.TrimPrefix(oidSysName, "."):
+			result.SystemName = pduText(pdu)
+		}
+	}
+	if result.SystemDescription == "" && result.SystemName == "" {
+		return ProbeResult{}, errors.New("snmp probe returned no system identity")
+	}
+	if interfaces, err := pollInterfaces(sess, source.ID, p.now()); err == nil {
+		result.InterfaceCount = len(interfaces)
+	}
+	result.Role = inferRole(result.SystemName, result.SystemDescription, result.InterfaceCount)
+	return result, nil
+}
+
 func openSession(ctx context.Context, source domain.TopologySource) (session, error) {
 	port := source.Port
 	if port == 0 {
@@ -171,6 +217,10 @@ func openSession(ctx context.Context, source domain.TopologySource) (session, er
 		return nil, err
 	}
 	return realSession{client: client, bulk: client.Version != g.Version1}, nil
+}
+
+func (s realSession) Get(oids []string) (*g.SnmpPacket, error) {
+	return s.client.Get(oids)
 }
 
 func (s realSession) WalkAll(oid string) ([]g.SnmpPDU, error) {
@@ -665,6 +715,22 @@ func privacyProtocol(value string) g.SnmpV3PrivProtocol {
 		return g.AES256
 	default:
 		return g.NoPriv
+	}
+}
+
+func inferRole(systemName, systemDescription string, interfaceCount int) string {
+	text := strings.ToLower(systemName + " " + systemDescription)
+	switch {
+	case strings.Contains(text, "access point") || strings.Contains(text, "wireless") || strings.Contains(text, "unifi ap"):
+		return "ap"
+	case strings.Contains(text, "router") || strings.Contains(text, "gateway") || strings.Contains(text, "openwrt") || strings.Contains(text, "mikrotik") || strings.Contains(text, "pfsense") || strings.Contains(text, "opnsense"):
+		return "router"
+	case strings.Contains(text, "switch") || strings.Contains(text, "bridge") || strings.Contains(text, "unifi switch"):
+		return "switch"
+	case interfaceCount >= 8:
+		return "switch"
+	default:
+		return "unknown"
 	}
 }
 

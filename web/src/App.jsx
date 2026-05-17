@@ -198,6 +198,7 @@ function ManagementApp({ navigate, route, theme, toggleTheme }) {
           onSaveDockerEndpoint={app.actions.saveDockerEndpoint}
           onSaveScanTarget={app.actions.saveScanTarget}
           onSaveTopologySource={app.actions.saveTopologySource}
+          onAutoDiscoverTopologySources={app.actions.autoDiscoverTopology}
           onDeleteTopologySource={app.actions.removeTopologySource}
           onRunTopologyDiscovery={app.actions.runTopology}
           settings={settings}

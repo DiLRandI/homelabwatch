@@ -286,6 +286,9 @@ func (a *App) TriggerDiscovery(ctx context.Context) error {
 }
 
 func (a *App) TriggerTopologyDiscovery(ctx context.Context) error {
+	if _, err := a.AutoDiscoverTopologySources(ctx, domain.TopologyAutoDiscoverInput{}); err != nil {
+		return err
+	}
 	return a.runTopologyDiscovery(ctx)
 }
 

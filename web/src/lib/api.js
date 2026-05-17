@@ -69,6 +69,14 @@ export function deleteTopologySource(id, csrfToken) {
   });
 }
 
+export function autoDiscoverTopologySources(payload = {}, csrfToken) {
+  return request("/api/ui/v1/discovery/topology/auto-discover", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
 export function runTopologyDiscovery(csrfToken) {
   return request("/api/ui/v1/discovery/topology/run", {
     csrfToken,

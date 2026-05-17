@@ -12,8 +12,20 @@ import (
 )
 
 type fakeSession struct {
-	errs  map[string]error
-	walks map[string][]g.SnmpPDU
+	errs   map[string]error
+	getErr error
+	packet *g.SnmpPacket
+	walks  map[string][]g.SnmpPDU
+}
+
+func (s fakeSession) Get([]string) (*g.SnmpPacket, error) {
+	if s.getErr != nil {
+		return nil, s.getErr
+	}
+	if s.packet != nil {
+		return s.packet, nil
+	}
+	return &g.SnmpPacket{}, nil
 }
 
 func (s fakeSession) WalkAll(oid string) ([]g.SnmpPDU, error) {
@@ -117,5 +129,33 @@ func TestDiscoverReportsConnectFailure(t *testing.T) {
 	results := provider.Discover(context.Background(), []domain.TopologySource{{ID: "src1", Enabled: true}})
 	if len(results) != 1 || results[0].Error == nil {
 		t.Fatalf("expected source error, got %#v", results)
+	}
+}
+
+func TestProbeInfersReachableSNMPSource(t *testing.T) {
+	provider := &Provider{
+		now: func() time.Time { return time.Unix(100, 0).UTC() },
+		open: func(context.Context, domain.TopologySource) (session, error) {
+			return fakeSession{
+				packet: &g.SnmpPacket{Variables: []g.SnmpPDU{
+					{Name: oidSysName, Value: "core-switch"},
+					{Name: oidSysDescr, Value: "Homelab managed switch"},
+				}},
+				walks: map[string][]g.SnmpPDU{
+					oidIfName: {
+						{Name: oidIfName + ".1", Value: "gi1"},
+						{Name: oidIfName + ".2", Value: "gi2"},
+					},
+				},
+			}, nil
+		},
+	}
+
+	result, err := provider.Probe(context.Background(), domain.TopologySource{ID: "probe", Address: "192.168.1.2", SNMPVersion: "v2c"})
+	if err != nil {
+		t.Fatalf("probe source: %v", err)
+	}
+	if result.SystemName != "core-switch" || result.Role != "switch" || result.InterfaceCount != 2 {
+		t.Fatalf("unexpected probe result: %#v", result)
 	}
 }

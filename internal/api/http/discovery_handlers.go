@@ -181,6 +181,20 @@ func (r *Router) handleTopologyDiscoveryRun(w http.ResponseWriter, req *http.Req
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "topology-discovery-triggered"})
 }
 
+func (r *Router) handleTopologyAutoDiscover(w http.ResponseWriter, req *http.Request) {
+	var input domain.TopologyAutoDiscoverInput
+	if err := decodeJSON(req.Body, &input); err != nil && !errors.Is(err, io.EOF) {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	result, err := r.app.AutoDiscoverAndRunTopology(req.Context(), input)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, result)
+}
+
 func (r *Router) handleDiscoveredServices(w http.ResponseWriter, req *http.Request) {
 	items, err := r.app.ListDiscoveredServices(req.Context())
 	if err != nil {

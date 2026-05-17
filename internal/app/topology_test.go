@@ -64,6 +64,32 @@ func TestTopologyBuildsIPv4SubnetAndServices(t *testing.T) {
 	}
 }
 
+func TestTopologyAutoDiscoveryCandidateListPrefersLikelyInfrastructure(t *testing.T) {
+	candidates := buildTopologyProbeCandidates(
+		[]domain.ScanTarget{{Name: "LAN", CIDR: "192.168.1.0/24", Enabled: true}},
+		[]domain.Device{{
+			ID: "dev1",
+			Addresses: []domain.DeviceAddress{
+				{IPAddress: "192.168.1.50"},
+				{IPAddress: "192.168.1.1"},
+			},
+		}},
+	)
+	if len(candidates) < 4 {
+		t.Fatalf("expected likely infrastructure candidates, got %#v", candidates)
+	}
+	if candidates[0].address != "192.168.1.1" || !candidates[0].root {
+		t.Fatalf("expected inferred gateway first, got %#v", candidates)
+	}
+	want := map[string]bool{"192.168.1.2": true, "192.168.1.253": true, "192.168.1.254": true, "192.168.1.50": true}
+	for _, candidate := range candidates {
+		delete(want, candidate.address)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing expected candidates: %#v from %#v", want, candidates)
+	}
+}
+
 func TestTopologyAssignsNarrowestSubnetAndUnmapped(t *testing.T) {
 	application, store, _ := newTestApp(t, config.Config{DefaultScanPorts: []int{22, 80}})
 	ctx := context.Background()

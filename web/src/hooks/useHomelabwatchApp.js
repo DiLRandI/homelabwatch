@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  autoDiscoverTopologySources,
   createAPIToken,
   createBookmark,
   createBookmarkFromDiscoveredService,
@@ -608,6 +609,13 @@ export function useHomelabwatchApp() {
     }, "Topology source deleted.");
   }
 
+  async function autoDiscoverTopology(payload) {
+    return performAction(async () => {
+      await autoDiscoverTopologySources(payload, bootstrap.csrfToken);
+      await Promise.all([loadTopologySources(), loadTopology()]);
+    }, "Topology auto-discovery finished.");
+  }
+
   async function saveDiscoveryPolicy(payload) {
     return performAction(async () => {
       await updateDiscoverySettings(payload, bootstrap.csrfToken);
@@ -708,6 +716,7 @@ export function useHomelabwatchApp() {
       runMonitoring,
       runServiceCheckTest,
       runTopology,
+      autoDiscoverTopology,
       saveNotificationChannel,
       saveNotificationRule,
       saveStatusPage,

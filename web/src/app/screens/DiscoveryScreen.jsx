@@ -45,6 +45,7 @@ export default function DiscoveryScreen({
   onSaveDockerEndpoint,
   onSaveScanTarget,
   onSaveTopologySource,
+  onAutoDiscoverTopologySources,
   onDeleteTopologySource,
   onRunTopologyDiscovery,
   settings,
@@ -110,6 +111,7 @@ export default function DiscoveryScreen({
       <TopologySourcesPanel
         canManage={canManageUI}
         items={topologySources}
+        onAutoDiscover={onAutoDiscoverTopologySources}
         onAdd={() => {
           setSelectedTopologySource(null);
           setActiveModal("topologySource");

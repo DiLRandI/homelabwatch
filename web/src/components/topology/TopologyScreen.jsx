@@ -182,6 +182,7 @@ export default function TopologyScreen({ topology }) {
         </div>
         <div className="h-[68vh] min-h-[560px]">
           <ReactFlow
+            className="topology-flow"
             edges={model.edges}
             fitView
             nodes={model.nodes}
@@ -192,7 +193,15 @@ export default function TopologyScreen({ topology }) {
           >
             <Background gap={24} size={1} />
             <Controls />
-            <MiniMap pannable zoomable />
+            <MiniMap
+              bgColor="var(--color-panel-strong)"
+              maskColor="rgba(2, 6, 23, 0.48)"
+              nodeBorderRadius={8}
+              nodeColor="var(--color-panel-soft)"
+              nodeStrokeColor="var(--color-line-strong)"
+              pannable
+              zoomable
+            />
           </ReactFlow>
         </div>
       </div>
