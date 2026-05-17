@@ -30,6 +30,7 @@ func (r *Router) registerBootstrapRoutes(mux *http.ServeMux) {
 func (r *Router) registerUIRoutes(mux *http.ServeMux) {
 	openRoutes := []routeSpec{
 		{method: http.MethodGet, path: "/api/ui/v1/dashboard", handler: r.handleDashboard},
+		{method: http.MethodGet, path: "/api/ui/v1/topology", handler: r.handleTopology},
 		{method: http.MethodGet, path: "/api/ui/v1/status-pages", handler: r.handleStatusPages},
 		{method: http.MethodGet, path: "/api/ui/v1/status-pages/{id}", handler: r.handleStatusPageByID},
 		{method: http.MethodGet, path: "/api/ui/v1/settings", handler: r.handleSettings},
@@ -122,6 +123,7 @@ func (r *Router) registerUIRoutes(mux *http.ServeMux) {
 func (r *Router) registerTokenRoutes(mux *http.ServeMux, prefix string) {
 	routes := []routeSpec{
 		{method: http.MethodGet, path: "/dashboard", scope: domain.TokenScopeRead, handler: r.handleDashboard},
+		{method: http.MethodGet, path: "/topology", scope: domain.TokenScopeRead, handler: r.handleTopology},
 		{method: http.MethodGet, path: "/settings", scope: domain.TokenScopeRead, handler: r.handleSettings},
 		{method: http.MethodGet, path: "/services", scope: domain.TokenScopeRead, handler: r.handleServices},
 		{method: http.MethodPost, path: "/services", scope: domain.TokenScopeWrite, handler: r.handleServices},

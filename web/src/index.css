@@ -217,6 +217,43 @@
     background: var(--surface-warm);
   }
 
+  .topology-node {
+    width: 210px;
+    min-height: 86px;
+    border: 1px solid var(--color-line-strong);
+    border-radius: 8px;
+    background: var(--color-panel-strong);
+    padding: 0.8rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .topology-node--router {
+    border-color: rgba(37, 99, 235, 0.38);
+    background: color-mix(in srgb, var(--color-panel-strong) 84%, var(--color-accent));
+  }
+
+  .topology-node--subnet {
+    border-style: dashed;
+  }
+
+  .topology-node--device {
+    background: var(--color-panel);
+  }
+
+  .topology-detail {
+    min-height: 18rem;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: var(--color-panel);
+    padding: 1rem;
+    box-shadow: var(--shadow-card);
+  }
+
+  .topology-edge path {
+    stroke: var(--color-muted);
+    stroke-width: 1.7;
+  }
+
   .bootstrap-hero {
     border-color: var(--bootstrap-hero-border);
     background: var(--bootstrap-hero-bg);

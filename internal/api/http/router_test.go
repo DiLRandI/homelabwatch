@@ -86,6 +86,33 @@ func TestExternalTokenRoutesEnforceScope(t *testing.T) {
 	}
 }
 
+func TestTopologyRoutes(t *testing.T) {
+	handler, application, _, _ := newRouterTestHarness(t)
+	bootstrapTestApp(t, application)
+
+	uiReq := httptest.NewRequest(http.MethodGet, "/api/ui/v1/topology", nil)
+	uiRec := httptest.NewRecorder()
+	handler.ServeHTTP(uiRec, uiReq)
+	if uiRec.Code != http.StatusOK {
+		t.Fatalf("expected ui topology route to succeed, got %d", uiRec.Code)
+	}
+	if !strings.Contains(uiRec.Body.String(), `"generatedAt"`) {
+		t.Fatalf("expected topology json shape, got %q", uiRec.Body.String())
+	}
+
+	token, err := application.CreateAPIToken(context.Background(), domain.CreateAPITokenInput{Name: "Read only", Scope: domain.TokenScopeRead})
+	if err != nil {
+		t.Fatalf("create api token: %v", err)
+	}
+	externalReq := httptest.NewRequest(http.MethodGet, "/api/external/v1/topology", nil)
+	externalReq.Header.Set("Authorization", "Bearer "+token.Secret)
+	externalRec := httptest.NewRecorder()
+	handler.ServeHTTP(externalRec, externalReq)
+	if externalRec.Code != http.StatusOK {
+		t.Fatalf("expected read token to access topology, got %d", externalRec.Code)
+	}
+}
+
 func TestPublicStatusPageRouteAndStaticFallback(t *testing.T) {
 	handler, application, _, cfg := newRouterTestHarness(t)
 	bootstrapTestApp(t, application)

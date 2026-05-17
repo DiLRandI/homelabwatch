@@ -12,6 +12,7 @@ import SettingsScreen from "./app/screens/SettingsScreen";
 import StatusPagesScreen from "./app/screens/StatusPagesScreen";
 import BootstrapScreen from "./components/bootstrap/BootstrapScreen";
 import PublicStatusPageScreen from "./components/status-pages/PublicStatusPageScreen";
+import TopologyScreen from "./components/topology/TopologyScreen";
 import {
   DevicesIcon,
   DiscoveryIcon,
@@ -206,6 +207,9 @@ function ManagementApp({ navigate, route, theme, toggleTheme }) {
         />
       );
       break;
+    case "topology":
+      content = <TopologyScreen topology={app.data.topology} />;
+      break;
     case "notifications":
       content = (
         <NotificationsScreen
@@ -306,6 +310,7 @@ function ManagementApp({ navigate, route, theme, toggleTheme }) {
           onRunMonitoring={app.actions.runMonitoring}
           settings={settings}
           statusPages={app.data.statusPages}
+          topology={app.data.topology}
         >
           {content}
         </AppShell>

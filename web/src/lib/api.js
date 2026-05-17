@@ -38,6 +38,10 @@ export function fetchDashboard() {
   return request("/api/ui/v1/dashboard");
 }
 
+export function fetchTopology() {
+  return request("/api/ui/v1/topology");
+}
+
 export function fetchStatusPages() {
   return request("/api/ui/v1/status-pages");
 }
