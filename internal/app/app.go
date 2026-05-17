@@ -14,6 +14,7 @@ import (
 	"github.com/deleema/homelabwatch/internal/config"
 	"github.com/deleema/homelabwatch/internal/discovery/docker"
 	"github.com/deleema/homelabwatch/internal/discovery/lan"
+	snmpdiscovery "github.com/deleema/homelabwatch/internal/discovery/snmp"
 	"github.com/deleema/homelabwatch/internal/domain"
 	"github.com/deleema/homelabwatch/internal/events"
 	"github.com/deleema/homelabwatch/internal/monitoring"
@@ -31,6 +32,7 @@ type App struct {
 	bus           *events.Bus
 	docker        *docker.Provider
 	lan           *lan.Provider
+	topologySNMP  *snmpdiscovery.Provider
 	monitor       *monitoring.Runner
 	notifications *notifications.Engine
 	scheduler     *worker.Scheduler
@@ -47,6 +49,7 @@ func New(cfg config.Config, store *sqlite.Store, bus *events.Bus, logger *slog.L
 		bus:           bus,
 		docker:        docker.NewProvider(),
 		lan:           lan.NewProvider(),
+		topologySNMP:  snmpdiscovery.NewProvider(),
 		monitor:       monitoring.NewRunner(store),
 		notifications: notifications.NewEngine(store, bus, logger),
 	}
@@ -54,6 +57,7 @@ func New(cfg config.Config, store *sqlite.Store, bus *events.Bus, logger *slog.L
 		logger.With("component", "worker"),
 		worker.Job{Name: "docker-sync", Interval: 30 * time.Second, Run: instance.runDockerDiscovery},
 		worker.Job{Name: "lan-scan", Interval: 5 * time.Minute, Run: instance.runLANDiscovery},
+		worker.Job{Name: "topology-discovery", Interval: 5 * time.Minute, Run: instance.runTopologyDiscovery},
 		worker.Job{Name: "service-fingerprinting", Interval: 45 * time.Second, Run: instance.runFingerprinting},
 		worker.Job{Name: "health-checks", Interval: 30 * time.Second, Run: instance.runMonitoring},
 		worker.Job{Name: "cleanup", Interval: 24 * time.Hour, Run: instance.runCleanup},
@@ -248,11 +252,41 @@ func (a *App) DeleteScanTarget(ctx context.Context, id string) error {
 	return nil
 }
 
+func (a *App) ListTopologySources(ctx context.Context) ([]domain.TopologySource, error) {
+	return a.store.ListTopologySources(ctx)
+}
+
+func (a *App) GetTopologySourceForEdit(ctx context.Context, id string) (domain.TopologySource, error) {
+	return a.store.GetTopologySourceForDiscovery(ctx, id)
+}
+
+func (a *App) SaveTopologySource(ctx context.Context, source domain.TopologySource) (domain.TopologySource, error) {
+	item, err := a.store.SaveTopologySource(ctx, source)
+	if err != nil {
+		return domain.TopologySource{}, err
+	}
+	a.publish("topology-source", item.ID, "upserted", item)
+	return item, nil
+}
+
+func (a *App) DeleteTopologySource(ctx context.Context, id string) error {
+	if err := a.store.DeleteTopologySource(ctx, id); err != nil {
+		return err
+	}
+	a.publish("topology-source", id, "deleted", nil)
+	a.publish("topology", "all", "updated", nil)
+	return nil
+}
+
 func (a *App) TriggerDiscovery(ctx context.Context) error {
 	if err := a.runDockerDiscovery(ctx); err != nil {
 		return err
 	}
 	return a.runLANDiscovery(ctx)
+}
+
+func (a *App) TriggerTopologyDiscovery(ctx context.Context) error {
+	return a.runTopologyDiscovery(ctx)
 }
 
 func (a *App) TriggerMonitoring(ctx context.Context) error {
@@ -346,6 +380,51 @@ func (a *App) runLANDiscovery(ctx context.Context) error {
 	a.logger.Debug("lan scan completed", "targets", len(targets), "observations", len(observations))
 	a.recordJobRun(ctx, "lan-scan", nil)
 	return nil
+}
+
+func (a *App) runTopologyDiscovery(ctx context.Context) error {
+	if !a.isBootstrapped(ctx) {
+		a.logger.Debug("topology discovery skipped", "reason", "not_bootstrapped")
+		return nil
+	}
+	sources, err := a.store.ListTopologySourcesForDiscovery(ctx)
+	if err != nil {
+		a.recordJobRun(ctx, "topology-discovery", err)
+		return err
+	}
+	results := a.topologySNMP.Discover(ctx, sources)
+	var jobErr error
+	var runErr error
+	for _, result := range results {
+		if result.Error != nil {
+			if jobErr == nil {
+				jobErr = result.Error
+			}
+			a.logger.Warn(
+				"topology source discovery failed",
+				"source_id", result.Source.ID,
+				"source_name", result.Source.Name,
+				"err", result.Error,
+			)
+			_ = a.store.UpdateTopologySourceStatus(ctx, result.Source.ID, time.Time{}, result.Error.Error())
+			continue
+		}
+		if err := a.store.ReplaceTopologyObservations(ctx, result.Source.ID, result.Observation); err != nil {
+			if jobErr == nil {
+				jobErr = err
+			}
+			if runErr == nil {
+				runErr = err
+			}
+			_ = a.store.UpdateTopologySourceStatus(ctx, result.Source.ID, time.Time{}, err.Error())
+			continue
+		}
+		_ = a.store.UpdateTopologySourceStatus(ctx, result.Source.ID, time.Now().UTC(), "")
+	}
+	a.logger.Debug("topology discovery completed", "sources", len(results))
+	a.publish("topology", "all", "updated", nil)
+	a.recordJobRun(ctx, "topology-discovery", jobErr)
+	return runErr
 }
 
 func (a *App) runMonitoring(ctx context.Context) error {

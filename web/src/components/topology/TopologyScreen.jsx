@@ -16,6 +16,51 @@ function DetailPanel({ selected, services }) {
     );
   }
   const { item, kind } = selected.data;
+  if (kind === "edge") {
+    return (
+      <aside className="topology-detail">
+        <h2 className="text-sm font-semibold text-ink">Link</h2>
+        <dl className="mt-4 grid gap-3 text-sm">
+          <Detail label="Kind" value={item.kind || "n/a"} />
+          <Detail label="Source" value={item.source || "n/a"} />
+          <Detail label="Protocol" value={item.protocol || "n/a"} />
+          <Detail label="Confidence" value={item.confidence || "n/a"} />
+          <Detail label="Port" value={item.label || "n/a"} />
+          <Detail label="Observed" value={item.observedAt ? new Date(item.observedAt).toLocaleString() : item.inferred ? "inferred" : "n/a"} />
+        </dl>
+      </aside>
+    );
+  }
+  if (kind === "infrastructure") {
+    return (
+      <aside className="topology-detail">
+        <h2 className="text-sm font-semibold text-ink">{item.label}</h2>
+        <dl className="mt-4 grid gap-3 text-sm">
+          <Detail label="Management address" value={item.managementAddress || "n/a"} />
+          <Detail label="Chassis ID" value={item.chassisId || "n/a"} />
+          <Detail label="System name" value={item.systemName || "n/a"} />
+          <Detail label="Role" value={item.role || item.kind || "unknown"} />
+          <Detail label="Source" value={item.sourceId || "observed neighbor"} />
+          <Detail label="Last seen" value={item.lastSeenAt ? new Date(item.lastSeenAt).toLocaleString() : "n/a"} />
+        </dl>
+      </aside>
+    );
+  }
+  if (kind === "address-group") {
+    return (
+      <aside className="topology-detail">
+        <h2 className="text-sm font-semibold text-ink">{item.name}</h2>
+        <dl className="mt-4 grid gap-3 text-sm">
+          <Detail label="CIDR" value={item.cidr} />
+          <Detail label="Network" value={item.networkAddress || "n/a"} />
+          <Detail label="Broadcast" value={item.broadcastAddress || "n/a"} />
+          <Detail label="Usable range" value={`${item.firstUsableAddress || "n/a"} - ${item.lastUsableAddress || "n/a"}`} />
+          <Detail label="Utilization" value={`${item.discoveredAddressCount || 0}/${item.usableAddressCount || 0} addresses (${item.utilizationPct || 0}%)`} />
+          <Detail label="Services" value={item.serviceCount || 0} />
+        </dl>
+      </aside>
+    );
+  }
   if (kind === "subnet") {
     return (
       <aside className="topology-detail">
@@ -83,9 +128,15 @@ function Warnings({ warnings }) {
 }
 
 export default function TopologyScreen({ topology }) {
+  const [mode, setMode] = useState("auto");
+  const [showCrossLinks, setShowCrossLinks] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const [showInferredFallback, setShowInferredFallback] = useState(false);
   const [selected, setSelected] = useState(null);
-  const model = useMemo(() => buildTopologyFlowModel(topology, { showHidden }), [showHidden, topology]);
+  const model = useMemo(
+    () => buildTopologyFlowModel(topology, { mode, showCrossLinks, showHidden, showInferredFallback }),
+    [mode, showCrossLinks, showHidden, showInferredFallback, topology],
+  );
   const isEmpty = !topology || ((topology.subnets?.length || 0) === 0 && (topology.devices?.length || 0) === 0);
 
   if (isEmpty) {
@@ -99,13 +150,35 @@ export default function TopologyScreen({ topology }) {
           <div>
             <h1 className="text-base font-semibold text-ink">Network topology</h1>
             <p className="text-sm text-muted">
-              {topology.summary?.routerCount || 0} gateways · {topology.summary?.subnetCount || 0} subnets · {topology.summary?.deviceCount || 0} devices
+              {topology.summary?.routerCount || 0} gateways · {topology.summary?.subnetCount || 0} subnets · {topology.infrastructureNodes?.length || 0} infrastructure · {topology.summary?.deviceCount || 0} devices
             </p>
           </div>
-          <label className="inline-flex items-center gap-2 text-sm text-ink-soft">
-            <input className="h-4 w-4 accent-accent" checked={showHidden} onChange={(event) => setShowHidden(event.target.checked)} type="checkbox" />
-            Show hidden devices
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center gap-2 text-sm text-ink-soft">
+              Mode
+              <select
+                className="rounded-xl border border-line bg-panel-strong px-3 py-2 text-sm text-ink outline-hidden focus:border-accent focus-visible:ring-4 focus-visible:ring-accent/15"
+                onChange={(event) => setMode(event.target.value)}
+                value={mode}
+              >
+                <option value="auto">Auto</option>
+                <option value="observed">Observed</option>
+                <option value="address">Address</option>
+              </select>
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-ink-soft">
+              <input className="h-4 w-4 accent-accent" checked={showHidden} onChange={(event) => setShowHidden(event.target.checked)} type="checkbox" />
+              Show hidden devices
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-ink-soft">
+              <input className="h-4 w-4 accent-accent" checked={showCrossLinks} onChange={(event) => setShowCrossLinks(event.target.checked)} type="checkbox" />
+              Show cross-links
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-ink-soft">
+              <input className="h-4 w-4 accent-accent" checked={showInferredFallback} onChange={(event) => setShowInferredFallback(event.target.checked)} type="checkbox" />
+              Show inferred fallback links
+            </label>
+          </div>
         </div>
         <div className="h-[68vh] min-h-[560px]">
           <ReactFlow
@@ -113,6 +186,7 @@ export default function TopologyScreen({ topology }) {
             fitView
             nodes={model.nodes}
             nodeTypes={nodeTypes}
+            onEdgeClick={(_, edge) => setSelected({ data: edge.data })}
             onNodeClick={(_, node) => setSelected(node)}
             onPaneClick={() => setSelected(null)}
           >

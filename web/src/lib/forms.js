@@ -34,6 +34,25 @@ export const defaultScanTargetForm = {
   scanIntervalSeconds: 300,
 };
 
+export const defaultTopologySourceForm = {
+  name: "Core switch",
+  address: "192.168.1.2",
+  port: 161,
+  enabled: true,
+  pollIntervalSeconds: 300,
+  timeoutMs: 1500,
+  retries: 1,
+  snmpVersion: "v2c",
+  community: "",
+  username: "",
+  authProtocol: "none",
+  authPassphrase: "",
+  privacyProtocol: "none",
+  privacyPassphrase: "",
+  role: "switch",
+  root: false,
+};
+
 export const defaultAPITokenForm = {
   name: "Automation token",
   scope: "write",

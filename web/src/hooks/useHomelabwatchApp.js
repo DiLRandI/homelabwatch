@@ -9,6 +9,7 @@ import {
   createServiceDefinition,
   createFolder,
   createDockerEndpoint,
+  createTopologySource,
   createNotificationChannel,
   createNotificationRule,
   createStatusPage,
@@ -21,6 +22,7 @@ import {
   deleteNotificationRule,
   deleteServiceCheck,
   deleteServiceDefinition,
+  deleteTopologySource,
   deleteBookmark,
   deleteFolder,
   exportBookmarks,
@@ -35,6 +37,7 @@ import {
   revokeAPIToken,
   runDiscoveryJob,
   runMonitoringJob,
+  runTopologyDiscovery,
   testNotificationChannel,
   testServiceCheck,
   updateStatusPage,
@@ -44,6 +47,7 @@ import {
   updateServiceCheck,
   updateServiceDefinition,
   updateDiscoverySettings,
+  updateTopologySource,
   updateBookmark,
   updateFolder,
   uploadBookmarkAsset,
@@ -56,6 +60,7 @@ import { useSettingsData } from "./useSettingsData";
 import { useServerEvents } from "./useServerEvents";
 import { useStatusPagesData } from "./useStatusPagesData";
 import { useTopologyData } from "./useTopologyData";
+import { useTopologySourcesData } from "./useTopologySourcesData";
 import { useUIBootstrap } from "./useUIBootstrap";
 
 const REFRESH_DEBOUNCE_MS = 1500;
@@ -73,6 +78,7 @@ export function useHomelabwatchApp() {
     settings: { dirty: false, maxTimerID: null, timerID: null },
     statusPages: { dirty: false, maxTimerID: null, timerID: null },
     topology: { dirty: false, maxTimerID: null, timerID: null },
+    topologySources: { dirty: false, maxTimerID: null, timerID: null },
   });
   const bootstrap = useUIBootstrap({ onError: setError });
   const dashboardState = useDashboardData({ onError: setError });
@@ -84,6 +90,7 @@ export function useHomelabwatchApp() {
   const notificationsState = useNotificationsData({ onError: setError });
   const statusPagesState = useStatusPagesData({ onError: setError });
   const topologyState = useTopologyData({ onError: setError });
+  const topologySourcesState = useTopologySourcesData({ onError: setError });
 
   function clearRefreshTimers(kind) {
     const state = refreshStateRef.current[kind];
@@ -131,6 +138,8 @@ export function useHomelabwatchApp() {
         return loadStatusPages();
       case "topology":
         return loadTopology();
+      case "topologySources":
+        return loadTopologySources();
       default:
         return loadDashboard();
     }
@@ -181,6 +190,7 @@ export function useHomelabwatchApp() {
       loadNotifications(),
       loadStatusPages(),
       loadTopology(),
+      loadTopologySources(),
     ]);
   }
 
@@ -242,6 +252,8 @@ export function useHomelabwatchApp() {
     "service-definition": () => queueRefreshes("dashboard", "settings"),
     "status-page": () => queueRefreshes("statusPages"),
     "status-page-announcement": () => queueRefreshes("statusPages"),
+    topology: () => queueRefreshes("topology"),
+    "topology-source": () => queueRefreshes("topologySources", "topology"),
   });
 
   async function loadStatusPages() {
@@ -250,6 +262,10 @@ export function useHomelabwatchApp() {
 
   async function loadTopology() {
     return Boolean(await topologyState.loadTopology());
+  }
+
+  async function loadTopologySources() {
+    return Boolean(await topologySourcesState.loadTopologySources());
   }
 
   async function loadStatusPage(id) {
@@ -574,6 +590,24 @@ export function useHomelabwatchApp() {
     }, "Scan target saved.");
   }
 
+  async function saveTopologySource(payload) {
+    return performAction(async () => {
+      if (payload.id) {
+        await updateTopologySource(payload.id, payload, bootstrap.csrfToken);
+      } else {
+        await createTopologySource(payload, bootstrap.csrfToken);
+      }
+      await Promise.all([loadTopologySources(), loadTopology()]);
+    }, "Topology source saved.");
+  }
+
+  async function removeTopologySource(id) {
+    return performAction(async () => {
+      await deleteTopologySource(id, bootstrap.csrfToken);
+      await Promise.all([loadTopologySources(), loadTopology()]);
+    }, "Topology source deleted.");
+  }
+
   async function saveDiscoveryPolicy(payload) {
     return performAction(async () => {
       await updateDiscoverySettings(payload, bootstrap.csrfToken);
@@ -630,6 +664,13 @@ export function useHomelabwatchApp() {
     }, "Health checks started.");
   }
 
+  async function runTopology() {
+    return performAction(async () => {
+      await runTopologyDiscovery(bootstrap.csrfToken);
+      await Promise.all([loadTopologySources(), loadTopology()]);
+    }, "Topology discovery started.");
+  }
+
   async function performAction(action, successMessage) {
     try {
       setError("");
@@ -660,11 +701,13 @@ export function useHomelabwatchApp() {
       removeStatusPageAnnouncement,
       removeServiceDefinitionRecord,
       removeServiceHealthCheck,
+      removeTopologySource,
       restoreSuggestion,
       revokeExternalToken,
       runDiscovery,
       runMonitoring,
       runServiceCheckTest,
+      runTopology,
       saveNotificationChannel,
       saveNotificationRule,
       saveStatusPage,
@@ -683,6 +726,7 @@ export function useHomelabwatchApp() {
       saveScanTarget,
       saveServiceDefinitionRecord,
       saveServiceHealthCheck,
+      saveTopologySource,
       submitSetup,
       uploadBookmarkIcon,
       rerunServiceDefinition,
@@ -705,6 +749,7 @@ export function useHomelabwatchApp() {
       statusPages: statusPagesState.statusPages,
       tags: bookmarksState.tags,
       topology: topologyState.topology,
+      topologySources: topologySourcesState.topologySources,
     },
   };
 }

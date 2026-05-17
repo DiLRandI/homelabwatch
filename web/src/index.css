@@ -236,8 +236,18 @@
     border-style: dashed;
   }
 
+  .topology-node--address-group {
+    border-style: dashed;
+    background: color-mix(in srgb, var(--color-panel) 88%, var(--color-warn));
+  }
+
   .topology-node--device {
     background: var(--color-panel);
+  }
+
+  .topology-node--infrastructure {
+    border-color: rgba(15, 118, 110, 0.42);
+    background: color-mix(in srgb, var(--color-panel-strong) 86%, rgb(20 184 166));
   }
 
   .topology-detail {
@@ -252,6 +262,24 @@
   .topology-edge path {
     stroke: var(--color-muted);
     stroke-width: 1.7;
+  }
+
+  .topology-edge--infrastructure-link path {
+    stroke: var(--color-ink-soft);
+    stroke-width: 2.4;
+  }
+
+  .topology-edge--infrastructure-port-device path {
+    stroke: var(--color-muted);
+    stroke-width: 2;
+  }
+
+  .topology-edge--inferred path {
+    stroke-dasharray: 6 6;
+  }
+
+  .topology-edge--cross-link path {
+    stroke-dasharray: 2 6;
   }
 
   .bootstrap-hero {

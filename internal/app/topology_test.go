@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -122,5 +123,153 @@ func TestTopologyWarnsForUnsupportedTargets(t *testing.T) {
 	}
 	if topology.Summary.UnsupportedSubnetCount != 2 || len(topology.Warnings) != 2 {
 		t.Fatalf("expected warnings for invalid and IPv6 targets, got %#v %#v", topology.Summary, topology.Warnings)
+	}
+}
+
+func TestTopologyBuildsLogicalAddressGroups(t *testing.T) {
+	application, store, _ := newTestApp(t, config.Config{DefaultScanPorts: []int{22, 80}})
+	ctx := context.Background()
+	if err := application.Setup(ctx, domain.SetupInput{ApplianceName: "Lab", DefaultScanPorts: []int{22, 80}}); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if _, err := application.SaveScanTarget(ctx, domain.ScanTarget{Name: "Corp", CIDR: "10.0.0.0/16", Enabled: true}); err != nil {
+		t.Fatalf("save target: %v", err)
+	}
+	for _, address := range []string{"10.0.5.20", "10.0.9.30"} {
+		if _, err := store.UpsertDeviceObservation(ctx, domain.DeviceObservation{IdentityKey: "ip:" + address, IPAddress: address, Confidence: domain.IdentityConfidenceHigh, LastSeenAt: time.Now().UTC()}); err != nil {
+			t.Fatalf("save device %s: %v", address, err)
+		}
+	}
+	topology, err := application.Topology(ctx)
+	if err != nil {
+		t.Fatalf("topology: %v", err)
+	}
+	var cidrs []string
+	for _, group := range topology.AddressGroups {
+		cidrs = append(cidrs, group.CIDR)
+	}
+	if len(cidrs) != 2 || cidrs[0] != "10.0.5.0/24" || cidrs[1] != "10.0.9.0/24" {
+		t.Fatalf("expected occupied /24 groups, got %#v", topology.AddressGroups)
+	}
+}
+
+func TestTopologySplitsBusy24IntoOccupied26Groups(t *testing.T) {
+	application, store, _ := newTestApp(t, config.Config{DefaultScanPorts: []int{22, 80}})
+	ctx := context.Background()
+	if err := application.Setup(ctx, domain.SetupInput{ApplianceName: "Lab", DefaultScanPorts: []int{22, 80}}); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if _, err := application.SaveScanTarget(ctx, domain.ScanTarget{Name: "LAN", CIDR: "192.168.1.0/24", Enabled: true}); err != nil {
+		t.Fatalf("save target: %v", err)
+	}
+	for i := 0; i < 13; i++ {
+		host := 10 + i
+		if i > 6 {
+			host = 80 + i
+		}
+		address := "192.168.1." + strconv.Itoa(host)
+		if _, err := store.UpsertDeviceObservation(ctx, domain.DeviceObservation{IdentityKey: "ip:" + address, IPAddress: address, Confidence: domain.IdentityConfidenceHigh, LastSeenAt: time.Now().UTC()}); err != nil {
+			t.Fatalf("save device %s: %v", address, err)
+		}
+	}
+	topology, err := application.Topology(ctx)
+	if err != nil {
+		t.Fatalf("topology: %v", err)
+	}
+	var cidrs []string
+	for _, group := range topology.AddressGroups {
+		cidrs = append(cidrs, group.CIDR)
+	}
+	if len(cidrs) != 2 || cidrs[0] != "192.168.1.0/26" || cidrs[1] != "192.168.1.64/26" {
+		t.Fatalf("expected occupied /26 groups, got %#v", topology.AddressGroups)
+	}
+}
+
+func TestTopologyBuildsObservedInfrastructureAndMapsDeviceToDeepestSwitch(t *testing.T) {
+	application, store, _ := newTestApp(t, config.Config{DefaultScanPorts: []int{22, 80}})
+	ctx := context.Background()
+	if err := application.Setup(ctx, domain.SetupInput{ApplianceName: "Lab", DefaultScanPorts: []int{22, 80}}); err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	if _, err := application.SaveScanTarget(ctx, domain.ScanTarget{Name: "LAN", CIDR: "192.168.1.0/24", Enabled: true}); err != nil {
+		t.Fatalf("save target: %v", err)
+	}
+	device, err := store.UpsertDeviceObservation(ctx, domain.DeviceObservation{IdentityKey: "mac:aa:bb:cc:dd:ee:ff", PrimaryMAC: "aa-bb-cc-dd-ee-ff", IPAddress: "192.168.1.20", Confidence: domain.IdentityConfidenceHigh, LastSeenAt: time.Now().UTC()})
+	if err != nil {
+		t.Fatalf("save device: %v", err)
+	}
+	core, err := store.SaveTopologySource(ctx, domain.TopologySource{Name: "Core", Address: "192.168.1.1", Enabled: true, SNMPVersion: "v2c", Community: "public", Role: "switch", Root: true})
+	if err != nil {
+		t.Fatalf("save core: %v", err)
+	}
+	access, err := store.SaveTopologySource(ctx, domain.TopologySource{Name: "Access", Address: "192.168.1.2", Enabled: true, SNMPVersion: "v2c", Community: "public", Role: "switch"})
+	if err != nil {
+		t.Fatalf("save access: %v", err)
+	}
+	dist, err := store.SaveTopologySource(ctx, domain.TopologySource{Name: "Distribution", Address: "192.168.1.3", Enabled: true, SNMPVersion: "v2c", Community: "public", Role: "switch"})
+	if err != nil {
+		t.Fatalf("save distribution: %v", err)
+	}
+	seen := time.Now().UTC()
+	if err := store.ReplaceTopologyObservations(ctx, core.ID, domain.TopologySourceObservation{
+		ObservedAt: seen,
+		LLDPLinks: []domain.TopologyLLDPLinkObservation{
+			{LocalChassisID: "core", LocalSystemName: "core", LocalPortID: "gi1", LocalIfIndex: 1, RemoteChassisID: "access", RemoteSystemName: "access", RemotePortID: "gi48"},
+		},
+		MACLinks: []domain.TopologyMACLinkObservation{{MACAddress: "aa:bb:cc:dd:ee:ff", IfIndex: 1, IfName: "gi1"}},
+	}); err != nil {
+		t.Fatalf("replace core observations: %v", err)
+	}
+	if err := store.ReplaceTopologyObservations(ctx, access.ID, domain.TopologySourceObservation{
+		ObservedAt: seen,
+		LLDPLinks: []domain.TopologyLLDPLinkObservation{
+			{LocalChassisID: "access", LocalSystemName: "access", LocalPortID: "gi48", LocalIfIndex: 48, RemoteChassisID: "core", RemoteSystemName: "core", RemotePortID: "gi1"},
+			{LocalChassisID: "access", LocalSystemName: "access", LocalPortID: "gi47", LocalIfIndex: 47, RemoteChassisID: "dist", RemoteSystemName: "dist", RemotePortID: "gi1"},
+		},
+		MACLinks: []domain.TopologyMACLinkObservation{{MACAddress: "aa:bb:cc:dd:ee:ff", IfIndex: 5, IfName: "gi5"}},
+	}); err != nil {
+		t.Fatalf("replace access observations: %v", err)
+	}
+	if err := store.ReplaceTopologyObservations(ctx, dist.ID, domain.TopologySourceObservation{
+		ObservedAt: seen,
+		LLDPLinks: []domain.TopologyLLDPLinkObservation{
+			{LocalChassisID: "dist", LocalSystemName: "dist", LocalPortID: "gi1", LocalIfIndex: 1, RemoteChassisID: "core", RemoteSystemName: "core", RemotePortID: "gi2"},
+		},
+	}); err != nil {
+		t.Fatalf("replace dist observations: %v", err)
+	}
+
+	topology, err := application.Topology(ctx)
+	if err != nil {
+		t.Fatalf("topology: %v", err)
+	}
+	if len(topology.InfrastructureNodes) != 3 {
+		t.Fatalf("expected three infrastructure nodes, got %#v", topology.InfrastructureNodes)
+	}
+	var infraLinks, crossLinks int
+	var deviceEdge domain.TopologyEdge
+	for _, edge := range topology.Edges {
+		switch edge.Kind {
+		case "infrastructure-link":
+			infraLinks++
+		case "cross-link":
+			crossLinks++
+		case "infrastructure-port-device":
+			if edge.TargetID == "device:"+device.ID {
+				deviceEdge = edge
+			}
+		}
+	}
+	if infraLinks != 2 || crossLinks != 1 {
+		t.Fatalf("expected deduped LLDP tree with one cross-link, got infra=%d cross=%d edges=%#v", infraLinks, crossLinks, topology.Edges)
+	}
+	accessNodeID := ""
+	for _, node := range topology.InfrastructureNodes {
+		if node.SourceID == access.ID {
+			accessNodeID = node.ID
+		}
+	}
+	if deviceEdge.SourceID != accessNodeID || deviceEdge.Source != "bridge" || deviceEdge.Protocol != "snmp" {
+		t.Fatalf("expected device attached to deepest access switch, got %#v accessNode=%q", deviceEdge, accessNodeID)
 	}
 }
