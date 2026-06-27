@@ -1,3 +1,5 @@
+import { lazy, Suspense } from "react";
+
 import AppShell from "./app/AppShell";
 import { useAppRoute } from "./app/useAppRoute";
 import BookmarksScreen from "./app/screens/BookmarksScreen";
@@ -25,6 +27,8 @@ import { useHomelabwatchApp } from "./hooks/useHomelabwatchApp";
 import { usePublicStatusPage } from "./hooks/usePublicStatusPage";
 import { useThemePreference } from "./hooks/useThemePreference";
 import { isPublicStatusPath, statusSlugFromPath } from "./app/routes";
+
+const TopologyScreen = lazy(() => import("./components/topology/TopologyScreen"));
 
 const DEFAULT_SUMMARY = {
   bookmarks: 0,
@@ -193,7 +197,12 @@ function ManagementApp({ navigate, route, theme, toggleTheme }) {
           onSaveDiscoveryPolicy={app.actions.saveDiscoveryPolicy}
           onSaveDockerEndpoint={app.actions.saveDockerEndpoint}
           onSaveScanTarget={app.actions.saveScanTarget}
+          onSaveTopologySource={app.actions.saveTopologySource}
+          onAutoDiscoverTopologySources={app.actions.autoDiscoverTopology}
+          onDeleteTopologySource={app.actions.removeTopologySource}
+          onRunTopologyDiscovery={app.actions.runTopology}
           settings={settings}
+          topologySources={app.data.topologySources}
         />
       );
       break;
@@ -204,6 +213,19 @@ function ManagementApp({ navigate, route, theme, toggleTheme }) {
           discoveryCounts={discoveryCounts}
           serviceCounts={serviceCounts}
         />
+      );
+      break;
+    case "topology":
+      content = (
+        <Suspense
+          fallback={
+            <div className="rounded-lg border border-line bg-panel p-6 text-sm text-muted shadow-card">
+              Loading topology...
+            </div>
+          }
+        >
+          <TopologyScreen topology={app.data.topology} />
+        </Suspense>
       );
       break;
     case "notifications":
@@ -306,6 +328,7 @@ function ManagementApp({ navigate, route, theme, toggleTheme }) {
           onRunMonitoring={app.actions.runMonitoring}
           settings={settings}
           statusPages={app.data.statusPages}
+          topology={app.data.topology}
         >
           {content}
         </AppShell>

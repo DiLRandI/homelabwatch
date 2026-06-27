@@ -79,6 +79,19 @@ export function DevicesIcon({ className }) {
   );
 }
 
+export function NetworkIcon({ className }) {
+  return (
+    <Icon className={className}>
+      <circle cx="12" cy="5" r="2.5" />
+      <circle cx="6" cy="18" r="2.5" />
+      <circle cx="18" cy="18" r="2.5" />
+      <path d="M11 7.2 7.2 15.8" />
+      <path d="M13 7.2 16.8 15.8" />
+      <path d="M8.5 18h7" />
+    </Icon>
+  );
+}
+
 export function BookmarkIcon({ className }) {
   return (
     <Icon className={className}>

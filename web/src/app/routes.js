@@ -5,6 +5,7 @@ import {
   DatabaseIcon,
   DevicesIcon,
   DiscoveryIcon,
+  NetworkIcon,
   OverviewIcon,
   ServicesIcon,
   ShieldIcon,
@@ -83,6 +84,15 @@ export const APP_ROUTES = [
     path: "/devices",
     subtitle: "Known devices, network addresses, open ports, and confidence.",
     title: "Devices",
+  },
+  {
+    countKey: "topology",
+    icon: NetworkIcon,
+    id: "topology",
+    label: "Topology",
+    path: "/topology",
+    subtitle: "Subnet boundaries, inferred gateways, devices, and linked services.",
+    title: "Network Topology",
   },
   {
     countKey: "definitions",

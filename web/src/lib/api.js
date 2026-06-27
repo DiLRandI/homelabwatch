@@ -38,6 +38,52 @@ export function fetchDashboard() {
   return request("/api/ui/v1/dashboard");
 }
 
+export function fetchTopology() {
+  return request("/api/ui/v1/topology");
+}
+
+export function fetchTopologySources() {
+  return request("/api/ui/v1/discovery/topology-sources");
+}
+
+export function createTopologySource(payload, csrfToken) {
+  return request("/api/ui/v1/discovery/topology-sources", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function updateTopologySource(id, payload, csrfToken) {
+  return request(`/api/ui/v1/discovery/topology-sources/${id}`, {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "PATCH",
+  });
+}
+
+export function deleteTopologySource(id, csrfToken) {
+  return request(`/api/ui/v1/discovery/topology-sources/${id}`, {
+    csrfToken,
+    method: "DELETE",
+  });
+}
+
+export function autoDiscoverTopologySources(payload = {}, csrfToken) {
+  return request("/api/ui/v1/discovery/topology/auto-discover", {
+    body: JSON.stringify(payload),
+    csrfToken,
+    method: "POST",
+  });
+}
+
+export function runTopologyDiscovery(csrfToken) {
+  return request("/api/ui/v1/discovery/topology/run", {
+    csrfToken,
+    method: "POST",
+  });
+}
+
 export function fetchStatusPages() {
   return request("/api/ui/v1/status-pages");
 }
