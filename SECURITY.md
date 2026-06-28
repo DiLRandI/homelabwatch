@@ -4,7 +4,7 @@
 
 HomelabWatch is pre-`1.0`.
 
-- Latest tagged release, currently `v0.5.0`: supported
+- Latest tagged release, currently `v0.9.0`: supported
 - `main`: supported for active contributors
 - Older pre-release builds: best effort only
 
@@ -46,6 +46,19 @@ HomelabWatch is designed for trusted local and LAN environments.
   as a privileged capability.
 - Linux LAN discovery and ping checks may require `--network host` and
   `--cap-add NET_RAW`. Only grant those where needed.
+
+## Supply-Chain Incidents
+
+If a dependency install, developer workstation, CI runner, or publishing
+identity may have been compromised, stop using the affected environment and
+follow `docs/security/supply-chain-hardening.md`. Do not paste suspected
+credentials into an issue, workflow log, or chat. Report only the credential
+type and location through the private disclosure channel.
+
+The response order matters: isolate the host and preserve evidence before
+revoking credentials. Recent Shai-Hulud variants have included destructive
+behavior after token revocation. Perform rotation from a separate clean
+machine.
 
 ## What To Expect After Reporting
 

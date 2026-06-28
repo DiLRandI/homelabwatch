@@ -34,7 +34,7 @@ pre-release into a trustworthy open-source control plane.
 ## Operational Bar
 
 - `go test ./...` passes.
-- `cd web && npm run build` passes.
+- `pnpm --dir web build` passes.
 - Release config remains valid through `goreleaser check`.
 - The Docker image still supports the single-container install path.
 - Upgrades preserve setup state, bookmarks, discovery configuration, and health

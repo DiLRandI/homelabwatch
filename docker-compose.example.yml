@@ -11,6 +11,10 @@ services:
     volumes:
       - ./data:/data
       - /var/run/docker.sock:/var/run/docker.sock
+    # The image runs as UID/GID 10001. For Docker discovery on Linux, set
+    # DOCKER_GID to: stat -c '%g' /var/run/docker.sock
+    # group_add:
+    #   - "${DOCKER_GID}"
     # For Linux LAN discovery and ping checks, you may prefer:
     # network_mode: host
     # cap_add:

@@ -206,6 +206,7 @@ docker run --rm \
 Install dependencies and build the frontend:
 
 ```bash
+corepack enable
 make web-install
 make web-build
 ```
@@ -216,9 +217,9 @@ Run the backend:
 make run
 ```
 
-The browser UI expects same-origin API requests. `npm run dev` is available for
-frontend-only work, but you will need a dev proxy if you want Vite to point at
-the Go API.
+The browser UI expects same-origin API requests. `pnpm --dir web dev` is
+available for frontend-only work, but you will need a dev proxy if you want
+Vite to point at the Go API.
 
 ## Configuration
 
@@ -405,10 +406,19 @@ Common external API flow:
 Useful checks:
 
 ```bash
+pnpm install --frozen-lockfile
+pnpm audit --audit-level=high
+pnpm --dir web test --run
+pnpm --dir web build
+go mod verify
 go test ./...
-cd web && npm run build
+go vet ./...
 make docker-build
 ```
+
+Dependency lifecycle scripts are denied by default. The approval process and
+incident-response checklist are documented in
+[`docs/security/supply-chain-hardening.md`](docs/security/supply-chain-hardening.md).
 
 For release validation:
 

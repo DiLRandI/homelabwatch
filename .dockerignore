@@ -1,9 +1,16 @@
 .git
 .github
+.claude
+.codex
+.cursor
+.vscode
 .DS_Store
 .env
 .env.*
 .npmrc
+config.yaml
+config.yml
+docker-compose.yml
 data
 node_modules
 web/node_modules
