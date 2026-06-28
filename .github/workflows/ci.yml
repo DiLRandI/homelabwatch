@@ -6,54 +6,85 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
-  verify:
+  go:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Install frontend dependencies
-        working-directory: web
-        run: npm ci
-
-      - name: Build frontend
-        working-directory: web
-        run: npm run build
+      - name: Verify Go modules
+        run: go mod verify
 
       - name: Run Go tests
         run: go test ./...
 
-  release-config:
+      - name: Run Go vet
+        run: go vet ./...
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.4.0
+
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  frontend:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+        with:
+          node-version: 24
+
+      - name: Enable the pinned package manager
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify lockfile is unchanged
+        run: git diff --exit-code -- pnpm-lock.yaml
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high
+
+      - name: Test frontend
+        run: pnpm --dir web test --run
+
+      - name: Build frontend
+        run: pnpm --dir web build
+
+  release-config:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
       - name: Validate GoReleaser configuration
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           distribution: goreleaser
           version: "~> v2"
