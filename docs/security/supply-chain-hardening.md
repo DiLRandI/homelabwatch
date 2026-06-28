@@ -215,6 +215,27 @@ Scorecard can also be run locally against the public repository; private
 repositories without GitHub Advanced Security should use the Scorecard CLI
 instead of publishing SARIF.
 
+## Validation Results
+
+The final branch was validated on 2026-06-28:
+
+- frozen pnpm install, audit, 9 frontend tests, and production build passed;
+- `go mod verify`, `go test ./...`, `go vet ./...`, and
+  `govulncheck ./...` passed with no reported vulnerabilities;
+- a redacted gitleaks scan of 50 commits found no candidate secrets;
+- actionlint, workflow YAML parsing, mutable-action checks, and
+  `git diff --check` passed;
+- the Docker image built successfully, ran as `10001:10001`, could write
+  `/data`, and could not write `/app`;
+- Syft generated an SPDX JSON SBOM containing 33 packages;
+- Trivy reported zero fixed high or critical vulnerabilities in the final
+  image; and
+- GoReleaser `v2.16.0` validated `.goreleaser.yaml`.
+
+These results establish the state of this branch and tested image only. They do
+not clear developer endpoints, external accounts, old artifacts, caches, or
+deployments from the suspected exposure window.
+
 ## Remaining Risk
 
 - Repository controls cannot prove whether historical endpoint or account
