@@ -1,0 +1,22 @@
+packages:
+  - web
+
+# Hold new releases for seven days so registry abuse has time to be detected.
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+
+# Re-check policy against every lockfile entry and reject exotic transitive sources.
+trustLockfile: false
+blockExoticSubdeps: true
+overrides:
+  undici: 7.28.0
+
+# Never execute a dependency lifecycle script unless it is explicitly reviewed.
+strictDepBuilds: true
+verifyDepsBeforeRun: install
+allowBuilds:
+  fsevents: false
+
+# Keep future direct dependency changes exact by default.
+savePrefix: ''
