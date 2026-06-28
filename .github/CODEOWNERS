@@ -1,0 +1,8 @@
+# Build and release controls require explicit maintainer review.
+/.github/ @DiLRandI
+/Dockerfile @DiLRandI
+/Dockerfile.release @DiLRandI
+/.goreleaser.yaml @DiLRandI
+/package.json @DiLRandI
+/pnpm-lock.yaml @DiLRandI
+/pnpm-workspace.yaml @DiLRandI

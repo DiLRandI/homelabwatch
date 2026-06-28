@@ -10,11 +10,11 @@ IMAGE ?= $(APP_NAME):local
 help: ## Show available targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "\033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-web-install: ## Install frontend dependencies with npm ci
-	cd web && npm ci
+web-install: ## Install frontend dependencies with the frozen pnpm lockfile
+	pnpm install --frozen-lockfile
 
 web-build: ## Build the React frontend into web/dist
-	cd web && npm run build
+	pnpm --dir web run build
 
 test: ## Run Go tests
 	go test ./...

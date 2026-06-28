@@ -27,7 +27,7 @@ type Store struct {
 }
 
 func New(path string) (*Store, error) {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
 	}
 	writeDB, err := openSQLiteDB(path, 1, 1)
@@ -38,6 +38,12 @@ func New(path string) (*Store, error) {
 	if err := store.migrate(context.Background()); err != nil {
 		_ = writeDB.Close()
 		return nil, err
+	}
+	if path != ":memory:" && !strings.HasPrefix(path, "file:") {
+		if err := os.Chmod(path, 0o600); err != nil {
+			_ = writeDB.Close()
+			return nil, err
+		}
 	}
 	if err := store.seedBuiltInServiceDefinitions(context.Background()); err != nil {
 		_ = writeDB.Close()

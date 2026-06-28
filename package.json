@@ -1,0 +1,13 @@
+{
+  "name": "homelabwatch",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.13 <25",
+    "pnpm": "11.9.0"
+  },
+  "scripts": {
+    "web:build": "pnpm --dir web build",
+    "web:test": "pnpm --dir web test --run"
+  }
+}

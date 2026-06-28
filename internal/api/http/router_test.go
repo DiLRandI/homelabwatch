@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -54,6 +56,49 @@ func TestTrustedConsoleRouteRequiresCSRF(t *testing.T) {
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected missing csrf to be rejected, got %d", rec.Code)
+	}
+}
+
+func TestOversizedJSONRequestIsRejected(t *testing.T) {
+	handler, _, _, _ := newRouterTestHarness(t)
+	body := `{"applianceName":"` + strings.Repeat("a", (2<<20)+1) + `","defaultScanPorts":[22]}`
+	req := trustedJSONRequest(http.MethodPost, "/api/ui/v1/setup", body)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected oversized JSON to be rejected with 413, got %d", rec.Code)
+	}
+}
+
+func TestOversizedBookmarkAssetIsRejected(t *testing.T) {
+	handler, application, _, _ := newRouterTestHarness(t)
+	bootstrapTestApp(t, application)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", "oversized.png")
+	if err != nil {
+		t.Fatalf("create multipart file: %v", err)
+	}
+	if _, err := part.Write(bytes.Repeat([]byte("a"), (5<<20)+1)); err != nil {
+		t.Fatalf("write multipart file: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart body: %v", err)
+	}
+
+	req := trustedJSONRequest(http.MethodPost, "/api/ui/v1/bookmark-assets", "")
+	req.Body = io.NopCloser(&body)
+	req.ContentLength = int64(body.Len())
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected oversized bookmark asset to be rejected with 413, got %d", rec.Code)
 	}
 }
 

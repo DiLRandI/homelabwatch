@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -108,16 +109,34 @@ func (a *App) SaveBookmarkAsset(filename string, data []byte) (string, string, e
 	if len(data) == 0 {
 		return "", "", errors.New("bookmark asset is empty")
 	}
-	if err := os.MkdirAll(a.bookmarkAssetsDir(), 0o755); err != nil {
+	if err := os.MkdirAll(a.bookmarkAssetsDir(), 0o700); err != nil {
+		return "", "", err
+	}
+	if err := os.Chmod(a.bookmarkAssetsDir(), 0o700); err != nil {
 		return "", "", err
 	}
 	extension := strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
-	if extension == "" {
+	validExtension := regexp.MustCompile(`^\.[a-z0-9]+$`)
+	if extension == "" || !validExtension.MatchString(extension) {
 		extension = ".bin"
 	}
 	assetName := randomName("bookmark_asset") + extension
-	target := filepath.Join(a.bookmarkAssetsDir(), assetName)
-	if err := os.WriteFile(target, data, 0o644); err != nil {
+
+	baseDir, err := filepath.Abs(a.bookmarkAssetsDir())
+	if err != nil {
+		return "", "", err
+	}
+	target := filepath.Join(baseDir, assetName)
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return "", "", err
+	}
+	rel, err := filepath.Rel(baseDir, absTarget)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", "", os.ErrPermission
+	}
+
+	if err := os.WriteFile(absTarget, data, 0o600); err != nil {
 		return "", "", err
 	}
 	contentType := http.DetectContentType(data)

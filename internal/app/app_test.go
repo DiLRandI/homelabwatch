@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -13,6 +14,33 @@ import (
 	"github.com/deleema/homelabwatch/internal/events"
 	"github.com/deleema/homelabwatch/internal/store/sqlite"
 )
+
+func TestSaveBookmarkAssetRestrictsFilePermissions(t *testing.T) {
+	application, _, _ := newTestApp(t, config.Config{
+		DefaultScanPorts: []int{22, 80},
+	})
+
+	assetURL, _, err := application.SaveBookmarkAsset("icon.png", []byte("image"))
+	if err != nil {
+		t.Fatalf("save bookmark asset: %v", err)
+	}
+
+	dirInfo, err := os.Stat(application.bookmarkAssetsDir())
+	if err != nil {
+		t.Fatalf("stat bookmark asset directory: %v", err)
+	}
+	if got := dirInfo.Mode().Perm(); got != 0o700 {
+		t.Fatalf("bookmark asset directory permissions = %o, want 700", got)
+	}
+
+	assetInfo, err := os.Stat(filepath.Join(application.bookmarkAssetsDir(), filepath.Base(assetURL)))
+	if err != nil {
+		t.Fatalf("stat bookmark asset: %v", err)
+	}
+	if got := assetInfo.Mode().Perm(); got != 0o600 {
+		t.Fatalf("bookmark asset permissions = %o, want 600", got)
+	}
+}
 
 func TestSetupInitializesWorkspace(t *testing.T) {
 	application, store, _ := newTestApp(t, config.Config{

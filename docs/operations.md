@@ -4,6 +4,10 @@
 
 - Persist `/data` if you want state to survive restarts.
 - Mount `/var/run/docker.sock` only if you want local Docker discovery.
+- The container runs as UID/GID `10001`. For Docker discovery on Linux, add
+  the host socket GID with
+  `--group-add "$(stat -c '%g' /var/run/docker.sock)"`; never make the Docker
+  socket world-writable.
 - Linux LAN discovery and ping checks usually work best with `--network host`
   and `--cap-add NET_RAW`.
 - Database migrations run automatically at startup.

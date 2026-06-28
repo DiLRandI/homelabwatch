@@ -24,6 +24,11 @@ type Router struct {
 	trustedNetworks []netip.Prefix
 }
 
+const (
+	maxRequestBodyBytes  int64 = 2 << 20
+	maxBookmarkAssetSize int64 = 5 << 20
+)
+
 func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	router := &Router{
 		app:             application,
@@ -40,7 +45,20 @@ func NewRouter(application *app.App, cfg config.Config) http.Handler {
 	router.registerTokenRoutes(mux, "/api/external/v1")
 	router.registerTokenRoutes(mux, "/api/v1")
 	mux.HandleFunc("/", router.handleStatic)
-	return mux
+	return withBoundedRequestBody(mux)
+}
+
+func withBoundedRequestBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		limit := maxRequestBodyBytes
+		if req.Method == http.MethodPost && req.URL.Path == "/api/ui/v1/bookmark-assets" {
+			limit = maxBookmarkAssetSize
+		}
+		if req.Body != nil {
+			req.Body = http.MaxBytesReader(w, req.Body, limit)
+		}
+		next.ServeHTTP(w, req)
+	})
 }
 
 type busAdapter struct {
@@ -84,6 +102,10 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
+	var maxBytesError *http.MaxBytesError
+	if errors.As(err, &maxBytesError) {
+		status = http.StatusRequestEntityTooLarge
+	}
 	writeJSON(w, status, map[string]string{"error": err.Error()})
 }
 

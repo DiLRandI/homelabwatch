@@ -45,6 +45,7 @@ For better LAN discovery and ping checks on Linux:
 docker run --rm \
   --network host \
   --cap-add NET_RAW \
+  --group-add "$(stat -c '%g' /var/run/docker.sock)" \
   -v "$(pwd)/data:/data" \
   -v /var/run/docker.sock:/var/run/docker.sock \
   deleema1/homelabwatch:latest
@@ -54,6 +55,9 @@ docker run --rm \
 
 - Persist `/data` if you want state to survive restarts.
 - Mount `/var/run/docker.sock` if you want local Docker discovery.
+- The image runs as UID/GID `10001`. On Linux, add the host Docker socket's
+  group with `--group-add "$(stat -c '%g' /var/run/docker.sock)"`; do not make
+  the socket world-writable.
 - Mount a config file and set `HOMELABWATCH_CONFIG` if you want the container
   to load YAML configuration instead of relying only on env vars.
 - Without persistent `/data`, a fresh container starts the setup wizard again.

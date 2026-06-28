@@ -9,7 +9,7 @@ those areas.
 
 - Go `1.25.x`
 - Node.js `24.x`
-- npm `10+`
+- Corepack with the repository-pinned pnpm `11.9.0`
 - Docker is optional for local development and required for image validation
 
 ## Local Setup
@@ -38,7 +38,8 @@ If you want a complete verification pass before opening a PR:
 
 ```bash
 go test ./...
-cd web && npm run build
+pnpm --dir web test --run
+pnpm --dir web build
 ```
 
 ## Repo Guide
@@ -71,10 +72,31 @@ cd web && npm run build
 ## Testing Expectations
 
 - Backend work: run `go test ./...`
-- Frontend work: run `cd web && npm run build`
+- Frontend work: run `pnpm --dir web test --run` and `pnpm --dir web build`
 - User-facing feature work: run both
 - If a change affects HTTP routing, security, or token behavior, add or update
   tests under `internal/api/http`
+
+## Dependency and Build-Script Security
+
+- Run `corepack enable`, then install only with
+  `pnpm install --frozen-lockfile`.
+- Do not use npm, regenerate `package-lock.json`, bypass the seven-day release
+  delay, or run lifecycle scripts from an untrusted branch.
+- Direct dependencies use exact versions. Explain every dependency addition and
+  include its maintainer, source repository, publication history, and lifecycle
+  scripts in the PR.
+- A dependency build script is denied unless it appears under `allowBuilds` in
+  `pnpm-workspace.yaml`. Run `pnpm ignored-builds`, inspect the package and its
+  published tarball, then use `pnpm approve-builds <package>` only after review.
+  Record denied packages with `pnpm approve-builds !<package>`.
+- Never run `pnpm approve-builds --all` and never enable
+  `dangerouslyAllowAllBuilds`.
+- Package-manager, lockfile, build-script policy, workflow, and Docker changes
+  require a maintainer review. They must not be auto-merged.
+
+See `docs/security/supply-chain-hardening.md` for the complete approval and
+incident-response process.
 
 ## Pull Requests
 
