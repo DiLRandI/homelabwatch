@@ -103,7 +103,7 @@ func Load() (Config, error) {
 	if strings.TrimSpace(cfg.DataDir) == "" {
 		cfg.DataDir = filepath.Dir(cfg.DBPath)
 	}
-	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 		return Config{}, err
 	}
 	if len(cfg.DefaultScanPorts) == 0 {

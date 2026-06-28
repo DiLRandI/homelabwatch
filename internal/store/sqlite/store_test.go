@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -12,6 +13,33 @@ import (
 
 	"github.com/deleema/homelabwatch/internal/domain"
 )
+
+func TestNewRestrictsDatabasePermissions(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "private-data")
+	dbPath := filepath.Join(dataDir, "homelabwatch.db")
+
+	store, err := New(dbPath)
+	if err != nil {
+		t.Fatalf("create store: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+
+	dirInfo, err := os.Stat(dataDir)
+	if err != nil {
+		t.Fatalf("stat data directory: %v", err)
+	}
+	if got := dirInfo.Mode().Perm(); got != 0o700 {
+		t.Fatalf("data directory permissions = %o, want 700", got)
+	}
+
+	dbInfo, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatalf("stat database: %v", err)
+	}
+	if got := dbInfo.Mode().Perm(); got != 0o600 {
+		t.Fatalf("database permissions = %o, want 600", got)
+	}
+}
 
 func TestSQLiteConnectionsUseWALAndBusyTimeout(t *testing.T) {
 	store := newTestStore(t)

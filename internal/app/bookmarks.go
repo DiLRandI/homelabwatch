@@ -108,7 +108,10 @@ func (a *App) SaveBookmarkAsset(filename string, data []byte) (string, string, e
 	if len(data) == 0 {
 		return "", "", errors.New("bookmark asset is empty")
 	}
-	if err := os.MkdirAll(a.bookmarkAssetsDir(), 0o755); err != nil {
+	if err := os.MkdirAll(a.bookmarkAssetsDir(), 0o700); err != nil {
+		return "", "", err
+	}
+	if err := os.Chmod(a.bookmarkAssetsDir(), 0o700); err != nil {
 		return "", "", err
 	}
 	extension := strings.ToLower(filepath.Ext(strings.TrimSpace(filename)))
@@ -117,7 +120,7 @@ func (a *App) SaveBookmarkAsset(filename string, data []byte) (string, string, e
 	}
 	assetName := randomName("bookmark_asset") + extension
 	target := filepath.Join(a.bookmarkAssetsDir(), assetName)
-	if err := os.WriteFile(target, data, 0o644); err != nil {
+	if err := os.WriteFile(target, data, 0o600); err != nil {
 		return "", "", err
 	}
 	contentType := http.DetectContentType(data)
