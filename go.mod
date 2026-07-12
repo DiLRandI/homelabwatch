@@ -4,7 +4,7 @@ go 1.26.4
 
 require (
 	github.com/gosnmp/gosnmp v1.43.2
-	github.com/prometheus-community/pro-bing v0.9.0
+	github.com/prometheus-community/pro-bing v0.9.1
 	golang.org/x/net v0.56.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.53.0
