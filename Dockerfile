@@ -6,7 +6,7 @@ RUN corepack enable && pnpm install --frozen-lockfile
 COPY web/ web/
 RUN pnpm --dir web build
 
-FROM golang:1.26.4-alpine@sha256:3ad57304ad93bbec8548a0437ad9e06a455660655d9af011d58b993f6f615648 AS go-build
+FROM golang:1.27.0-alpine@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc AS go-build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
